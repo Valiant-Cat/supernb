@@ -70,7 +70,7 @@
   - `flutter-l10n-translation` 用于 Flutter ARB 本地化
   - `android-i18n-translation` 用于 Android `strings.xml` 提取和多语言翻译
 
-更多细节见：[docs/upstream-analysis.md](/Users/xiaomiao26_1_26/projects/supernb/docs/upstream-analysis.md)
+更多细节见：[docs/upstream-analysis.md](./docs/upstream-analysis.md)
 
 ## 工作流
 
@@ -82,7 +82,7 @@
 4. 再做 implementation。用最新 `superpowers` 做规划、测试先行、执行和验证；只有当 Claude Code 任务确实需要有限持久循环时，才启用 Frad loop。
 5. 持续提交。每个经过验证的 batch 都应该提交到 git。
 
-架构说明见：[docs/architecture.md](/Users/xiaomiao26_1_26/projects/supernb/docs/architecture.md)
+架构说明见：[docs/architecture.md](./docs/architecture.md)
 
 ## 快速开始
 
@@ -106,7 +106,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 ./scripts/supernb save-command --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
 ```
 
-新手指南见：[docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+新手指南见：[docs/quickstart.md](./docs/quickstart.md)
 
 ## Keys 和环境变量
 
@@ -215,10 +215,10 @@ make bootstrap HARNESS=codex
 
 详细安装文档：
 
-- Claude Code: [docs/install/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md)
-- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code-loop-mode.md)
-- Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
+- Claude Code: [docs/install/claude-code.md](./docs/install/claude-code.md)
+- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](./docs/install/claude-code-loop-mode.md)
+- Codex: [docs/install/codex.md](./docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](./docs/install/opencode.md)
 
 ## 默认与可选引擎
 
@@ -330,19 +330,19 @@ supernb/
 
 ## 更多文档
 
-工作流说明：[docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
+工作流说明：[docs/workflows/end-to-end.md](./docs/workflows/end-to-end.md)
 
-使用场景：[docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
+使用场景：[docs/usage-scenarios.md](./docs/usage-scenarios.md)
 
-能力矩阵：[docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
+能力矩阵：[docs/capability-matrix.md](./docs/capability-matrix.md)
 
-i18n 指南：[docs/i18n-stack-guidance.md](/Users/xiaomiao26_1_26/projects/supernb/docs/i18n-stack-guidance.md)
+i18n 指南：[docs/i18n-stack-guidance.md](./docs/i18n-stack-guidance.md)
 
-initiative spec：[docs/initiative-spec.md](/Users/xiaomiao26_1_26/projects/supernb/docs/initiative-spec.md)
+initiative spec：[docs/initiative-spec.md](./docs/initiative-spec.md)
 
-命令入口：[commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+命令入口：[commands/README.md](./commands/README.md)
 
-harness mapping：[docs/commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/README.md)
+harness mapping：[docs/commands/README.md](./docs/commands/README.md)
 
 ## 备注
 

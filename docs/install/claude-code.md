@@ -162,8 +162,8 @@ make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet 
 
 Use the `supernb` command templates from:
 
-- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
-- [docs/commands/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/claude-code.md)
+- [commands/README.md](../../commands/README.md)
+- [docs/commands/claude-code.md](../commands/claude-code.md)
 
 Shortcut:
 
@@ -171,7 +171,7 @@ Shortcut:
 make show-command COMMAND=full-product-delivery
 ```
 
-Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+Quickstart: [quickstart.md](../quickstart.md)
 
 ## Notes
 

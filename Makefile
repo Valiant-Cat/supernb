@@ -12,7 +12,7 @@ bootstrap:
 	./scripts/bootstrap-supernb.sh $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
 
 quickstart:
-	@echo "Open /Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md"
+	@echo "Open docs/quickstart.md"
 
 build-impeccable:
 	./scripts/build-impeccable-dist.sh

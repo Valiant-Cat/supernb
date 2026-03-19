@@ -22,7 +22,7 @@ def write_markdown(path: str, payload: dict[str, Any]) -> None:
     lines.append("# Update Report")
     lines.append("")
     lines.append(f"- Generated at: `{payload['generated_at']}`")
-    lines.append(f"- Repository: `{payload['repository']}`")
+    lines.append(f"- Repository: `{payload['repository_name']}`")
     lines.append(f"- Report JSON: `{os.path.basename(payload['report_json'])}`")
     lines.append("")
 
@@ -89,7 +89,7 @@ def main() -> int:
 
     payload = {
         "generated_at": generated_at,
-        "repository": repo_root,
+        "repository_name": os.path.basename(os.path.abspath(repo_root)),
         "report_json": json_path,
         "report_markdown": md_path,
         "self_update": self_update,

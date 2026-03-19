@@ -70,7 +70,7 @@ As inspected locally on 2026-03-19:
   - `flutter-l10n-translation` for ARB-based Flutter localization workflows
   - `android-i18n-translation` for `strings.xml` extraction and multi-locale translation
 
-More detail: [docs/upstream-analysis.md](/Users/xiaomiao26_1_26/projects/supernb/docs/upstream-analysis.md)
+More detail: [docs/upstream-analysis.md](./docs/upstream-analysis.md)
 
 ## Workflow
 
@@ -82,7 +82,7 @@ More detail: [docs/upstream-analysis.md](/Users/xiaomiao26_1_26/projects/supernb
 4. Implementation fourth. Use the latest `superpowers` to plan, write tests first, execute tasks, and verify outputs. Use the Frad loop only when a Claude Code task genuinely benefits from bounded persistence.
 5. Commit continuously. Every validated batch should be committed to git.
 
-Architecture: [docs/architecture.md](/Users/xiaomiao26_1_26/projects/supernb/docs/architecture.md)
+Architecture: [docs/architecture.md](./docs/architecture.md)
 
 ## Quick Start
 
@@ -106,7 +106,7 @@ Then use one of the three main command entrypoints:
 ./scripts/supernb save-command --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
 ```
 
-New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+New-user guide: [docs/quickstart.md](./docs/quickstart.md)
 
 ## Keys And Environment
 
@@ -214,10 +214,10 @@ make bootstrap HARNESS=codex
 
 Detailed install guides:
 
-- Claude Code: [docs/install/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md)
-- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code-loop-mode.md)
-- Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
+- Claude Code: [docs/install/claude-code.md](./docs/install/claude-code.md)
+- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](./docs/install/claude-code-loop-mode.md)
+- Codex: [docs/install/codex.md](./docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](./docs/install/opencode.md)
 
 ## Default And Optional Engines
 
@@ -329,19 +329,19 @@ supernb/
 
 ## More Documentation
 
-Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
+Workflow guide: [docs/workflows/end-to-end.md](./docs/workflows/end-to-end.md)
 
-Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
+Usage scenarios: [docs/usage-scenarios.md](./docs/usage-scenarios.md)
 
-Capability matrix: [docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
+Capability matrix: [docs/capability-matrix.md](./docs/capability-matrix.md)
 
-I18n guidance: [docs/i18n-stack-guidance.md](/Users/xiaomiao26_1_26/projects/supernb/docs/i18n-stack-guidance.md)
+I18n guidance: [docs/i18n-stack-guidance.md](./docs/i18n-stack-guidance.md)
 
-Initiative spec: [docs/initiative-spec.md](/Users/xiaomiao26_1_26/projects/supernb/docs/initiative-spec.md)
+Initiative spec: [docs/initiative-spec.md](./docs/initiative-spec.md)
 
-Command entrypoints: [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+Command entrypoints: [commands/README.md](./commands/README.md)
 
-Harness mapping: [docs/commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/README.md)
+Harness mapping: [docs/commands/README.md](./docs/commands/README.md)
 
 ## Notes
 

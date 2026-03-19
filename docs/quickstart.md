@@ -222,5 +222,5 @@ Update shortcuts:
 ## Harness-Specific Notes
 
 - Codex: restart Codex after install so it reloads skills from `~/.agents/skills/`.
-- Claude Code: bootstrap now attempts to install the default upstream `superpowers` plugin automatically if it is missing. See [claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md).
-- OpenCode: bootstrap now ensures upstream `superpowers` is present in project `opencode.json`. See [opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md).
+- Claude Code: bootstrap now attempts to install the default upstream `superpowers` plugin automatically if it is missing. See [claude-code.md](./install/claude-code.md).
+- OpenCode: bootstrap now ensures upstream `superpowers` is present in project `opencode.json`. See [opencode.md](./install/opencode.md).

@@ -15,16 +15,16 @@ Output: <what should be saved, implemented, or returned>
 
 ## Available Commands
 
-- [full-product-delivery.md](/Users/xiaomiao26_1_26/projects/supernb/commands/full-product-delivery.md)
-- [supernb-orchestrator.md](/Users/xiaomiao26_1_26/projects/supernb/commands/supernb-orchestrator.md)
-- [product-research-prd.md](/Users/xiaomiao26_1_26/projects/supernb/commands/product-research-prd.md)
-- [single-capability-router.md](/Users/xiaomiao26_1_26/projects/supernb/commands/single-capability-router.md)
-- [brainstorm-and-save.md](/Users/xiaomiao26_1_26/projects/supernb/commands/brainstorm-and-save.md)
-- [ui-ux-governance.md](/Users/xiaomiao26_1_26/projects/supernb/commands/ui-ux-governance.md)
-- [ui-ux-upgrade.md](/Users/xiaomiao26_1_26/projects/supernb/commands/ui-ux-upgrade.md)
-- [autonomous-delivery.md](/Users/xiaomiao26_1_26/projects/supernb/commands/autonomous-delivery.md)
-- [implementation-execution.md](/Users/xiaomiao26_1_26/projects/supernb/commands/implementation-execution.md)
-- [i18n-localization-governance.md](/Users/xiaomiao26_1_26/projects/supernb/commands/i18n-localization-governance.md)
+- [full-product-delivery.md](./full-product-delivery.md)
+- [supernb-orchestrator.md](./supernb-orchestrator.md)
+- [product-research-prd.md](./product-research-prd.md)
+- [single-capability-router.md](./single-capability-router.md)
+- [brainstorm-and-save.md](./brainstorm-and-save.md)
+- [ui-ux-governance.md](./ui-ux-governance.md)
+- [ui-ux-upgrade.md](./ui-ux-upgrade.md)
+- [autonomous-delivery.md](./autonomous-delivery.md)
+- [implementation-execution.md](./implementation-execution.md)
+- [i18n-localization-governance.md](./i18n-localization-governance.md)
 
 ## Helpers
 

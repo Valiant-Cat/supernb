@@ -107,8 +107,8 @@ After running the prepared prompt manually, use `make apply-execution INITIATIVE
 
 For stable structured invocation, use:
 
-- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
-- [docs/commands/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/opencode.md)
+- [commands/README.md](../../commands/README.md)
+- [docs/commands/opencode.md](../commands/opencode.md)
 
 Shortcut:
 
@@ -116,4 +116,4 @@ Shortcut:
 make show-command COMMAND=ui-ux-upgrade
 ```
 
-Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+Quickstart: [quickstart.md](../quickstart.md)

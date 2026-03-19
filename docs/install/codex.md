@@ -101,8 +101,8 @@ Ask for one of these flows:
 
 For stable structured invocation, use:
 
-- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
-- [docs/commands/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/codex.md)
+- [commands/README.md](../../commands/README.md)
+- [docs/commands/codex.md](../commands/codex.md)
 
 Shortcut:
 
@@ -110,7 +110,7 @@ Shortcut:
 make show-command COMMAND=single-capability-router
 ```
 
-Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+Quickstart: [quickstart.md](../quickstart.md)
 
 ## Optional
 

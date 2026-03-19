@@ -20,6 +20,6 @@ The stable cross-harness base is:
 
 Available harness guides:
 
-- [claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/claude-code.md)
-- [codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/codex.md)
-- [opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/opencode.md)
+- [claude-code.md](./claude-code.md)
+- [codex.md](./codex.md)
+- [opencode.md](./opencode.md)
