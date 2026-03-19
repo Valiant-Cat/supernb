@@ -143,3 +143,14 @@ echo
 echo "supernb bootstrap complete."
 echo "Repo dir: ${REPO_DIR}"
 echo "Harness: ${HARNESS}"
+echo
+next_steps_args=(
+  --harness "${HARNESS}"
+  --repo-dir "${REPO_DIR}"
+)
+
+if [[ "${HARNESS}" == "claude-code" || "${HARNESS}" == "opencode" ]]; then
+  next_steps_args+=(--project-dir "${PROJECT_DIR:-${PWD}}")
+fi
+
+"${REPO_DIR}/scripts/print-next-steps.sh" "${next_steps_args[@]}"

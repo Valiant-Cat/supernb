@@ -1,12 +1,15 @@
 SHELL := /bin/bash
 
-.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command bootstrap
+.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-upstreams.sh
 
 bootstrap:
 	./scripts/bootstrap-supernb.sh $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
+
+quickstart:
+	@echo "Open /Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md"
 
 build-impeccable:
 	./scripts/build-impeccable-dist.sh

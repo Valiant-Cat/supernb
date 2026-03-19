@@ -7,9 +7,9 @@
 - built `impeccable` Claude Code bundle for UI/UX work
 - optional `superpowers@frad-dotclaude` only when you specifically need the loop workflow
 
-## 1. Sync upstreams and build `impeccable`
+## 1. Bootstrap
 
-One-command install:
+Recommended path:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
@@ -94,6 +94,14 @@ Rules:
 
 ## 6. Command Templates
 
+Shortest usage path after install:
+
+```bash
+make show-command COMMAND=full-product-delivery
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+```
+
 Use the `supernb` command templates from:
 
 - [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
@@ -104,6 +112,8 @@ Shortcut:
 ```bash
 make show-command COMMAND=full-product-delivery
 ```
+
+Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
 
 ## Notes
 

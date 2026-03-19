@@ -7,9 +7,9 @@ Codex is the cleanest environment for the full `supernb` stack because it can us
 - local `sensortower-research`
 - built `impeccable` Codex bundle
 
-## 1. Sync upstreams and build `impeccable`
+## 1. Bootstrap
 
-One-command install:
+Recommended path:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
@@ -33,7 +33,7 @@ If auto-detection is ambiguous:
 make bootstrap HARNESS=codex
 ```
 
-Manual path:
+Manual path if you want to run sync/build separately:
 
 ```bash
 make update
@@ -63,6 +63,14 @@ Codex discovers skills at startup.
 
 ## 4. Recommended Usage
 
+Shortest usage path after install:
+
+```bash
+make show-command COMMAND=full-product-delivery
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+```
+
 Ask for one of these flows:
 
 - use `supernb-orchestrator` to run end-to-end product delivery
@@ -80,6 +88,8 @@ Shortcut:
 ```bash
 make show-command COMMAND=single-capability-router
 ```
+
+Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
 
 ## Optional
 

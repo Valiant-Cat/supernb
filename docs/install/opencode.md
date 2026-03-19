@@ -6,9 +6,9 @@ OpenCode should use:
 - local `supernb` project skills
 - built `impeccable` OpenCode bundle
 
-## 1. Sync upstreams and build `impeccable`
+## 1. Bootstrap
 
-One-command install:
+Recommended path:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
@@ -63,6 +63,14 @@ Restart OpenCode.
 
 ## 4. Usage
 
+Shortest usage path after install:
+
+```bash
+make show-command COMMAND=full-product-delivery
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+```
+
 - load `supernb/supernb-orchestrator` when the work spans product to delivery
 - load `supernb/product-research-prd` for research-backed product definition
 - load `supernb/ui-ux-governance` for design generation or design review
@@ -78,3 +86,5 @@ Shortcut:
 ```bash
 make show-command COMMAND=ui-ux-upgrade
 ```
+
+Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)

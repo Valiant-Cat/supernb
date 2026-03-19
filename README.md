@@ -74,54 +74,48 @@ Architecture: [docs/architecture.md](/Users/xiaomiao26_1_26/projects/supernb/doc
 
 ## Quick Start
 
-Fastest install path:
+Fastest path:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
 ```
 
-If auto-detection is ambiguous, use an explicit harness:
+If auto-detection is ambiguous:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
 ```
 
-Or for Claude Code / OpenCode project installs:
+Then use one of the three main command entrypoints:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir /path/to/project
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness opencode --project-dir /path/to/project
+./scripts/show-command-template.sh full-product-delivery
+./scripts/render-command.sh --command full-product-delivery --goal "Build a commercial-grade product" --stack "your stack"
+./scripts/save-command-brief.sh --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --stack "your stack"
 ```
 
-If you already cloned this repo, run:
+New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
 
-```bash
-make update
-```
-
-That will:
-
-- clone or fast-forward `superpowers`, `dotclaude`, and `impeccable` into `upstreams/`
-- build `impeccable` provider bundles if Bun is available
-
-Then install for the harness you use:
-
-- Claude Code: [docs/install/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md)
-- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code-loop-mode.md)
-- Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
-
-One-command local shortcut:
+If you already cloned this repo:
 
 ```bash
 make bootstrap
 ```
 
-If auto-detection is ambiguous:
+If you need explicit harness/project selection:
 
 ```bash
+make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/project
+make bootstrap HARNESS=opencode PROJECT_DIR=/path/to/project
 make bootstrap HARNESS=codex
 ```
+
+Detailed install guides:
+
+- Claude Code: [docs/install/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md)
+- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code-loop-mode.md)
+- Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
 
 ## Default And Optional Engines
 
