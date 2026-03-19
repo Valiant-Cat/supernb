@@ -16,11 +16,13 @@ from lib.supernb_common import (
     PHASES,
     artifact_path as common_artifact_path,
     certification_passed,
+    certification_snapshot_matches,
     certification_state_path as common_certification_state_path,
     display_path as common_display_path,
     load_certification_state,
     load_spec,
     nested_get,
+    phase_artifact_snapshot,
     phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
@@ -132,11 +134,14 @@ def certification_entry(spec: dict[str, Any], phase: str) -> dict[str, Any]:
 
 def certification_evidence(spec: dict[str, Any], phase: str) -> str:
     entry = certification_entry(spec, phase)
-    if certification_passed(entry, EXPECTED_GATE_STATUS[phase]):
+    current_snapshot = phase_artifact_snapshot(spec, phase, ROOT_DIR, DISPLAY_ROOTS)
+    if certification_passed(entry, EXPECTED_GATE_STATUS[phase]) and certification_snapshot_matches(entry, current_snapshot):
         report_path = str(entry.get("report_path", "")).strip()
         if report_path:
             return f"certification: passed ({report_path})"
         return "certification: passed"
+    if certification_passed(entry, EXPECTED_GATE_STATUS[phase]) and not certification_snapshot_matches(entry, current_snapshot):
+        return "certification: stale (artifacts changed since certification)"
     if entry:
         return f"certification: pending or failed (last checked {entry.get('checked_at', 'unknown')})"
     return "certification: not recorded"
@@ -177,12 +182,12 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     delivery_status_complete = is_delivery_complete(delivery_status)
     release_status_complete = is_release_ready(release_status)
 
-    research_complete = research_status_complete and certification_passed(certification_entry(spec, "research"), EXPECTED_GATE_STATUS["research"])
-    prd_complete = prd_status_complete and certification_passed(certification_entry(spec, "prd"), EXPECTED_GATE_STATUS["prd"])
-    design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"])
-    planning_complete = planning_status_complete and certification_passed(certification_entry(spec, "planning"), EXPECTED_GATE_STATUS["planning"])
-    delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"])
-    release_complete = release_status_complete and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"])
+    research_complete = research_status_complete and certification_passed(certification_entry(spec, "research"), EXPECTED_GATE_STATUS["research"]) and certification_snapshot_matches(certification_entry(spec, "research"), phase_artifact_snapshot(spec, "research", ROOT_DIR, DISPLAY_ROOTS))
+    prd_complete = prd_status_complete and certification_passed(certification_entry(spec, "prd"), EXPECTED_GATE_STATUS["prd"]) and certification_snapshot_matches(certification_entry(spec, "prd"), phase_artifact_snapshot(spec, "prd", ROOT_DIR, DISPLAY_ROOTS))
+    design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"]) and certification_snapshot_matches(certification_entry(spec, "design"), phase_artifact_snapshot(spec, "design", ROOT_DIR, DISPLAY_ROOTS))
+    planning_complete = planning_status_complete and certification_passed(certification_entry(spec, "planning"), EXPECTED_GATE_STATUS["planning"]) and certification_snapshot_matches(certification_entry(spec, "planning"), phase_artifact_snapshot(spec, "planning", ROOT_DIR, DISPLAY_ROOTS))
+    delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"]) and certification_snapshot_matches(certification_entry(spec, "delivery"), phase_artifact_snapshot(spec, "delivery", ROOT_DIR, DISPLAY_ROOTS))
+    release_complete = release_status_complete and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"]) and certification_snapshot_matches(certification_entry(spec, "release"), phase_artifact_snapshot(spec, "release", ROOT_DIR, DISPLAY_ROOTS))
 
     spec_fields = {
         "research": spec_missing(

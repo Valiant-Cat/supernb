@@ -16,11 +16,13 @@ from typing import Any
 from lib.supernb_common import (
     PHASES,
     artifact_path as common_artifact_path,
+    certification_snapshot_matches,
     certification_state_path as common_certification_state_path,
     display_path as common_display_path,
     load_certification_state,
     load_spec,
     nested_get,
+    phase_artifact_snapshot,
     phase_targets as common_phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
@@ -152,15 +154,58 @@ def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]
     if packet is None:
         return [f"No execution packet found for {phase}; run ./scripts/supernb execute-next first."]
     suggestion_path = packet / "result-suggestion.json"
+    request_path = packet / "request.json"
+    if not request_path.is_file():
+        return [f"Execution packet is missing request.json: {display_path(request_path)}"]
     if not suggestion_path.is_file():
         return [f"Execution packet is missing result-suggestion.json: {display_path(suggestion_path)}"]
     import json
 
+    request = json.loads(request_path.read_text(encoding="utf-8"))
     suggestion = json.loads(suggestion_path.read_text(encoding="utf-8"))
+    initiative_id = nested_get(spec, "initiative", "id")
+    packet_initiative = str(request.get("initiative_id", "")).strip()
+    packet_phase = str(request.get("phase", "")).strip()
+    findings: list[str] = []
+    if packet_initiative and packet_initiative != initiative_id:
+        findings.append(f"Latest execution packet belongs to initiative {packet_initiative}, not {initiative_id}.")
+    if packet_phase and packet_phase != phase:
+        findings.append(f"Latest execution packet phase is {packet_phase}, not {phase}.")
+
+    suggested_result = str(suggestion.get("suggested_result_status", "")).strip().lower()
+    if phase == "delivery" and suggested_result != "succeeded":
+        findings.append(f"Latest delivery execution packet is not completion-grade: suggested_result_status={suggested_result or 'missing'}.")
+
     issues = suggestion.get("workflow_issues")
     if isinstance(issues, list) and issues:
-        return [str(item).strip() for item in issues if str(item).strip()]
-    return []
+        findings.extend(str(item).strip() for item in issues if str(item).strip())
+
+    if phase == "delivery":
+        module = load_execute_next_module()
+        release_file = artifact_path(spec, "release_dir") / "release-readiness.md"
+        expected_sections = [
+            "Verification Summary",
+            "Localization Summary",
+            "Operational Readiness",
+            "Rollout And Rollback Plan",
+            "Scale Launch Controls",
+            "Post-Launch Watchlist",
+        ]
+        release_check = module.inspect_artifact_readiness(release_file, "delivery", expected_sections)
+        if not release_check.get("exists", False):
+            findings.append(f"Delivery should update release-readiness inputs, but the artifact is missing: {release_check['path']}")
+        else:
+            if release_check.get("missing_sections"):
+                findings.append(
+                    f"Delivery release-readiness is missing sections: {', '.join(release_check['missing_sections'])}"
+                )
+            if release_check.get("thin_sections"):
+                findings.append(
+                    f"Delivery release-readiness has thin sections: {', '.join(release_check['thin_sections'])}"
+                )
+            for semantic_issue in release_check.get("semantic_issues", []):
+                findings.append(f"Delivery release-readiness semantic gap: {semantic_issue}")
+    return findings
 
 
 def recommended_gate_status(phase: str) -> str:
@@ -288,7 +333,10 @@ def write_report(
         "## Checked Artifacts",
         "",
     ]
-    for target in phase_targets(spec, phase):
+    checked_targets = phase_targets(spec, phase)
+    if phase == "delivery":
+        checked_targets = [*checked_targets, artifact_path(spec, "release_dir") / "release-readiness.md"]
+    for target in checked_targets:
         lines.append(f"- `{display_path(target)}`")
 
     lines.extend(
@@ -351,6 +399,7 @@ def write_certification_state(
         "passed": passed,
         "recommended_gate_status": recommendation,
         "report_path": display_path(report_path),
+        "artifact_snapshot": phase_artifact_snapshot(spec, phase, ROOT_DIR, DISPLAY_ROOTS),
         "summary": readiness.get("summary", ""),
         "ready_for_certification": bool(readiness.get("ready_for_certification")),
         "total_missing_sections": int(readiness.get("total_missing_sections", 0)),

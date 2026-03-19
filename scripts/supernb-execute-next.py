@@ -160,6 +160,14 @@ SECTION_EXPECTATIONS = {
             "Rollout And Recovery Plan",
             "Scale And Reliability Workstreams",
         ],
+        "release-readiness.md": [
+            "Verification Summary",
+            "Localization Summary",
+            "Operational Readiness",
+            "Rollout And Rollback Plan",
+            "Scale Launch Controls",
+            "Post-Launch Watchlist",
+        ],
     },
     "release": {
         "release-readiness.md": [
@@ -1147,6 +1155,44 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
         if metrics["scale_reliability_fields"] < 4:
             issues.append("Scale And Reliability Workstreams should define performance, observability, trust, analytics, and growth instrumentation work.")
 
+    if phase == "delivery" and name == "release-readiness.md":
+        metrics["verification_summary_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Verification Summary", [])),
+            ["Test status", "Build status", "Lint status", "Manual QA status"],
+        )
+        metrics["localization_summary_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization Summary", [])),
+            ["Hardcoded copy audit", "Locale coverage", "Translation validation", "Hardcoded copy check command/result"],
+        )
+        metrics["operational_readiness_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Operational Readiness", [])),
+            ["Logging / monitoring readiness", "Support readiness", "Incident owner or escalation path", "Data / analytics readiness"],
+        )
+        metrics["rollback_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Rollout And Rollback Plan", [])),
+            ["Rollout strategy", "Rollback trigger", "Rollback owner", "Kill switch or mitigation notes"],
+        )
+        metrics["scale_launch_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale Launch Controls", [])),
+            ["Capacity / traffic assumption", "Feature flag or staged rollout controls", "Incident drill or rollback rehearsal", "Support / moderation readiness", "Analytics dashboard owner"],
+        )
+        metrics["watchlist_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Post-Launch Watchlist", [])),
+            ["Activation signal to watch", "Retention signal to watch", "Revenue or conversion signal to watch", "Quality or support signal to watch"],
+        )
+        if metrics["verification_summary_fields"] < 2:
+            issues.append("Delivery should already update Verification Summary with meaningful implementation evidence.")
+        if metrics["localization_summary_fields"] < 2:
+            issues.append("Delivery should update Localization Summary with actual locale and hardcoded-copy evidence.")
+        if metrics["operational_readiness_fields"] < 3:
+            issues.append("Delivery should update Operational Readiness with monitoring, support, and analytics ownership.")
+        if metrics["rollback_fields"] < 2:
+            issues.append("Delivery should update Rollout And Rollback Plan before release certification.")
+        if metrics["scale_launch_fields"] < 3:
+            issues.append("Delivery should update Scale Launch Controls with traffic, rollout, and support assumptions.")
+        if metrics["watchlist_fields"] < 3:
+            issues.append("Delivery should define an initial post-launch watchlist before delivery is certified.")
+
     if phase == "release" and name == "release-readiness.md":
         metrics["verification_summary_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Verification Summary", [])),
@@ -1275,7 +1321,10 @@ def inspect_artifact_readiness(path: Path, phase: str, expected_sections: list[s
 
 def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
-    for target in phase_targets(spec, phase):
+    targets = phase_targets(spec, phase)
+    if phase == "delivery":
+        targets = [*targets, artifact_path(spec, "release_dir") / "release-readiness.md"]
+    for target in targets:
         expected_sections = SECTION_EXPECTATIONS.get(phase, {}).get(target.name, [])
         checks.append(inspect_artifact_readiness(target, phase, expected_sections))
 

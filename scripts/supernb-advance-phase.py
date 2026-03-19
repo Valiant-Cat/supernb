@@ -14,11 +14,13 @@ from lib.supernb_common import (
     PHASES,
     artifact_path as common_artifact_path,
     certification_passed,
+    certification_snapshot_matches,
     certification_state_path as common_certification_state_path,
     display_path as common_display_path,
     load_certification_state,
     load_spec,
     nested_get,
+    phase_artifact_snapshot,
     phase_targets as common_phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
@@ -92,12 +94,13 @@ def ensure_certification_gate(spec: dict[str, Any], phase: str, status: str) -> 
         return
     state = load_certification_state(certification_state_path(spec))
     entry = state.get("phases", {}).get(phase)
-    if certification_passed(entry, normalized):
+    current_snapshot = phase_artifact_snapshot(spec, phase, ROOT_DIR, DISPLAY_ROOTS)
+    if certification_passed(entry, normalized) and certification_snapshot_matches(entry, current_snapshot):
         return
     report_path = ""
     if isinstance(entry, dict):
         report_path = str(entry.get("report_path", "")).strip()
-    message = [f"Cannot advance {phase} to {normalized} without a passing certification result."]
+    message = [f"Cannot advance {phase} to {normalized} without a passing and current certification result."]
     if report_path:
         message.append(f"Latest certification report: {report_path}")
     else:

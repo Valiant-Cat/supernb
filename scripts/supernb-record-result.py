@@ -15,6 +15,7 @@ from lib.supernb_common import (
     load_spec,
     nested_get,
     project_root as common_project_root,
+    resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
 )
 
@@ -115,10 +116,23 @@ def main() -> int:
     results_dir = artifact_path(spec, "phase_results_dir")
     run_log_path = artifact_path(spec, "run_log_md")
     results_dir.mkdir(parents=True, exist_ok=True)
+    base_dirs = [project_root(spec)]
 
     notes = ""
     if args.notes_file:
-        notes = Path(args.notes_file).expanduser().read_text(encoding="utf-8").strip()
+        notes_path = resolve_existing_path(args.notes_file, base_dirs)
+        if notes_path is None:
+            print(f"Notes file not found: {args.notes_file}", file=sys.stderr)
+            return 1
+        notes = notes_path.read_text(encoding="utf-8").strip()
+
+    resolved_artifacts: list[str] = []
+    for raw_path in args.artifact_path:
+        resolved = resolve_existing_path(raw_path, base_dirs)
+        if resolved is None:
+            print(f"Evidence artifact not found: {raw_path}", file=sys.stderr)
+            return 1
+        resolved_artifacts.append(display_path(resolved))
 
     status_slug = re.sub(r"[^a-z0-9]+", "-", args.status.lower()).strip("-") or "result"
     result_path = results_dir / f"{timestamp_slug()}-{phase}-{status_slug}.md"
@@ -135,8 +149,8 @@ def main() -> int:
         "## Evidence Artifacts",
         "",
     ]
-    if args.artifact_path:
-        for artifact in args.artifact_path:
+    if resolved_artifacts:
+        for artifact in resolved_artifacts:
             lines.append(f"- `{artifact}`")
     else:
         lines.append("- None recorded")
@@ -150,13 +164,14 @@ def main() -> int:
             "",
             "## Follow Up",
             "",
-            "- Update the relevant artifact status fields if this execution should advance the gate.",
-            f"- Re-run `./scripts/supernb run --initiative-id {initiative_id}` after artifact status changes.",
+            "- Update the relevant artifact status fields only when this execution materially advances the phase artifacts.",
+            f"- Run `./scripts/supernb certify-phase --initiative-id {initiative_id} --phase {phase}` before any gate advance.",
+            f"- Re-run `./scripts/supernb run --initiative-id {initiative_id}` after artifact and certification changes.",
         ]
     )
     result_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    append_to_run_log(run_log_path, phase, args.status, args.summary, result_path, args.artifact_path)
+    append_to_run_log(run_log_path, phase, args.status, args.summary, result_path, resolved_artifacts)
 
     print(f"Recorded phase result: {result_path}")
     if not args.no_rerun:

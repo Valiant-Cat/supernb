@@ -12,6 +12,7 @@ from lib.supernb_common import (
     load_spec,
     nested_get,
     project_root as common_project_root,
+    resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
 )
 
@@ -64,6 +65,19 @@ def workflow_issues_from_suggestion(suggestion: dict[str, Any]) -> list[str]:
     return []
 
 
+def resolve_evidence_paths(spec: dict[str, Any], packet_dir: Path, values: list[str]) -> tuple[list[str], list[str]]:
+    base_dirs = [project_root(spec), packet_dir]
+    resolved: list[str] = []
+    missing: list[str] = []
+    for raw_path in unique_items(values):
+        match = resolve_existing_path(raw_path, base_dirs)
+        if match is None:
+            missing.append(raw_path)
+            continue
+        resolved.append(str(match))
+    return resolved, missing
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -103,9 +117,18 @@ def main() -> int:
     if not phase:
         print(f"Missing phase in {request_path}", file=sys.stderr)
         return 1
+    packet_initiative_id = str(request.get("initiative_id", "")).strip()
+    if packet_initiative_id and packet_initiative_id != initiative_id:
+        print(
+            f"Execution packet initiative mismatch: packet belongs to '{packet_initiative_id}', "
+            f"but target initiative is '{initiative_id}'.",
+            file=sys.stderr,
+        )
+        return 1
 
     status = args.status if args.status != "auto" else str(suggestion.get("suggested_result_status", "")).strip()
     summary = args.summary or str(suggestion.get("suggested_summary", "")).strip()
+    suggested_result_status = str(suggestion.get("suggested_result_status", "")).strip().lower()
     if not status:
         print(f"Missing result status suggestion in {suggestion_path}; pass --status explicitly.", file=sys.stderr)
         return 1
@@ -129,11 +152,26 @@ def main() -> int:
     evidence_paths.extend(unique_items([str(item) for item in execution_report.get("evidence_artifacts", [])]))
     phase_readiness = suggestion.get("phase_readiness") or {}
     workflow_issues = workflow_issues_from_suggestion(suggestion)
+    resolved_evidence_paths, missing_evidence_paths = resolve_evidence_paths(spec, packet_dir, evidence_paths)
 
-    if args.apply_certification and status not in {"succeeded", "needs-follow-up"}:
+    if missing_evidence_paths:
         print(
-            f"--apply-certification requires a success-like result status; got '{status}'. "
-            "Override with --status succeeded only if you have actually completed the phase work.",
+            "Execution packet references evidence artifacts that do not exist: "
+            + ", ".join(missing_evidence_paths),
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.apply_certification and status != "succeeded":
+        print(
+            f"--apply-certification requires a succeeded result status; got '{status}'.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.apply_certification and suggested_result_status != "succeeded":
+        print(
+            f"--apply-certification blocked because the execution packet itself did not conclude as succeeded "
+            f"(suggested_result_status={suggested_result_status or 'missing'}).",
             file=sys.stderr,
         )
         return 1
@@ -166,7 +204,7 @@ def main() -> int:
         "--notes-file",
         str(packet_dir / "summary.md"),
     ]
-    for evidence_path in unique_items(evidence_paths):
+    for evidence_path in unique_items(resolved_evidence_paths):
         record_command.extend(["--artifact-path", evidence_path])
     if args.no_rerun or args.certify or args.apply_certification:
         record_command.append("--no-rerun")

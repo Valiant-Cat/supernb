@@ -21,6 +21,8 @@ It also creates:
 
 - `.supernb/initiatives/<initiative-id>/initiative.yaml`
 - `.supernb/initiatives/<initiative-id>/run-status.md`
+- `.supernb/initiatives/<initiative-id>/run-status.json`
+- `.supernb/initiatives/<initiative-id>/certification-state.json`
 - `.supernb/initiatives/<initiative-id>/next-command.md`
 - `.supernb/initiatives/<initiative-id>/executions/`
 
@@ -42,6 +44,7 @@ Before planning and delivery, also fill:
 - `delivery.repository`
 - `delivery.platform`
 - `delivery.stack`
+- `delivery.scale_target_dau`
 - `delivery.quality_bar`
 
 ## 3. Run The Phase Controller

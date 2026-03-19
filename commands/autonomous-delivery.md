@@ -10,7 +10,7 @@ Context:
 - initiative id: <existing initiative id if known>
 - constraints: <test, review, release, or branch constraints>
 Output:
-- refine the implementation plan
-- execute in validated batches with tests first
-- commit each verified batch
+- refine the implementation plan and keep release-readiness inputs updated as delivery progresses
+- execute in validated batches with tests first, code review evidence, and artifact updates
+- commit each verified batch and keep the implementation depth aligned with a 10M-DAU-grade product bar
 ```

@@ -22,6 +22,7 @@ The initiative spec gives `supernb` one place to read:
 - markets
 - research window
 - locales
+- scale target
 - quality bar
 - constraints
 
@@ -38,6 +39,8 @@ When you run:
 - `.supernb/initiatives/<initiative-id>.md`
 - `.supernb/initiatives/<initiative-id>/initiative.yaml`
 - `.supernb/initiatives/<initiative-id>/run-status.md`
+- `.supernb/initiatives/<initiative-id>/run-status.json`
+- `.supernb/initiatives/<initiative-id>/certification-state.json`
 - `.supernb/initiatives/<initiative-id>/next-command.md`
 - `.supernb/initiatives/<initiative-id>/phase-packet.md`
 - `.supernb/initiatives/<initiative-id>/run-log.md`
@@ -56,7 +59,7 @@ Run:
 The runner will:
 
 - read `initiative.yaml`
-- inspect current artifact approval fields
+- inspect current artifact approval fields and certification state
 - compute which phase is blocked, ready, or complete
 - write `run-status.md` and `run-status.json`
 - generate `next-command.md` when the next phase is ready
@@ -123,6 +126,12 @@ Before advancing, you can ask `supernb` to inspect the artifacts for unresolved 
 
 If no issues are found, it recommends the expected gate status. With `--apply`, it also advances the gate automatically.
 
+Current default initiative posture:
+
+- `delivery.scale_target_dau` defaults to `10000000`
+- `delivery.quality_bar` defaults to `10m-dau-grade`
+- old initiatives can be brought forward with `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`
+
 ## Gate Fields In Artifact Templates
 
 The runner uses explicit status fields from the initiative artifacts instead of guessing from file existence alone.
@@ -135,6 +144,8 @@ Examples:
 - implementation plan: `Ready for execution: yes|no`
 - implementation plan: `Delivery status: pending|verified`
 - release readiness: `Release decision: pending|ready`
+
+Those fields are not sufficient on their own. Phase completion also requires a matching passing certification record in `certification-state.json`.
 
 ## Compatibility Note
 

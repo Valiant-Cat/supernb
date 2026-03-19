@@ -2,7 +2,7 @@
 
 ## Core Idea
 
-`supernb` is a phase-gated orchestration system for full-product delivery. It coordinates research, PRD generation, design, implementation, and verification. Each phase has a designated upstream engine and a required artifact set.
+`supernb` is a phase-gated orchestration system for full-product delivery. It coordinates research, PRD generation, design, implementation, and verification. Each phase has a designated upstream engine and a required artifact set. The default ambition is not a thin commercial MVP; it is a product direction that can plausibly support a 10M-DAU-grade bar.
 
 The `supernb` artifact templates are optional scaffolding. They provide a stable place to save outputs, but they do not override the native plan, design, or execution documentation formats that upstream `superpowers` may generate when a richer structure is warranted.
 
@@ -29,6 +29,8 @@ Required outputs:
 - review insight summary
 - feature opportunity list
 - anti-feature list
+- scale signals and market headroom
+- global and regional usage or complaint patterns
 
 Storage target:
 
@@ -49,7 +51,9 @@ Required outputs:
 - user problems and target segments
 - scope and non-goals
 - core journeys
+- growth system
 - success metrics
+- scale-readiness and trust requirements
 - evidence appendix linking back to research
 
 Storage target:
@@ -72,6 +76,7 @@ Required outputs:
 - page-by-page UI/UX notes
 - interaction and empty-state behavior
 - accessibility and contrast review
+- scale UX requirements for onboarding, repeat use, power users, and global adaptation
 
 Storage target:
 
@@ -92,6 +97,7 @@ Required outputs:
 - task dependency graph
 - test-first execution order
 - validation checkpoints
+- scale and reliability workstreams
 
 Storage target:
 
@@ -128,6 +134,8 @@ Required outputs:
 - final test results
 - release notes
 - git tag or release commit trail
+- rollout or rollback controls
+- post-launch watchlist
 
 Storage target:
 
@@ -145,6 +153,7 @@ Storage target:
 7. Do not install two same-named `superpowers` plugins in one Claude Code environment.
 8. Every verified batch is committed to git.
 9. Hardcoded-copy checks should run before release when UI code is in scope.
+10. Phase advancement requires both artifact status updates and passing certification evidence.
 
 ## Cross-Cutting Localization Rule
 

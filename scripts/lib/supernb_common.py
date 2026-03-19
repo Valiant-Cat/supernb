@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from pathlib import Path
 from typing import Any
@@ -117,6 +118,36 @@ def artifact_path(spec: dict[str, Any], key: str, root_dir: Path, default: Path 
     raise KeyError(f"Missing artifact path: {key}")
 
 
+def resolve_existing_path(raw_path: str, base_dirs: list[Path] | None = None) -> Path | None:
+    value = str(raw_path).strip()
+    if not value:
+        return None
+
+    candidate = Path(value).expanduser()
+    search_roots = base_dirs or []
+    candidates: list[Path] = []
+
+    if candidate.is_absolute():
+        candidates.append(candidate)
+    else:
+        for root in search_roots:
+            candidates.append(root / candidate)
+        candidates.append(Path.cwd() / candidate)
+
+    seen: set[Path] = set()
+    for item in candidates:
+        try:
+            resolved = item.resolve()
+        except FileNotFoundError:
+            resolved = item.expanduser().absolute()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if resolved.exists():
+            return resolved
+    return None
+
+
 def resolve_spec_path(args: Any, root_dir: Path) -> Path:
     spec_arg = getattr(args, "spec", None)
     if spec_arg:
@@ -190,6 +221,17 @@ def certification_passed(entry: dict[str, Any] | None, expected_status: str = ""
     return True
 
 
+def certification_snapshot_matches(entry: dict[str, Any] | None, current_snapshot: list[dict[str, Any]] | None = None) -> bool:
+    if current_snapshot is None:
+        return True
+    if not isinstance(entry, dict):
+        return False
+    snapshot = entry.get("artifact_snapshot")
+    if not isinstance(snapshot, list):
+        return False
+    return snapshot == current_snapshot
+
+
 def phase_targets(spec: dict[str, Any], phase: str, root_dir: Path) -> list[Path]:
     if phase == "research":
         root = artifact_path(spec, "research_dir", root_dir)
@@ -206,3 +248,29 @@ def phase_targets(spec: dict[str, Any], phase: str, root_dir: Path) -> list[Path
     if phase in {"planning", "delivery"}:
         return [artifact_path(spec, "plan_dir", root_dir) / "implementation-plan.md"]
     return [artifact_path(spec, "release_dir", root_dir) / "release-readiness.md"]
+
+
+def phase_snapshot_paths(spec: dict[str, Any], phase: str, root_dir: Path) -> list[Path]:
+    paths = phase_targets(spec, phase, root_dir)
+    if phase == "delivery":
+        paths = [*paths, artifact_path(spec, "release_dir", root_dir) / "release-readiness.md"]
+    return paths
+
+
+def file_fingerprint(path: Path, roots: list[Path]) -> dict[str, Any]:
+    if not path.exists():
+        return {"path": display_path(path, roots), "exists": False}
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    stat = path.stat()
+    return {
+        "path": display_path(path, roots),
+        "exists": True,
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "sha256": digest,
+    }
+
+
+def phase_artifact_snapshot(spec: dict[str, Any], phase: str, root_dir: Path, display_roots: list[Path] | None = None) -> list[dict[str, Any]]:
+    roots = display_roots or [project_root(spec, root_dir), root_dir]
+    return [file_fingerprint(path, roots) for path in phase_snapshot_paths(spec, phase, root_dir)]

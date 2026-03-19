@@ -15,6 +15,10 @@ Output: <what should be saved, implemented, or returned>
 
 ## Available Commands
 
+- Preferred current phase-specific chain:
+  `product-research` -> `research-backed-prd` -> `ui-ux-governance` -> `implementation-planning` -> `validated-delivery`
+- Legacy compatibility commands remain available when a harness or workflow still expects them, but they should not be preferred over the richer split-phase chain for new initiative work.
+
 - [full-product-delivery.md](./full-product-delivery.md)
 - [supernb-orchestrator.md](./supernb-orchestrator.md)
 - [product-research.md](./product-research.md)

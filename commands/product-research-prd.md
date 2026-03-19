@@ -11,7 +11,7 @@ Context:
 - research window: <date range or recency window>
 - constraints: <scope, platform, monetization, or compliance constraints>
 Output:
-- collect the smallest useful evidence set
-- produce research notes and a cited PRD
-- separate evidence-backed conclusions from open hypotheses
+- collect a rich enough global and regional evidence set to support a 10M-DAU-grade product direction
+- produce research notes and a cited PRD with clear capability, growth, retention, and monetization implications
+- separate evidence-backed conclusions from open hypotheses and staged scope decisions
 ```
