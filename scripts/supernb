@@ -17,6 +17,7 @@ Commands:
   install-codex
   install-claude-code
   install-opencode
+  verify-installs
   init-initiative
   run
   execute-next
@@ -47,6 +48,7 @@ case "${SUBCOMMAND}" in
   install-codex) exec "${ROOT_DIR}/scripts/install-codex.sh" "$@" ;;
   install-claude-code) exec "${ROOT_DIR}/scripts/install-claude-code.sh" "$@" ;;
   install-opencode) exec "${ROOT_DIR}/scripts/install-opencode.sh" "$@" ;;
+  verify-installs) exec python3 "${ROOT_DIR}/scripts/supernb-verify-installs.py" "$@" ;;
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
   execute-next) exec python3 "${ROOT_DIR}/scripts/supernb-execute-next.py" "$@" ;;

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -25,6 +25,9 @@ install-claude-code:
 
 install-opencode:
 	./scripts/install-opencode.sh "$(if $(PROJECT_DIR),$(PROJECT_DIR),.)"
+
+verify-installs:
+	./scripts/supernb verify-installs $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
 
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi

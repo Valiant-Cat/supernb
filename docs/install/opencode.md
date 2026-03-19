@@ -67,6 +67,12 @@ This script:
 - repairs previously copied generated `impeccable` skill directories into managed symlinks
 - repairs the older aggregate `supernb` symlink layout into per-skill links that OpenCode can discover cleanly
 
+After install, verify the project-local layout with:
+
+```bash
+./scripts/supernb verify-installs --harness opencode --project-dir /path/to/your-project
+```
+
 ## 3. Ensure upstream `superpowers` in `opencode.json`
 
 `bootstrap` now ensures this entry exists in project `opencode.json`:

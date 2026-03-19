@@ -200,6 +200,7 @@ make update
 make update-upstreams
 make bootstrap
 make install-claude-code PROJECT_DIR=/path/to/project
+make verify-installs
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
@@ -225,6 +226,7 @@ Or use the scripts directly:
 ./scripts/supernb update
 ./scripts/supernb bootstrap
 ./scripts/supernb install-claude-code /path/to/project
+./scripts/supernb verify-installs --project-dir /path/to/project
 ./scripts/supernb build-impeccable
 ./scripts/supernb init-initiative my-product "My Product"
 ./scripts/supernb run --initiative-id 2026-03-19-my-product

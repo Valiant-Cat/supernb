@@ -72,6 +72,12 @@ The installer also repairs the older aggregate-link layout so Codex sees individ
 
 Codex discovers skills at startup.
 
+After install, you can verify the first-level skill layout with:
+
+```bash
+./scripts/supernb verify-installs --harness codex
+```
+
 ## 4. Recommended Usage
 
 Shortest usage path after install:

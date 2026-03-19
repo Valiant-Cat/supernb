@@ -103,6 +103,18 @@ If you want a user-global install instead of a per-project install:
 ./scripts/supernb install-claude-code "$HOME"
 ```
 
+After install, verify the user-global layout with:
+
+```bash
+./scripts/supernb verify-installs --harness claude-code
+```
+
+If you also want to verify a project-local Claude Code install:
+
+```bash
+./scripts/supernb verify-installs --harness claude-code --project-dir /path/to/your-project
+```
+
 What the script does:
 
 - symlinks each `supernb` skill directory directly into `<project>/.claude/skills/`

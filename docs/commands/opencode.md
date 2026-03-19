@@ -23,7 +23,7 @@ You can still use `./scripts/supernb apply-execution --initiative-id <id> --pack
 
 ## Relationship To Skills
 
-- OpenCode project skills still come from `.opencode/skills/supernb`
+- OpenCode project skills are now installed as first-level entries under `.opencode/skills/`
 - upstream `superpowers` still provides the base execution plugin
 - the command template simply standardizes how the request is framed
 
