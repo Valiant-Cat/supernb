@@ -78,6 +78,8 @@ After install, you can verify the first-level skill layout with:
 ./scripts/supernb verify-installs --harness codex
 ```
 
+This also scans managed `SKILL.md` files for hardcoded harness-specific script/reference paths.
+
 ## 4. Recommended Usage
 
 Shortest usage path after install:

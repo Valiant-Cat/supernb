@@ -73,6 +73,8 @@ After install, verify the project-local layout with:
 ./scripts/supernb verify-installs --harness opencode --project-dir /path/to/your-project
 ```
 
+This also scans managed `SKILL.md` files for hardcoded harness-specific script/reference paths.
+
 ## 3. Ensure upstream `superpowers` in `opencode.json`
 
 `bootstrap` now ensures this entry exists in project `opencode.json`:

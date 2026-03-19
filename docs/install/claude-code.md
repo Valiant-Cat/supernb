@@ -115,6 +115,8 @@ If you also want to verify a project-local Claude Code install:
 ./scripts/supernb verify-installs --harness claude-code --project-dir /path/to/your-project
 ```
 
+This also scans managed `SKILL.md` files for hardcoded harness-specific script/reference paths.
+
 What the script does:
 
 - symlinks each `supernb` skill directory directly into `<project>/.claude/skills/`

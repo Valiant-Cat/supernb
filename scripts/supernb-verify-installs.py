@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -15,6 +16,20 @@ HOME_DIR = Path.home()
 SUPERS_PLUGIN = "superpowers@git+https://github.com/obra/superpowers.git"
 KEY_IMPECCABLE_SKILLS = ["audit", "frontend-design", "polish"]
 KEY_SUPERPOWERS_SKILLS = ["brainstorming", "executing-plans", "writing-plans"]
+HARD_PATH_PATTERNS = [
+    (
+        "hardcoded absolute harness skill path",
+        re.compile(r'/(?:Users|home)/[^/\s"\']+/\.(?:codex|claude|agents|opencode)/skills/[^/\s"\']+/(?:scripts|references|SKILL\.md)'),
+    ),
+    (
+        "hardcoded HOME harness skill path",
+        re.compile(r'(?:~|\$HOME)/\.(?:codex|claude|agents|opencode)/skills/[^/\s"\']+/(?:scripts|references|SKILL\.md)'),
+    ),
+    (
+        "hardcoded project-local harness skill path",
+        re.compile(r'(?:^|[\s("\'])\.(?:claude|opencode)/skills/[^/\s"\']+/(?:scripts|references|SKILL\.md)'),
+    ),
+]
 
 
 @dataclass
@@ -105,10 +120,41 @@ def verify_first_level_skill_set(
     return details
 
 
+def scan_skill_doc_path_hygiene(base_dir: Path, managed_skill_names: Iterable[str]) -> list[str]:
+    if not base_dir.is_dir():
+        return []
+
+    issues: list[str] = []
+    scanned = 0
+    for name in managed_skill_names:
+        skill_doc = base_dir / name / "SKILL.md"
+        if not skill_doc.is_file():
+            continue
+        scanned += 1
+        for line_no, raw_line in enumerate(skill_doc.read_text(encoding="utf-8").splitlines(), start=1):
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            for label, pattern in HARD_PATH_PATTERNS:
+                if not pattern.search(stripped):
+                    continue
+                issues.append(
+                    f"{display_path(skill_doc)}:{line_no} {label}: {stripped}"
+                )
+                break
+
+    if issues:
+        details = [f"skill-doc path hygiene: {len(issues)} issue(s) found across {scanned} installed managed skills"]
+        details.extend(f"skill-doc path issue: {issue}" for issue in issues)
+        return details
+
+    return [f"skill-doc path hygiene: clean across {scanned} installed managed skills"]
+
+
 def collect_failures(detail_lines: list[str]) -> list[str]:
     failures: list[str] = []
     for line in detail_lines:
-        if "missing:" in line or line.startswith("skills root missing:"):
+        if "missing:" in line or line.startswith("skills root missing:") or line.startswith("skill-doc path issue:"):
             failures.append(line)
     return failures
 
@@ -180,6 +226,7 @@ def verify_codex(supernb_expected: list[str], bundled_expected: list[str]) -> Ve
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
         superpowers_expected=KEY_SUPERPOWERS_SKILLS,
     )
+    details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
     failures = collect_failures(details)
     return VerificationResult(
         label="codex",
@@ -197,6 +244,7 @@ def verify_claude_user(supernb_expected: list[str], bundled_expected: list[str])
         bundled_expected=bundled_expected,
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
     )
+    details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
     plugin_id, plugin_status, plugin_failures = parse_claude_plugin_state()
     if plugin_id:
         details.append(f"Claude Code plugin: {plugin_id} ({plugin_status or 'unknown'})")
@@ -228,6 +276,7 @@ def verify_claude_project(project_dir: Path, supernb_expected: list[str], bundle
         bundled_expected=bundled_expected,
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
     )
+    details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
     failures = collect_failures(details)
     return VerificationResult(
         label="claude-code (project)",
@@ -254,6 +303,7 @@ def verify_opencode(project_dir: Path | None, supernb_expected: list[str], bundl
         bundled_expected=bundled_expected,
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
     )
+    details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
 
     plugin_failures: list[str] = []
     if not config_path.is_file():

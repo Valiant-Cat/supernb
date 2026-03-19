@@ -217,7 +217,7 @@ Update shortcuts:
 - `make update` updates `supernb` itself when safe, then updates upstreams
 - `make update` also writes JSON and Markdown reports to `artifacts/updates/`
 - `make update-upstreams` updates only upstream caches
-- `make verify-installs` checks whether key harness skills are discoverable at the expected first-level locations
+- `make verify-installs` checks whether key harness skills are discoverable at the expected first-level locations and whether managed `SKILL.md` files still contain hardcoded harness-specific script/reference paths
 
 ## Harness-Specific Notes
 
