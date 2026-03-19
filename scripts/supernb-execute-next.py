@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+DISPLAY_ROOTS = [ROOT_DIR]
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
@@ -127,6 +128,14 @@ SECTION_EXPECTATIONS = {
         ],
     },
 }
+WORKFLOW_TRACE_KEYS = [
+    "brainstorming",
+    "writing_plans",
+    "test_driven_development",
+    "code_review",
+    "using_git_worktrees",
+    "subagent_or_executing_plans",
+]
 
 
 def utc_now() -> str:
@@ -232,16 +241,28 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
 
 
 def display_path(path: Path) -> str:
-    try:
-        return str(path.relative_to(ROOT_DIR))
-    except ValueError:
-        return str(path)
+    for root in DISPLAY_ROOTS:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            continue
+    return str(path)
+
+
+def project_root(spec: dict[str, Any]) -> Path:
+    project_dir = nested_get(spec, "delivery", "project_dir")
+    if project_dir:
+        return Path(project_dir).expanduser().resolve()
+    return ROOT_DIR
 
 
 def artifact_path(spec: dict[str, Any], key: str, default: Path | None = None) -> Path:
     value = nested_get(spec, "artifacts", key)
     if value:
-        return ROOT_DIR / value
+        path = Path(value).expanduser()
+        if path.is_absolute():
+            return path.resolve()
+        return (project_root(spec) / path).resolve()
     if default is not None:
         return default
     raise KeyError(f"Missing artifact path: {key}")
@@ -269,6 +290,20 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
     if args.spec:
         return Path(args.spec).expanduser().resolve()
     if args.initiative_id:
+        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
+        if locator.is_file():
+            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
+            if target.is_file():
+                return target.resolve()
+
+        for base in [Path.cwd(), *Path.cwd().parents]:
+            for candidate in [
+                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
+                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
+            ]:
+                if candidate.is_file():
+                    return candidate.resolve()
+
         return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
     raise ValueError("Pass --initiative-id or --spec.")
 
@@ -412,6 +447,51 @@ def default_gate_status(phase: str) -> str:
     }[phase]
 
 
+def execution_policy(spec: dict[str, Any], phase: str, project_dir: Path) -> str:
+    initiative_id = nested_get(spec, "initiative", "id")
+    artifact_lines = [f"- `{display_path(path)}`" for path in phase_targets(spec, phase)]
+    lines = [
+        "",
+        "",
+        "supernb execution policy:",
+        f"- Initiative ID: `{initiative_id}`",
+        f"- Product workspace: `{display_path(project_dir)}`",
+        f"- Current phase: `{phase}`",
+        "- Use upstream superpowers aggressively. Release the full workflow instead of collapsing everything into one opaque coding pass.",
+        "- Break work into the smallest safe tasks you can justify. Favor 2-5 minute batches with explicit file paths, checks, and completion criteria.",
+        "- Research, PRD, design, and planning artifacts must exist and be updated before claiming implementation completion.",
+        "- Save changes into the initiative artifacts for this phase before reporting success.",
+        "- Record whether brainstorming, writing-plans, TDD, code review, worktrees, and subagent/executing-plans were used in this run.",
+        "- If a required workflow was intentionally skipped, say so explicitly and explain why.",
+        "",
+        "Phase artifact targets:",
+        *artifact_lines,
+    ]
+
+    if phase == "planning":
+        lines.extend(
+            [
+                "",
+                "Planning-specific requirements:",
+                "- Write or refine the implementation plan before delivery work.",
+                "- Produce very fine-grained task batches with exact file paths, RED-GREEN-REFACTOR steps, verification commands, and commit strategy.",
+            ]
+        )
+    if phase == "delivery":
+        lines.extend(
+            [
+                "",
+                "Delivery-specific requirements:",
+                "- Treat this run as exactly one validated delivery batch. Do not silently continue through the whole project in one shot.",
+                "- Use test-driven development: write or update a failing test first, make it pass, then refactor.",
+                "- Run code review on the batch before completion.",
+                "- Create a git commit for this validated batch before you report success.",
+                "- If you cannot create a commit, report the run as blocked or needs-follow-up instead of pretending the batch is complete.",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def response_contract(phase: str) -> str:
     gate_status = default_gate_status(phase)
     return (
@@ -424,8 +504,19 @@ def response_contract(phase: str) -> str:
         '  "completed_items": ["..."],\n'
         '  "remaining_items": ["..."],\n'
         '  "evidence_artifacts": ["path/or/file"],\n'
+        '  "artifacts_updated": ["path/or/file"],\n'
         '  "commands_run": ["command"],\n'
         '  "tests_run": ["test or verification command"],\n'
+        '  "validated_batches_completed": 0,\n'
+        '  "batch_commits": ["<sha> message"],\n'
+        '  "workflow_trace": {\n'
+        '    "brainstorming": {"used": true, "evidence": "..."},\n'
+        '    "writing_plans": {"used": true, "evidence": "..."},\n'
+        '    "test_driven_development": {"used": true, "evidence": "..."},\n'
+        '    "code_review": {"used": true, "evidence": "..."},\n'
+        '    "using_git_worktrees": {"used": false, "evidence": "not needed this run"},\n'
+        '    "subagent_or_executing_plans": {"used": true, "evidence": "..."}\n'
+        "  },\n"
         '  "recommended_result_status": "succeeded|needs-follow-up|blocked|manual-follow-up",\n'
         '  "recommended_gate_action": "none|certify|advance",\n'
         f'  "recommended_gate_status": "{gate_status}|pending|",\n'
@@ -436,6 +527,8 @@ def response_contract(phase: str) -> str:
         "- Use valid JSON only between the markers.\n"
         "- Keep arrays as arrays of strings.\n"
         "- Only list evidence_artifacts that were actually created, updated, or are central proof of the work.\n"
+        "- workflow_trace must include every listed workflow key, even when a workflow was intentionally skipped.\n"
+        "- For delivery, validated_batches_completed must reflect the number of verified batches completed in this run, and batch_commits must list the commit(s) created for those batches.\n"
         "- Prefer recommended_gate_action=certify unless the phase is truly ready to advance.\n"
     )
 
@@ -459,6 +552,32 @@ def ensure_list(value: Any) -> list[str]:
         if item not in seen:
             seen.add(item)
             result.append(item)
+    return result
+
+
+def ensure_bool_or_none(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "yes"}:
+            return True
+        if lowered in {"false", "no"}:
+            return False
+    return None
+
+
+def normalize_workflow_trace(value: Any) -> dict[str, dict[str, Any]]:
+    raw = value if isinstance(value, dict) else {}
+    result: dict[str, dict[str, Any]] = {}
+    for key in WORKFLOW_TRACE_KEYS:
+        item = raw.get(key)
+        if not isinstance(item, dict):
+            item = {}
+        result[key] = {
+            "used": ensure_bool_or_none(item.get("used")),
+            "evidence": ensure_string(item.get("evidence")),
+        }
     return result
 
 
@@ -490,8 +609,12 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         "completed_items": ensure_list(parsed.get("completed_items")),
         "remaining_items": ensure_list(parsed.get("remaining_items")),
         "evidence_artifacts": ensure_list(parsed.get("evidence_artifacts")),
+        "artifacts_updated": ensure_list(parsed.get("artifacts_updated")),
         "commands_run": ensure_list(parsed.get("commands_run")),
         "tests_run": ensure_list(parsed.get("tests_run")),
+        "validated_batches_completed": max(int(parsed.get("validated_batches_completed", 0) or 0), 0),
+        "batch_commits": ensure_list(parsed.get("batch_commits")),
+        "workflow_trace": normalize_workflow_trace(parsed.get("workflow_trace")),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": ensure_string(parsed.get("recommended_gate_status")).lower(),
@@ -1079,13 +1202,115 @@ def heuristic_report_from_text(phase: str, status: str, response_text: str, stde
         "completed_items": completed_items,
         "remaining_items": remaining_items,
         "evidence_artifacts": evidence_artifacts,
+        "artifacts_updated": evidence_artifacts[:],
         "commands_run": commands_run,
         "tests_run": tests_run,
+        "validated_batches_completed": 0,
+        "batch_commits": [],
+        "workflow_trace": normalize_workflow_trace({}),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": default_gate_status(phase) if recommended_gate_action in {"certify", "advance"} else "",
         "follow_up": follow_up,
     }
+
+
+def git_state(project_dir: Path) -> dict[str, Any]:
+    try:
+        top_level = subprocess.run(
+            ["git", "-C", str(project_dir), "rev-parse", "--show-toplevel"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        return {"is_repo": False}
+
+    head = ""
+    branch = ""
+    try:
+        head = subprocess.run(
+            ["git", "-C", str(project_dir), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        head = ""
+    try:
+        branch = subprocess.run(
+            ["git", "-C", str(project_dir), "branch", "--show-current"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        branch = ""
+
+    dirty = bool(
+        subprocess.run(
+            ["git", "-C", str(project_dir), "status", "--porcelain"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    )
+    return {
+        "is_repo": True,
+        "top_level": top_level,
+        "head": head,
+        "branch": branch,
+        "dirty": dirty,
+    }
+
+
+def commits_created(project_dir: Path, before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    if not before.get("is_repo") or not after.get("is_repo"):
+        return []
+    before_head = ensure_string(before.get("head"))
+    after_head = ensure_string(after.get("head"))
+    if not after_head or before_head == after_head:
+        return []
+    revision = after_head if not before_head else f"{before_head}..{after_head}"
+    try:
+        output = subprocess.run(
+            ["git", "-C", str(project_dir), "log", "--format=%H %s", revision],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: list[str]) -> list[str]:
+    issues: list[str] = []
+    trace = report.get("workflow_trace") or {}
+    for key in WORKFLOW_TRACE_KEYS:
+        entry = trace.get(key)
+        if not isinstance(entry, dict) or entry.get("used") is None:
+            issues.append(f"workflow_trace is missing an explicit used=true/false entry for {key}.")
+            continue
+        if not ensure_string(entry.get("evidence")):
+            issues.append(f"workflow_trace is missing evidence text for {key}.")
+
+    if phase == "planning":
+        if not (trace.get("writing_plans") or {}).get("used"):
+            issues.append("Planning runs must use superpowers writing-plans.")
+    if phase == "delivery":
+        for required in ["writing_plans", "test_driven_development", "code_review", "subagent_or_executing_plans"]:
+            if not (trace.get(required) or {}).get("used"):
+                issues.append(f"Delivery runs must report {required}=true in workflow_trace.")
+        if int(report.get("validated_batches_completed", 0) or 0) < 1:
+            issues.append("Delivery runs must complete at least one validated batch.")
+        batch_commits = ensure_list(report.get("batch_commits"))
+        if not batch_commits and commit_lines:
+            report["batch_commits"] = commit_lines
+            batch_commits = commit_lines
+        if not batch_commits:
+            issues.append("Delivery runs must record at least one batch commit.")
+    return issues
 
 
 def short_text_excerpt(text: str) -> str:
@@ -1113,6 +1338,9 @@ def build_result_suggestion(
     stderr_text: str,
     packet_dir: Path,
     phase_readiness: dict[str, Any],
+    git_before: dict[str, Any],
+    git_after: dict[str, Any],
+    created_commits: list[str],
 ) -> dict[str, Any]:
     excerpt = short_text_excerpt(response_text)
     stderr_excerpt = short_text_excerpt(stderr_text)
@@ -1121,6 +1349,15 @@ def build_result_suggestion(
 
     if not structured_report:
         structured_report = heuristic_report_from_text(phase, status, response_text, stderr_text, excerpt, stderr_excerpt)
+
+    if created_commits and not structured_report.get("batch_commits"):
+        structured_report["batch_commits"] = created_commits
+
+    workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
+    commit_issue = ""
+    if phase == "delivery" and git_after.get("is_repo") and not created_commits:
+        commit_issue = "No new git commit was detected for this delivery batch."
+        workflow_issues.append(commit_issue)
 
     if dry_run:
         result_status = "not-run"
@@ -1138,7 +1375,11 @@ def build_result_suggestion(
         result_status = ensure_string(structured_report.get("recommended_result_status")).lower() or "succeeded"
         summary = structured_report.get("summary") or excerpt or f"{phase} execution completed successfully in {harness}."
         gate_action = ensure_string(structured_report.get("recommended_gate_action")).lower()
-        if not phase_readiness.get("ready_for_certification", False):
+        if workflow_issues:
+            if result_status == "succeeded":
+                result_status = "needs-follow-up"
+            next_step = "apply the execution packet, then resolve the workflow-trace and commit-policy gaps"
+        elif not phase_readiness.get("ready_for_certification", False):
             if result_status == "succeeded":
                 result_status = "needs-follow-up"
             next_step = "apply the execution packet and address the phase-readiness gaps before certification"
@@ -1164,6 +1405,10 @@ def build_result_suggestion(
         "source": report_source,
         "execution_report": structured_report,
         "phase_readiness": phase_readiness,
+        "workflow_issues": workflow_issues,
+        "git_before": git_before,
+        "git_after": git_after,
+        "commits_created": created_commits,
     }
 
 
@@ -1215,6 +1460,10 @@ def write_result_suggestion_md(
         lines.extend(["", "## Evidence Artifacts", ""])
         for item in report["evidence_artifacts"]:
             lines.append(f"- `{item}`")
+    if report.get("artifacts_updated"):
+        lines.extend(["", "## Artifacts Updated", ""])
+        for item in report["artifacts_updated"]:
+            lines.append(f"- `{item}`")
     if report.get("commands_run"):
         lines.extend(["", "## Commands Run", ""])
         for item in report["commands_run"]:
@@ -1227,6 +1476,29 @@ def write_result_suggestion_md(
         lines.extend(["", "## Follow Up", ""])
         for item in report["follow_up"]:
             lines.append(f"- {item}")
+    workflow_trace = report.get("workflow_trace") or {}
+    if workflow_trace:
+        lines.extend(["", "## Workflow Trace", ""])
+        for key in WORKFLOW_TRACE_KEYS:
+            entry = workflow_trace.get(key) or {}
+            used = entry.get("used")
+            used_text = "yes" if used is True else ("no" if used is False else "missing")
+            lines.append(f"- `{key}` used=`{used_text}` evidence=`{entry.get('evidence', '')}`")
+    commits_created = suggestion.get("commits_created") or report.get("batch_commits") or []
+    if commits_created:
+        lines.extend(["", "## Batch Commits", ""])
+        for item in commits_created:
+            lines.append(f"- `{item}`")
+    if suggestion.get("workflow_issues"):
+        lines.extend(["", "## Workflow Issues", ""])
+        for item in suggestion["workflow_issues"]:
+            lines.append(f"- {item}")
+    git_after = suggestion.get("git_after") or {}
+    if git_after.get("is_repo"):
+        lines.extend(["", "## Git State", ""])
+        lines.append(f"- Branch: `{git_after.get('branch') or 'detached'}`")
+        lines.append(f"- Head: `{git_after.get('head') or 'unknown'}`")
+        lines.append(f"- Dirty: `{'yes' if git_after.get('dirty') else 'no'}`")
     lines.extend(["", "## Phase Readiness", ""])
     lines.append(f"- Ready for certification: `{'yes' if readiness.get('ready_for_certification') else 'no'}`")
     lines.append(f"- Summary: {readiness.get('summary', 'No readiness summary.')}")
@@ -1346,6 +1618,9 @@ def write_summary(
     result_suggestion_path: Path,
     phase_readiness_path: Path,
     command_argv: list[str] | None,
+    git_before: dict[str, Any],
+    git_after: dict[str, Any],
+    created_commits: list[str],
 ) -> None:
     lines = [
         "# Execution Packet",
@@ -1380,6 +1655,24 @@ def write_summary(
     else:
         lines.append("- Not executed because only packet preparation was possible.")
 
+    if git_after.get("is_repo"):
+        lines.extend(
+            [
+                "",
+                "## Git",
+                "",
+                f"- Branch before: `{git_before.get('branch') or 'detached'}`",
+                f"- Head before: `{git_before.get('head') or 'unknown'}`",
+                f"- Branch after: `{git_after.get('branch') or 'detached'}`",
+                f"- Head after: `{git_after.get('head') or 'unknown'}`",
+                f"- Dirty after: `{'yes' if git_after.get('dirty') else 'no'}`",
+            ]
+        )
+        if created_commits:
+            lines.append("- Commits created:")
+            for item in created_commits:
+                lines.append(f"  - `{item}`")
+
     lines.extend(["", "## Next Action", ""])
     if dry_run:
         lines.append("- Review the execution packet, then rerun without `--dry-run` when you are ready.")
@@ -1406,6 +1699,8 @@ def main() -> int:
         return 1
 
     spec = load_spec(spec_path)
+    global DISPLAY_ROOTS
+    DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
@@ -1438,7 +1733,7 @@ def main() -> int:
     prompt_copy_path = packet_dir / "prompt.md"
     prompt_copy_path.write_text(prompt_text, encoding="utf-8")
     prompt_with_report_path = packet_dir / "prompt-with-report.md"
-    prompt_with_report_text = prompt_text + response_contract(phase)
+    prompt_with_report_text = prompt_text + execution_policy(spec, phase, project_dir) + response_contract(phase)
     prompt_with_report_path.write_text(prompt_with_report_text, encoding="utf-8")
     response_path = packet_dir / "response.md"
     stdout_path = packet_dir / "stdout.log"
@@ -1454,6 +1749,9 @@ def main() -> int:
     exit_code: int | None = None
     command_argv: list[str] | None = None
     error_message = ""
+    git_before = git_state(project_dir)
+    git_after = git_before
+    created_commits: list[str] = []
 
     if harness not in DIRECT_EXECUTION_HARNESSES:
         status = "unsupported"
@@ -1480,6 +1778,7 @@ def main() -> int:
             "dry_run": args.dry_run,
             "command": command_argv or [],
             "cli_args": args.cli_arg,
+            "git_before": git_before,
         },
     )
 
@@ -1519,12 +1818,47 @@ def main() -> int:
 
         status = "succeeded" if proc.returncode == 0 else "failed"
 
+    git_after = git_state(project_dir)
+    created_commits = commits_created(project_dir, git_before, git_after)
+    write_json(
+        request_path,
+        {
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "harness": harness,
+            "generated_at": utc_now(),
+            "prompt_source": display_path(prompt_source),
+            "prompt_copy": display_path(prompt_copy_path),
+            "prompt_with_report": display_path(prompt_with_report_path),
+            "project_dir": str(project_dir),
+            "dry_run": args.dry_run,
+            "command": command_argv or [],
+            "cli_args": args.cli_arg,
+            "git_before": git_before,
+            "git_after": git_after,
+            "commits_created": created_commits,
+        },
+    )
+
     response_text = response_path.read_text(encoding="utf-8") if response_path.exists() else ""
     stderr_text = stderr_path.read_text(encoding="utf-8") if stderr_path.exists() else ""
     phase_readiness = build_phase_readiness(spec, phase)
     write_json(phase_readiness_json, phase_readiness)
     write_phase_readiness_md(phase_readiness_md, phase_readiness)
-    suggestion = build_result_suggestion(phase, harness, status, args.dry_run, exit_code, response_text, stderr_text, packet_dir, phase_readiness)
+    suggestion = build_result_suggestion(
+        phase,
+        harness,
+        status,
+        args.dry_run,
+        exit_code,
+        response_text,
+        stderr_text,
+        packet_dir,
+        phase_readiness,
+        git_before,
+        git_after,
+        created_commits,
+    )
     write_json(result_suggestion_json, suggestion)
     write_result_suggestion_md(result_suggestion_md, initiative_id, suggestion, packet_dir)
 
@@ -1546,6 +1880,9 @@ def main() -> int:
         result_suggestion_md,
         phase_readiness_md,
         command_argv,
+        git_before,
+        git_after,
+        created_commits,
     )
     append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md, phase_readiness_md)
 

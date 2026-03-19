@@ -105,10 +105,29 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
     return str(current).strip()
 
 
+def project_root(spec: dict[str, Any]) -> Path:
+    project_dir = nested_get(spec, "delivery", "project_dir")
+    if project_dir:
+        return Path(project_dir).expanduser().resolve()
+    return ROOT_DIR
+
+
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     if args.spec:
         return Path(args.spec).expanduser().resolve()
     if args.initiative_id:
+        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
+        if locator.is_file():
+            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
+            if target.is_file():
+                return target.resolve()
+        for base in [Path.cwd(), *Path.cwd().parents]:
+            for candidate in [
+                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
+                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
+            ]:
+                if candidate.is_file():
+                    return candidate.resolve()
         return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
     raise ValueError("Pass --initiative-id or --spec.")
 
@@ -127,6 +146,13 @@ def unique_items(values: list[str]) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
+
+
+def workflow_issues_from_suggestion(suggestion: dict[str, Any]) -> list[str]:
+    issues = suggestion.get("workflow_issues")
+    if isinstance(issues, list):
+        return [str(item).strip() for item in issues if str(item).strip()]
+    return []
 
 
 def main() -> int:
@@ -193,6 +219,7 @@ def main() -> int:
     ]
     evidence_paths.extend(unique_items([str(item) for item in execution_report.get("evidence_artifacts", [])]))
     phase_readiness = suggestion.get("phase_readiness") or {}
+    workflow_issues = workflow_issues_from_suggestion(suggestion)
 
     if args.apply_certification and status not in {"succeeded", "needs-follow-up"}:
         print(
@@ -205,6 +232,13 @@ def main() -> int:
         print(
             "--apply-certification blocked because phase-readiness still reports unresolved gaps. "
             "Review phase-readiness.md or use --certify to inspect the exact blockers first.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.apply_certification and workflow_issues:
+        print(
+            "--apply-certification blocked because the execution packet still reports workflow-trace or commit-policy gaps. "
+            "Review result-suggestion.md and fix the missing superpowers workflow evidence first.",
             file=sys.stderr,
         )
         return 1

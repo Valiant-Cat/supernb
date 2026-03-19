@@ -33,7 +33,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 
 Then fill:
 
-- `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- `.supernb/initiatives/<initiative-id>/initiative.yaml` in the active product project
 
 ## 3. Run The Control Plane
 
@@ -43,13 +43,13 @@ Then fill:
 
 This writes:
 
-- `artifacts/initiatives/<initiative-id>/run-status.md`
-- `artifacts/initiatives/<initiative-id>/run-status.json`
-- `artifacts/initiatives/<initiative-id>/next-command.md`
-- `artifacts/initiatives/<initiative-id>/phase-packet.md`
-- `artifacts/initiatives/<initiative-id>/run-log.md`
-- `artifacts/initiatives/<initiative-id>/phase-results/`
-- `artifacts/initiatives/<initiative-id>/executions/`
+- `.supernb/initiatives/<initiative-id>/run-status.md`
+- `.supernb/initiatives/<initiative-id>/run-status.json`
+- `.supernb/initiatives/<initiative-id>/next-command.md`
+- `.supernb/initiatives/<initiative-id>/phase-packet.md`
+- `.supernb/initiatives/<initiative-id>/run-log.md`
+- `.supernb/initiatives/<initiative-id>/phase-results/`
+- `.supernb/initiatives/<initiative-id>/executions/`
 
 ## 4. Execute The Phase
 
@@ -74,6 +74,7 @@ Use `--dry-run` first if you only want to prepare the packet and inspect the exa
 
 This writes a timestamped execution packet under `executions/` with the prompt copy, `prompt-with-report.md`, request metadata, response, stdout, stderr, and a summary.
 It also writes `result-suggestion.md/json` and `phase-readiness.md/json` with completed items, remaining items, evidence artifacts, gate suggestions, and phase-specific structural plus semantic readiness checks.
+For planning and delivery work, the packet also records explicit `superpowers` workflow trace and batch commit evidence requirements.
 
 ## 5. Apply The Execution Packet
 

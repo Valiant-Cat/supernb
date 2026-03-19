@@ -238,7 +238,7 @@ make bootstrap HARNESS=codex
 
 这一套会：
 
-- 创建 `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- 默认在产品项目里创建 `.supernb/initiatives/<initiative-id>/initiative.yaml`
 - 创建 initiative 局部的 `run-status.md` 和 `next-command.md`
 - 创建 initiative 局部的 `phase-packet.md`、`run-log.md` 和归档 `command-briefs/`
 - 创建 initiative 局部的 `phase-results/`
@@ -250,7 +250,7 @@ make bootstrap HARNESS=codex
 新产品 initiative 推荐流程：
 
 1. 运行 `./scripts/supernb init-initiative my-product "My Product"`。
-2. 填写 `artifacts/initiatives/<initiative-id>/initiative.yaml`。
+2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。

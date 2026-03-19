@@ -66,8 +66,9 @@ default_output_lines() {
     full-product-delivery)
       printf '%s\n' \
         "create initiative artifacts" \
-        "produce research, PRD, design, plan, implementation, and release evidence" \
-        "commit validated changes"
+        "produce and save research, PRD, design, plan, implementation, and release evidence before claiming completion" \
+        "use superpowers aggressively for brainstorming, writing-plans, fine-grained execution, TDD, and code review" \
+        "commit each validated delivery batch instead of waiting until the end"
       ;;
     product-research-prd)
       printf '%s\n' \
@@ -98,15 +99,16 @@ default_output_lines() {
       ;;
     autonomous-delivery)
       printf '%s\n' \
-        "refine the implementation plan" \
-        "execute in validated batches with tests first" \
+        "refine and save the implementation plan before coding" \
+        "execute in the smallest safe validated batches with tests first" \
+        "record workflow trace for brainstorming, writing-plans, TDD, and code review" \
         "commit each verified batch"
-      ;;
+    ;;
     implementation-execution)
       printf '%s\n' \
-        "plan the work" \
-        "implement and verify it" \
-        "commit validated changes"
+        "plan the work in fine-grained tasks" \
+        "implement and verify it with TDD and code review evidence" \
+        "commit validated changes in small batches"
       ;;
     i18n-localization-governance)
       printf '%s\n' \
@@ -214,6 +216,7 @@ render() {
       emit_context_line "repository" "${REPOSITORY}" "<fill repository url or local path>"
       emit_context_line "platform" "${PLATFORM}" "<fill target platform or product surface>"
       emit_context_line "stack" "${STACK}" "<fill frameworks or languages>"
+      emit_context_line "initiative id" "${INITIATIVE_ID}" "<fill initiative id if it already exists>"
       emit_context_line "product category" "${PRODUCT_CATEGORY}" "<fill product category>"
       emit_context_line "seed competitors" "${SEED_COMPETITORS}" "<fill seed competitors if known>"
       emit_context_line "markets" "${MARKETS}" "<fill target markets or countries>"

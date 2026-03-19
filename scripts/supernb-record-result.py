@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+DISPLAY_ROOTS = [ROOT_DIR]
 
 
 def utc_now() -> str:
@@ -116,20 +117,45 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
 
 
 def display_path(path: Path) -> str:
-    try:
-        return str(path.relative_to(ROOT_DIR))
-    except ValueError:
-        return str(path)
+    for root in DISPLAY_ROOTS:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            continue
+    return str(path)
+
+
+def project_root(spec: dict[str, Any]) -> Path:
+    project_dir = nested_get(spec, "delivery", "project_dir")
+    if project_dir:
+        return Path(project_dir).expanduser().resolve()
+    return ROOT_DIR
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    return ROOT_DIR / nested_get(spec, "artifacts", key)
+    value = nested_get(spec, "artifacts", key)
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (project_root(spec) / path).resolve()
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     if args.spec:
         return Path(args.spec).expanduser().resolve()
     if args.initiative_id:
+        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
+        if locator.is_file():
+            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
+            if target.is_file():
+                return target.resolve()
+        for base in [Path.cwd(), *Path.cwd().parents]:
+            for candidate in [
+                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
+                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
+            ]:
+                if candidate.is_file():
+                    return candidate.resolve()
         return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
     raise ValueError("Pass --initiative-id or --spec.")
 
@@ -179,6 +205,8 @@ def main() -> int:
         return 1
 
     spec = load_spec(spec_path)
+    global DISPLAY_ROOTS
+    DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)

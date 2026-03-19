@@ -54,6 +54,8 @@ Before implementation begins, the workspace should contain:
 - a design artifact set
 - an execution plan
 
+Those artifacts should be stored in the active product project's `.supernb/` workspace by default.
+
 Before release, the workspace should contain:
 
 - verification evidence

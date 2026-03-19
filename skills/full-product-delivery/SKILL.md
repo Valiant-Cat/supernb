@@ -29,11 +29,13 @@ The target is not a demo or placeholder implementation. The target is a release-
 ## Execution Rules
 
 1. Create or identify the initiative artifact set first.
+   Save it in the product project's `.supernb/` workspace by default, not only inside the supernb repo.
 2. Run research before locking the PRD.
 3. Run design before major frontend implementation.
 4. Use latest `superpowers` as the default implementation engine.
 5. Use the Frad loop only as an optional bounded persistence layer.
 6. Keep shipping in validated batches with commits.
+7. Push `superpowers` to decompose work as finely as possible instead of hiding large unreviewed batches behind one final response.
 
 ## Localization Rule
 

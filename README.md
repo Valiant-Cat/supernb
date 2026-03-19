@@ -237,7 +237,7 @@ New initiative path:
 
 That flow:
 
-- creates `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- creates `.supernb/initiatives/<initiative-id>/initiative.yaml` in the active product workspace by default
 - creates initiative-local `run-status.md` and `next-command.md`
 - creates initiative-local `phase-packet.md`, `run-log.md`, and archived `command-briefs/`
 - creates initiative-local `phase-results/` for recorded execution outcomes
@@ -249,7 +249,7 @@ That flow:
 For a new product initiative:
 
 1. Run `./scripts/supernb init-initiative my-product "My Product"`.
-2. Fill `artifacts/initiatives/<initiative-id>/initiative.yaml`.
+2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.

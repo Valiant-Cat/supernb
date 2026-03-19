@@ -8,21 +8,21 @@ This is the operational path for a new `supernb` initiative.
 ./scripts/supernb init-initiative my-product "My Product"
 ```
 
-This creates a dated initiative ID and standard files across:
+This creates a dated initiative ID and standard files inside the active product workspace under `.supernb/`:
 
-- `artifacts/initiatives/`
-- `artifacts/research/`
-- `artifacts/prd/`
-- `artifacts/design/`
-- `artifacts/plans/`
-- `artifacts/releases/`
+- `.supernb/initiatives/`
+- `.supernb/research/`
+- `.supernb/prd/`
+- `.supernb/design/`
+- `.supernb/plans/`
+- `.supernb/releases/`
 
 It also creates:
 
-- `artifacts/initiatives/<initiative-id>/initiative.yaml`
-- `artifacts/initiatives/<initiative-id>/run-status.md`
-- `artifacts/initiatives/<initiative-id>/next-command.md`
-- `artifacts/initiatives/<initiative-id>/executions/`
+- `.supernb/initiatives/<initiative-id>/initiative.yaml`
+- `.supernb/initiatives/<initiative-id>/run-status.md`
+- `.supernb/initiatives/<initiative-id>/next-command.md`
+- `.supernb/initiatives/<initiative-id>/executions/`
 
 And it creates an `i18n-strategy.md` file in the design artifacts so localization decisions are documented before implementation.
 
@@ -147,8 +147,10 @@ Use the plan template with the latest `obra/superpowers` to define:
 Default path:
 
 - use latest `superpowers`
-- keep batches small
-- commit validated work continuously
+- keep batches extremely small and explicit
+- treat each delivery run as one validated batch
+- commit validated work continuously instead of waiting for a final all-at-once push
+- record whether brainstorming, writing-plans, TDD, and code review were used in the execution packet
 
 Optional Claude Code loop path:
 

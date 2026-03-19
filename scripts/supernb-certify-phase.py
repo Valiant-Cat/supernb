@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+DISPLAY_ROOTS = [ROOT_DIR]
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 
 METADATA_FIELDS = {
@@ -145,20 +146,45 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
 
 
 def display_path(path: Path) -> str:
-    try:
-        return str(path.relative_to(ROOT_DIR))
-    except ValueError:
-        return str(path)
+    for root in DISPLAY_ROOTS:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            continue
+    return str(path)
+
+
+def project_root(spec: dict[str, Any]) -> Path:
+    project_dir = nested_get(spec, "delivery", "project_dir")
+    if project_dir:
+        return Path(project_dir).expanduser().resolve()
+    return ROOT_DIR
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    return ROOT_DIR / nested_get(spec, "artifacts", key)
+    value = nested_get(spec, "artifacts", key)
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (project_root(spec) / path).resolve()
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     if args.spec:
         return Path(args.spec).expanduser().resolve()
     if args.initiative_id:
+        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
+        if locator.is_file():
+            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
+            if target.is_file():
+                return target.resolve()
+        for base in [Path.cwd(), *Path.cwd().parents]:
+            for candidate in [
+                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
+                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
+            ]:
+                if candidate.is_file():
+                    return candidate.resolve()
         return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
     raise ValueError("Pass --initiative-id or --spec.")
 
@@ -212,6 +238,35 @@ def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
     if phase in {"planning", "delivery"}:
         return [artifact_path(spec, "plan_dir") / "implementation-plan.md"]
     return [artifact_path(spec, "release_dir") / "release-readiness.md"]
+
+
+def latest_execution_packet(spec: dict[str, Any], phase: str) -> Path | None:
+    executions_dir = artifact_path(spec, "executions_dir")
+    if not executions_dir.is_dir():
+        return None
+    candidates = [path for path in executions_dir.iterdir() if path.is_dir() and f"-{phase}-" in path.name]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
+def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]:
+    if phase not in {"planning", "delivery"}:
+        return []
+    packet = latest_execution_packet(spec, phase)
+    if packet is None:
+        return [f"No execution packet found for {phase}; run ./scripts/supernb execute-next first."]
+    suggestion_path = packet / "result-suggestion.json"
+    if not suggestion_path.is_file():
+        return [f"Execution packet is missing result-suggestion.json: {display_path(suggestion_path)}"]
+    import json
+
+    suggestion = json.loads(suggestion_path.read_text(encoding="utf-8"))
+    issues = suggestion.get("workflow_issues")
+    if isinstance(issues, list) and issues:
+        return [str(item).strip() for item in issues if str(item).strip()]
+    return []
 
 
 def recommended_gate_status(phase: str) -> str:
@@ -319,6 +374,7 @@ def write_report(
     spec: dict[str, Any],
     phase: str,
     issues: list[Issue],
+    execution_findings: list[str],
     readiness: dict[str, Any],
     report_path: Path,
     applied: bool,
@@ -331,7 +387,7 @@ def write_report(
         f"- Initiative ID: `{nested_get(spec, 'initiative', 'id')}`",
         f"- Phase: `{phase}`",
         f"- Recorded: `{utc_now()}`",
-        f"- Passed: `{'yes' if not issues and readiness_ok else 'no'}`",
+        f"- Passed: `{'yes' if not issues and not execution_findings and readiness_ok else 'no'}`",
         f"- Recommended gate status: `{recommendation}`",
         f"- Applied automatically: `{'yes' if applied else 'no'}`",
         "",
@@ -359,6 +415,8 @@ def write_report(
     if issues:
         for issue in issues:
             lines.append(f"- `{display_path(issue.path)}:{issue.line_no}` {issue.message}: `{issue.line_text}`")
+    for finding in execution_findings:
+        lines.append(f"- execution compliance: {finding}")
     for check in readiness.get("artifact_checks", []):
         if check.get("missing_sections"):
             lines.append(f"- `{check['path']}` missing sections: {', '.join(check['missing_sections'])}")
@@ -366,11 +424,11 @@ def write_report(
             lines.append(f"- `{check['path']}` thin sections: {', '.join(check['thin_sections'])}")
         for semantic_issue in check.get("semantic_issues", []):
             lines.append(f"- `{check['path']}` semantic gap: {semantic_issue}")
-    if not issues and readiness_ok:
+    if not issues and not execution_findings and readiness_ok:
         lines.append("- No unresolved template placeholders, missing sections, thin sections, or semantic readiness gaps were detected.")
 
     lines.extend(["", "## Next Action", ""])
-    if issues or not readiness_ok:
+    if issues or execution_findings or not readiness_ok:
         lines.append(f"- Resolve the findings above, then rerun `./scripts/supernb certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase}`.")
     elif applied:
         lines.append(f"- The gate was advanced automatically to `{recommendation}`.")
@@ -393,6 +451,8 @@ def main() -> int:
         return 1
 
     spec = load_spec(spec_path)
+    global DISPLAY_ROOTS
+    DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
@@ -406,7 +466,8 @@ def main() -> int:
             return 1
         issues.extend(collect_issues(target, phase))
     readiness = build_phase_readiness(spec, phase)
-    passed = not issues and bool(readiness.get("ready_for_certification"))
+    execution_findings = execution_compliance_findings(spec, phase)
+    passed = not issues and not execution_findings and bool(readiness.get("ready_for_certification"))
 
     results_dir = artifact_path(spec, "phase_results_dir")
     run_log_path = artifact_path(spec, "run_log_md")
@@ -434,7 +495,7 @@ def main() -> int:
         )
         applied = True
 
-    write_report(spec, phase, issues, readiness, report_path, applied)
+    write_report(spec, phase, issues, execution_findings, readiness, report_path, applied)
     append_run_log(run_log_path, phase, recommended_gate_status(phase), passed, applied, report_path)
 
     print(f"Phase certification report: {report_path}")
@@ -442,6 +503,7 @@ def main() -> int:
     print(f"Recommended gate status: {recommended_gate_status(phase)}")
     if not passed:
         print(f"Line issue count: {len(issues)}")
+        print(f"Execution compliance findings: {len(execution_findings)}")
         print(
             "Readiness gaps: "
             f"missing={readiness.get('total_missing_sections', 0)} "

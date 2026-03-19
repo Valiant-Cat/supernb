@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+DISPLAY_ROOTS = [ROOT_DIR]
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 
 
@@ -119,14 +120,56 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
 
 
 def display_path(path: Path) -> str:
-    try:
-        return str(path.relative_to(ROOT_DIR))
-    except ValueError:
-        return str(path)
+    for root in DISPLAY_ROOTS:
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            continue
+    return str(path)
+
+
+def project_root(spec: dict[str, Any]) -> Path:
+    project_dir = nested_get(spec, "delivery", "project_dir")
+    if project_dir:
+        return Path(project_dir).expanduser().resolve()
+    return ROOT_DIR
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    return ROOT_DIR / nested_get(spec, "artifacts", key)
+    value = nested_get(spec, "artifacts", key)
+    if not value:
+        raise KeyError(f"Missing artifact path: {key}")
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (project_root(spec) / path).resolve()
+
+
+def resolve_spec_path(args: argparse.Namespace) -> Path:
+    if args.spec:
+        return Path(args.spec).expanduser().resolve()
+    if not args.initiative_id:
+        raise ValueError("Pass --initiative-id or --spec.")
+
+    locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
+    if locator.is_file():
+        target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
+        if target.is_file():
+            return target.resolve()
+
+    for base in [Path.cwd(), *Path.cwd().parents]:
+        for candidate in [
+            base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
+            base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
+        ]:
+            if candidate.is_file():
+                return candidate.resolve()
+
+    legacy = ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
+    if legacy.is_file():
+        return legacy.resolve()
+
+    return legacy
 
 
 def read_markdown_field(path: Path, field_name: str) -> str:
@@ -358,6 +401,9 @@ def build_command_args(spec: dict[str, Any], phase: str) -> tuple[str, list[str]
         nested_get(spec, "initiative", "id"),
     ]
 
+    artifact_root = artifact_path(spec, "run_status_md").parent
+    project_dir = project_root(spec)
+
     if command_name in {"product-research-prd", "full-product-delivery"}:
         args.extend(
             [
@@ -374,6 +420,18 @@ def build_command_args(spec: dict[str, Any], phase: str) -> tuple[str, list[str]
     if command_name == "ui-ux-governance":
         args.extend(["--context-line", f"source locale: {nested_get(spec, 'delivery', 'source_locale') or '<fill source locale>'}"])
         args.extend(["--context-line", f"target locales: {nested_get(spec, 'delivery', 'target_locales') or '<fill target locales>'}"])
+    if phase in {"planning", "delivery"}:
+        args.extend(["--context-line", f"project workspace: {project_dir}"])
+        args.extend(["--context-line", f"initiative artifacts root: {artifact_root}"])
+        args.extend(["--context-line", "mandatory workflow: use superpowers aggressively for fine-grained planning, TDD, code review, and bounded execution batches"])
+        args.extend(["--context-line", "delivery rule: research, PRD, design, and implementation plan must already exist and be updated before claiming code completion"])
+        if phase == "planning":
+            args.extend(["--output-line", "save or update the implementation plan before any delivery work"])
+            args.extend(["--output-line", "break tasks into the smallest safe batches, ideally 2-5 minute chunks with exact file paths and verification steps"])
+        else:
+            args.extend(["--output-line", "treat this run as one validated delivery batch, not the whole project"])
+            args.extend(["--output-line", "update plan and affected initiative artifacts before finishing the batch"])
+            args.extend(["--output-line", "run tests first, perform code review, and create a git commit for this batch before reporting completion"])
 
     return command_name, args
 
@@ -665,16 +723,19 @@ def main() -> int:
         print("Pass --initiative-id or --spec.", file=sys.stderr)
         return 1
 
-    if args.spec:
-        spec_path = Path(args.spec).expanduser().resolve()
-    else:
-        spec_path = ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
+    try:
+        spec_path = resolve_spec_path(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
     if not spec_path.is_file():
         print(f"Initiative spec not found: {spec_path}", file=sys.stderr)
         return 1
 
     spec = load_spec(spec_path)
+    global DISPLAY_ROOTS
+    DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)

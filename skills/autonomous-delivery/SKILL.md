@@ -26,6 +26,8 @@ Do not start if these are missing:
    - a realistic max iteration cap
 5. Review the output before marking complete.
 6. Commit each validated batch.
+7. Treat each execution run as one validated batch unless the user explicitly scopes a larger bounded batch.
+8. Record in the execution packet whether brainstorming, writing-plans, TDD, and code review were used in this run.
 
 ## Loop Safety
 
@@ -46,5 +48,6 @@ Code generation is not completion. Completion requires verification evidence.
 ## Template Rule
 
 If an initiative scaffold exists, record plan progress and release readiness in the corresponding plan and release artifacts.
+The initiative scaffold should live in the product project's `.supernb/` directory by default.
 
 But do not replace upstream `superpowers` planning or execution documents with a thinner local version. Use the local scaffold as an index or landing zone, not as a restriction on capability.

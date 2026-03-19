@@ -2,7 +2,7 @@
 
 `supernb` now uses a per-initiative control file:
 
-- `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- `.supernb/initiatives/<initiative-id>/initiative.yaml` inside the active product workspace by default
 
 This file is the single source of truth for the runner.
 
@@ -35,15 +35,15 @@ When you run:
 
 `supernb` now creates:
 
-- `artifacts/initiatives/<initiative-id>.md`
-- `artifacts/initiatives/<initiative-id>/initiative.yaml`
-- `artifacts/initiatives/<initiative-id>/run-status.md`
-- `artifacts/initiatives/<initiative-id>/next-command.md`
-- `artifacts/initiatives/<initiative-id>/phase-packet.md`
-- `artifacts/initiatives/<initiative-id>/run-log.md`
-- `artifacts/initiatives/<initiative-id>/command-briefs/`
-- `artifacts/initiatives/<initiative-id>/phase-results/`
-- `artifacts/initiatives/<initiative-id>/executions/`
+- `.supernb/initiatives/<initiative-id>.md`
+- `.supernb/initiatives/<initiative-id>/initiative.yaml`
+- `.supernb/initiatives/<initiative-id>/run-status.md`
+- `.supernb/initiatives/<initiative-id>/next-command.md`
+- `.supernb/initiatives/<initiative-id>/phase-packet.md`
+- `.supernb/initiatives/<initiative-id>/run-log.md`
+- `.supernb/initiatives/<initiative-id>/command-briefs/`
+- `.supernb/initiatives/<initiative-id>/phase-results/`
+- `.supernb/initiatives/<initiative-id>/executions/`
 
 ## Runner Behavior
 

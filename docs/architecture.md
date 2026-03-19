@@ -6,7 +6,7 @@
 
 The `supernb` artifact templates are optional scaffolding. They provide a stable place to save outputs, but they do not override the native plan, design, or execution documentation formats that upstream `superpowers` may generate when a richer structure is warranted.
 
-`supernb` now also uses an initiative control file at `artifacts/initiatives/<initiative-id>/initiative.yaml`. That file is the machine-readable source of truth for phase routing, gate evaluation, and next-command generation.
+`supernb` now also uses an initiative control file at `.supernb/initiatives/<initiative-id>/initiative.yaml` inside the active product workspace. That file is the machine-readable source of truth for phase routing, gate evaluation, and next-command generation.
 
 ## Phases
 
@@ -25,8 +25,8 @@ Required outputs:
 
 Storage target:
 
-- `artifacts/research/`
-- `artifacts/initiatives/`
+- `.supernb/research/`
+- `.supernb/initiatives/`
 
 Gate:
 
@@ -47,8 +47,8 @@ Required outputs:
 
 Storage target:
 
-- `artifacts/prd/`
-- `artifacts/initiatives/`
+- `.supernb/prd/`
+- `.supernb/initiatives/`
 
 Gate:
 
@@ -68,8 +68,8 @@ Required outputs:
 
 Storage target:
 
-- `artifacts/design/`
-- `artifacts/initiatives/`
+- `.supernb/design/`
+- `.supernb/initiatives/`
 
 Gate:
 
@@ -88,8 +88,8 @@ Required outputs:
 
 Storage target:
 
-- `artifacts/plans/`
-- `artifacts/initiatives/`
+- `.supernb/plans/`
+- `.supernb/initiatives/`
 
 Gate:
 
@@ -124,8 +124,8 @@ Required outputs:
 
 Storage target:
 
-- `artifacts/releases/`
-- `artifacts/initiatives/`
+- `.supernb/releases/`
+- `.supernb/initiatives/`
 
 ## Coordination Rules
 
