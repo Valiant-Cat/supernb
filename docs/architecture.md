@@ -74,9 +74,13 @@ Required outputs:
 - visual direction
 - typography and color rules
 - page-by-page UI/UX notes
+- design-system definition
+- key journey surface deep dives
 - interaction and empty-state behavior
 - accessibility and contrast review
+- interaction polish, trust, and recovery cues
 - scale UX requirements for onboarding, repeat use, power users, and global adaptation
+- explicit `impeccable` workflow evidence across foundation, critique, and polish passes
 
 Storage target:
 
@@ -85,7 +89,7 @@ Storage target:
 
 Gate:
 
-- no implementation starts before the design pass calls out contrast, readability, and state coverage
+- no implementation starts before the design pass calls out contrast, readability, state coverage, key journey depth, and final impeccable audit notes
 
 ### 4. Planning And Delivery
 

@@ -6,7 +6,7 @@
 
 - the latest `obra/superpowers` as the default planning and delivery engine
 - `superpowers@frad-dotclaude` as an optional Claude Code loop executor for bounded long-running tasks
-- `impeccable` for UI/UX generation, critique, and post-implementation quality control
+- `impeccable` for UI/UX generation, critique, design-system definition, and post-implementation quality control
 - bundled `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
 - bundled translation skills for localization extraction, key sync, and multi-language completion
 
@@ -78,7 +78,7 @@ More detail: [docs/upstream-analysis.md](./docs/upstream-analysis.md)
 
 1. Research first. Run competitor lookup, reviews, and feature opportunity analysis before writing PRD.
 2. PRD second. Every PRD must cite the research window and the competitor evidence used.
-3. Design third. Use `impeccable` to define visual direction, page-level UI/UX, and contrast/readability checks.
+3. Design third. Use `impeccable` to define visual direction, design-system rules, key journey surfaces, and contrast/readability/interaction quality checks.
 4. Implementation fourth. Use the latest `superpowers` to plan, write tests first, execute tasks, and verify outputs. Use the Frad loop only when a Claude Code task genuinely benefits from bounded persistence.
 5. Commit continuously. Every validated batch should be committed to git.
 

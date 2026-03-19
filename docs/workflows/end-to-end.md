@@ -154,7 +154,10 @@ Use `impeccable` against the design template to define:
 - color and contrast rules
 - page structure
 - interaction states
-- audit notes
+- design-system rules
+- key journey surface deep dives
+- conversion and retention surfaces
+- audit notes from foundation, critique, and polish passes
 
 ## 7. Write The Implementation Plan
 
@@ -188,6 +191,7 @@ Before release:
 
 - run final product verification
 - run final `impeccable` audit for UI/UX
+- confirm interaction polish, trust cues, and localization layout quality
 - confirm release checklist items
 - document residual risks explicitly
 

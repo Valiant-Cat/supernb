@@ -19,6 +19,9 @@
 - Final impeccable audit:
 - Contrast and readability checks:
 - Responsive checks:
+- Interaction polish and feedback checks:
+- Trust and recovery cue checks:
+- Localization layout checks:
 
 ## Localization Summary
 

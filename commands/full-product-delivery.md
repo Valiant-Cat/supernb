@@ -17,6 +17,7 @@ Context:
 Output:
 - create initiative artifacts
 - produce research, PRD, design, plan, implementation, and release evidence at commercial-product depth
+- use impeccable to drive design-system definition, key surface critique, and final UI/UX audit depth
 - make every phase defensible for a product that could plausibly reach 10M DAU
 - commit validated changes
 ```

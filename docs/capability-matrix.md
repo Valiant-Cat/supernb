@@ -55,6 +55,8 @@ Observed specialist design skills:
 `supernb` expectation:
 
 - any design-specific request should route to the narrowest matching design capability instead of a single blanket UI mode
+- for full-product work, `impeccable` should be used as a multi-pass system: direction, critique, polish, and final audit
+- the resulting design output should preserve design-system definition, key journey depth, trust cues, conversion or retention surfaces, and localization resilience
 
 ## 3. `sensortower-research`
 

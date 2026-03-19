@@ -10,7 +10,7 @@ Context:
 - design intent: <keep structure, re-theme, modernize, etc.>
 Output:
 - define the upgrade direction
+- produce a deeper design-system delta and key surface upgrade plan
 - implement the changes
-- run a final design audit
+- run impeccable critique and final design audit
 ```
-

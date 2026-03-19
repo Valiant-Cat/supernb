@@ -90,6 +90,46 @@
 | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |
 
+## Key Journey Surface Deep Dives
+
+### Surface 1
+
+- Journey stage:
+- User intent:
+- Major modules:
+- State strategy:
+- Trust or support cues:
+- Conversion or retention role:
+- Localization or market adaptation notes:
+
+### Surface 2
+
+- Journey stage:
+- User intent:
+- Major modules:
+- State strategy:
+- Trust or support cues:
+- Conversion or retention role:
+- Localization or market adaptation notes:
+
+### Surface 3
+
+- Journey stage:
+- User intent:
+- Major modules:
+- State strategy:
+- Trust or support cues:
+- Conversion or retention role:
+- Localization or market adaptation notes:
+
+## Design System Definition
+
+- Foundation tokens:
+- Component hierarchy and reuse model:
+- Iconography, illustration, or media direction:
+- Surface, elevation, and container treatment:
+- Data density and scannability rules:
+
 ## Component Rules
 
 - Buttons:
@@ -107,6 +147,14 @@
 - Input mode differences:
 - Performance or motion constraints:
 
+## Interaction And Motion Details
+
+- Transition and choreography rules:
+- Feedback and acknowledgement rules:
+- Form, validation, and input behavior:
+- Latency masking and perceived performance tactics:
+- Gesture, keyboard, and accessibility interaction notes:
+
 ## Trust And Feedback Cues
 
 - Security / privacy cues:
@@ -122,9 +170,20 @@
 - Localization and market adaptation surfaces:
 - Support / trust / abuse-reporting entry points:
 
+## Conversion And Retention Surfaces
+
+- First-run and onboarding surfaces:
+- Habit loop reinforcement surfaces:
+- Upgrade or premium presentation rules:
+- Re-engagement or win-back surfaces:
+- Referral, sharing, or collaboration surfaces:
+
 ## Impeccable Review Notes
 
+- Foundation directions explored:
+- Commands or workflows used:
 - Audit findings:
 - Critique findings:
 - Polish actions:
 - Anti-patterns explicitly avoided:
+- Remaining design debt or open tensions:

@@ -430,8 +430,9 @@ def phase_objectives(phase: str) -> list[str]:
         ],
         "design": [
             "Produce approved UI/UX direction and i18n strategy artifacts.",
-            "Use impeccable-driven audit criteria for contrast, readability, and state coverage.",
-            "Design should cover flows, states, responsive behavior, trust cues, growth surfaces, and localization impacts, not just static screens.",
+            "Use impeccable as a multi-pass design engine: define direction, critique key surfaces, and record final polish and audit notes.",
+            "Design should cover flows, states, responsive behavior, trust cues, growth surfaces, conversion and retention surfaces, and localization impacts, not just static screens.",
+            "The design artifact should define a real design system, deep-dive key journeys, and preserve enough detail to guide premium implementation quality.",
             "Set both design approval fields to approved before planning starts.",
         ],
         "planning": [
@@ -443,6 +444,7 @@ def phase_objectives(phase: str) -> list[str]:
         "delivery": [
             "Execute the approved plan in small verified batches.",
             "Commit each validated batch and keep localization externalized.",
+            "Record the post-implementation impeccable audit in release-readiness before treating delivery as complete.",
             "Each batch should move the product materially toward approved journeys, growth loops, and release readiness, not just produce thin proof-of-concept code.",
             "Set Delivery status to verified when implementation evidence is complete.",
         ],

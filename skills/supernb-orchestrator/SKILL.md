@@ -57,6 +57,14 @@ Before implementation begins, the workspace should contain:
 
 Those artifacts should be stored in the active product project's `.supernb/` workspace by default.
 
+For the design artifact set, the bar is not "a few screens". It should preserve:
+
+- product experience strategy
+- design-system definition
+- deep coverage of key journeys and states
+- trust, conversion, retention, and localization implications
+- explicit `impeccable` audit and polish evidence
+
 Before release, the workspace should contain:
 
 - verification evidence

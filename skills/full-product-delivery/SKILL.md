@@ -42,7 +42,7 @@ Default to a product ambition that could plausibly support at least 10 million d
 8. Carry depth through all phases:
    - research should be globally and regionally informed
    - PRD should define a product system, not a short feature list
-   - design should cover flows, states, trust, and responsive behavior
+   - design should use impeccable to define system-level visual rules, key surfaces, interaction quality, trust, conversion, retention, and responsive behavior
    - implementation and release artifacts should be concrete enough to certify
 
 ## Localization Rule

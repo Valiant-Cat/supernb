@@ -107,16 +107,18 @@ default_output_lines() {
       ;;
     ui-ux-governance)
       printf '%s\n' \
-        "define a product-level experience strategy, not just a visual style" \
-        "cover user flows, page states, trust cues, responsive behavior, scale UX requirements, and component rules" \
-        "check contrast, readability, and state coverage" \
+        "define a product-level experience strategy and design system, not just a visual style" \
+        "cover user flows, page states, trust cues, responsive behavior, scale UX requirements, conversion and retention surfaces, and component rules" \
+        "run impeccable foundation, critique, and polish passes with explicit design notes" \
+        "check contrast, readability, state coverage, interaction polish, and localization layout risk" \
         "save design audit notes locally"
       ;;
     ui-ux-upgrade)
       printf '%s\n' \
-        "define the upgrade direction" \
+        "define the upgrade direction and design-system delta" \
+        "produce a deeper key surface upgrade plan" \
         "implement the changes" \
-        "run a final design audit"
+        "run impeccable critique and a final design audit"
       ;;
     implementation-planning)
       printf '%s\n' \

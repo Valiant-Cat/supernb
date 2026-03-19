@@ -113,10 +113,14 @@ SECTION_EXPECTATIONS = {
             "User Flow Coverage",
             "Page Specs",
             "State Matrix",
+            "Key Journey Surface Deep Dives",
+            "Design System Definition",
             "Component Rules",
             "Responsive And Platform Behavior",
+            "Interaction And Motion Details",
             "Trust And Feedback Cues",
             "Scale UX Requirements",
+            "Conversion And Retention Surfaces",
             "Impeccable Review Notes",
         ],
         "i18n-strategy.md": [
@@ -162,6 +166,7 @@ SECTION_EXPECTATIONS = {
         ],
         "release-readiness.md": [
             "Verification Summary",
+            "UX Audit Summary",
             "Localization Summary",
             "Operational Readiness",
             "Rollout And Rollback Plan",
@@ -773,6 +778,13 @@ def count_filled_fields(values: dict[str, str], labels: list[str]) -> int:
 
 
 def complete_page_blocks(lines: list[str]) -> int:
+    return complete_named_blocks(
+        lines,
+        ["Purpose", "Core modules", "Primary CTA", "Empty/loading/error/success states"],
+    )
+
+
+def complete_named_blocks(lines: list[str], required_fields: list[str]) -> int:
     blocks: list[list[str]] = []
     current: list[str] = []
     for raw_line in lines:
@@ -789,7 +801,7 @@ def complete_page_blocks(lines: list[str]) -> int:
     completed = 0
     for block in blocks:
         values = bullet_field_map(block)
-        if count_filled_fields(values, ["Purpose", "Core modules", "Primary CTA", "Empty/loading/error/success states"]) == 4:
+        if count_filled_fields(values, required_fields) == len(required_fields):
             completed += 1
     return completed
 
@@ -1006,9 +1018,41 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
         )
         metrics["page_blocks_completed"] = complete_page_blocks(sections.get("Page Specs", []))
         metrics["state_matrix_rows"] = len(table_data_rows(sections.get("State Matrix", []), phase))
+        metrics["deep_dive_blocks_completed"] = complete_named_blocks(
+            sections.get("Key Journey Surface Deep Dives", []),
+            [
+                "Journey stage",
+                "User intent",
+                "Major modules",
+                "State strategy",
+                "Trust or support cues",
+                "Conversion or retention role",
+                "Localization or market adaptation notes",
+            ],
+        )
+        metrics["design_system_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Design System Definition", [])),
+            [
+                "Foundation tokens",
+                "Component hierarchy and reuse model",
+                "Iconography, illustration, or media direction",
+                "Surface, elevation, and container treatment",
+                "Data density and scannability rules",
+            ],
+        )
         metrics["responsive_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Responsive And Platform Behavior", [])),
             ["Mobile adaptation rules", "Tablet / desktop rules", "Input mode differences", "Performance or motion constraints"],
+        )
+        metrics["interaction_motion_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Interaction And Motion Details", [])),
+            [
+                "Transition and choreography rules",
+                "Feedback and acknowledgement rules",
+                "Form, validation, and input behavior",
+                "Latency masking and perceived performance tactics",
+                "Gesture, keyboard, and accessibility interaction notes",
+            ],
         )
         metrics["trust_feedback_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Trust And Feedback Cues", [])),
@@ -1018,9 +1062,27 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Scale UX Requirements", [])),
             ["Onboarding for broad-market conversion", "Habit / repeat-use surfaces", "Power-user efficiency surfaces", "Localization and market adaptation surfaces", "Support / trust / abuse-reporting entry points"],
         )
+        metrics["conversion_retention_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Conversion And Retention Surfaces", [])),
+            [
+                "First-run and onboarding surfaces",
+                "Habit loop reinforcement surfaces",
+                "Upgrade or premium presentation rules",
+                "Re-engagement or win-back surfaces",
+                "Referral, sharing, or collaboration surfaces",
+            ],
+        )
         metrics["impeccable_review_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Impeccable Review Notes", [])),
-            ["Audit findings", "Critique findings", "Polish actions", "Anti-patterns explicitly avoided"],
+            [
+                "Foundation directions explored",
+                "Commands or workflows used",
+                "Audit findings",
+                "Critique findings",
+                "Polish actions",
+                "Anti-patterns explicitly avoided",
+                "Remaining design debt or open tensions",
+            ],
         )
         if metrics["design_context_fields"] < 4:
             issues.append("UI UX spec should define audience, use cases, brand tone, and product maturity target.")
@@ -1030,6 +1092,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("UI UX spec should fully define aesthetic, typography, color, motion, and spacing strategy.")
         if metrics["readability_rule_fields"] < 4:
             issues.append("UI UX spec should define all readability and accessibility rules.")
+        if metrics["localization_rule_fields"] < 4:
+            issues.append("Localization And Copy Rules should define locale scope, expansion behavior, and terminology rules.")
         if metrics["ia_fields"] < 4:
             issues.append("Information Architecture should cover navigation, page groups, and conversion paths.")
         if metrics["flow_coverage_fields"] < 4:
@@ -1038,16 +1102,24 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("UI UX spec should contain at least three fully filled page specs.")
         if metrics["state_matrix_rows"] < 3:
             issues.append("State Matrix should cover at least three key surfaces with edge states.")
+        if metrics["deep_dive_blocks_completed"] < 3:
+            issues.append("Key Journey Surface Deep Dives should capture at least three high-value surfaces with state, trust, retention, and localization detail.")
+        if metrics["design_system_fields"] < 4:
+            issues.append("Design System Definition should define foundation tokens, reuse, media direction, surfaces, and scannability rules.")
         if metrics["component_rule_fields"] < 5:
             issues.append("Component Rules should cover most core component families and richer content surfaces.")
         if metrics["responsive_fields"] < 4:
             issues.append("Responsive And Platform Behavior should define mobile, larger-screen, and input-mode adaptations.")
+        if metrics["interaction_motion_fields"] < 4:
+            issues.append("Interaction And Motion Details should define choreography, input behavior, and perceived-performance tactics.")
         if metrics["trust_feedback_fields"] < 3:
             issues.append("Trust And Feedback Cues should cover trust, progress, and recovery guidance.")
         if metrics["scale_ux_fields"] < 4:
             issues.append("Scale UX Requirements should cover onboarding, repeat use, power-user efficiency, localization adaptation, and trust or abuse entry points.")
-        if metrics["impeccable_review_fields"] < 3:
-            issues.append("Impeccable Review Notes should capture audit, critique, and polish actions.")
+        if metrics["conversion_retention_fields"] < 4:
+            issues.append("Conversion And Retention Surfaces should define onboarding, habit loops, upgrade moments, and re-engagement surfaces.")
+        if metrics["impeccable_review_fields"] < 5:
+            issues.append("Impeccable Review Notes should capture foundation, workflow, critique, polish, and unresolved design tradeoffs.")
 
     if phase == "design" and name == "i18n-strategy.md":
         metrics["scope_fields"] = count_filled_fields(
@@ -1174,6 +1246,17 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Verification Summary", [])),
             ["Test status", "Build status", "Lint status", "Manual QA status"],
         )
+        metrics["ux_audit_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("UX Audit Summary", [])),
+            [
+                "Final impeccable audit",
+                "Contrast and readability checks",
+                "Responsive checks",
+                "Interaction polish and feedback checks",
+                "Trust and recovery cue checks",
+                "Localization layout checks",
+            ],
+        )
         metrics["localization_summary_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Localization Summary", [])),
             ["Hardcoded copy audit", "Locale coverage", "Translation validation", "Hardcoded copy check command/result"],
@@ -1196,6 +1279,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
         )
         if metrics["verification_summary_fields"] < 2:
             issues.append("Delivery should already update Verification Summary with meaningful implementation evidence.")
+        if metrics["ux_audit_fields"] < 3:
+            issues.append("Delivery should already record a substantial impeccable-driven UX audit before release.")
         if metrics["localization_summary_fields"] < 2:
             issues.append("Delivery should update Localization Summary with actual locale and hardcoded-copy evidence.")
         if metrics["operational_readiness_fields"] < 3:
@@ -1214,7 +1299,14 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
         )
         metrics["ux_audit_fields"] = count_filled_fields(
             bullet_field_map(sections.get("UX Audit Summary", [])),
-            ["Final impeccable audit", "Contrast and readability checks", "Responsive checks"],
+            [
+                "Final impeccable audit",
+                "Contrast and readability checks",
+                "Responsive checks",
+                "Interaction polish and feedback checks",
+                "Trust and recovery cue checks",
+                "Localization layout checks",
+            ],
         )
         metrics["localization_summary_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Localization Summary", [])),
@@ -1250,8 +1342,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
         )
         if metrics["verification_summary_fields"] < 4:
             issues.append("Release readiness should fill test/build/lint/manual QA status.")
-        if metrics["ux_audit_fields"] < 3:
-            issues.append("Release readiness should summarize final UX audit results.")
+        if metrics["ux_audit_fields"] < 5:
+            issues.append("Release readiness should summarize final UX audit depth across readability, responsiveness, interaction polish, trust cues, and localization layout.")
         if metrics["localization_summary_fields"] < 4:
             issues.append("Release readiness should summarize locale coverage and hardcoded-copy validation.")
         if metrics["operational_readiness_fields"] < 4:

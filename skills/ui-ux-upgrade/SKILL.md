@@ -11,19 +11,20 @@ This mode is for existing codebases, not greenfield ideation.
 
 1. Inspect the current project and current UX issues.
 2. Capture design context or ask for it if missing.
-3. Use `impeccable` to define the upgrade direction.
-4. Implement the UI/UX changes in code.
-5. Run a post-implementation `impeccable` audit.
-6. Record the upgrade notes locally.
+3. Use `impeccable` to define the upgrade direction and design-system delta.
+4. Use `impeccable` again to critique the highest-value flows, states, trust cues, and conversion or retention surfaces.
+5. Implement the UI/UX changes in code.
+6. Run a post-implementation `impeccable` audit.
+7. Record the upgrade notes locally.
 
 ## Minimum Deliverables
 
 - design direction
-- page or component upgrade plan
+- design-system delta
+- key surface or journey upgrade plan
 - implemented changes
 - final audit notes
 
 ## Anti-Pattern Rule
 
 Do not stop at a critique. This mode is expected to carry through implementation unless the user explicitly asks for review only.
-

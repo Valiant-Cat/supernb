@@ -21,9 +21,15 @@ If design context is missing, gather it first.
 
 Use `impeccable`:
 
-- before page design, to establish visual direction
-- during page design, to improve hierarchy and interaction quality
-- after implementation, to audit contrast, readability, spacing, and responsive behavior
+- before page design, to establish visual direction and design-system principles
+- during page design, to critique hierarchy, interaction quality, retention surfaces, and trust cues
+- after implementation, to audit contrast, readability, spacing, responsive behavior, interaction polish, and localization layout resilience
+
+At minimum, run `impeccable` as three passes:
+
+- foundation pass: direction, tone, hierarchy, type, color, spacing
+- critique pass: flows, states, friction, trust, conversion, retention, anti-patterns
+- polish pass: motion, responsiveness, perceived quality, recovery cues, localization stress points
 
 ## Minimum Quality Checks
 
@@ -36,6 +42,9 @@ Use `impeccable`:
 - trust, guidance, and recovery cues must be designed deliberately
 - the output should feel like a product system, not a style pass on a demo layout
 - onboarding, repeat-use surfaces, localization adaptation, and support paths should feel credible for a 10M-DAU-class product
+- conversion, retention, and monetization surfaces must be deliberate, not bolted on
+- key surfaces should be deep enough to guide implementation without guesswork
+- the design system should define reusable patterns instead of page-by-page improvisation
 
 ## Release Rule
 
@@ -44,5 +53,14 @@ Frontend work is not complete until a final `impeccable` review pass is done aft
 ## Template Rule
 
 If an initiative scaffold exists, prefer saving UI/UX decisions and audits into the corresponding design artifacts.
+
+The saved artifact should be rich enough to preserve:
+
+- product experience strategy
+- design-system definition
+- key journey surface deep dives
+- interaction and motion details
+- impeccable workflow evidence
+- explicit design debt and open tradeoffs
 
 Do not reduce the depth of `impeccable` or upstream design outputs merely to fit a smaller local template. Preserve full detail when it adds value.

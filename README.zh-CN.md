@@ -6,7 +6,7 @@
 
 - 使用最新 `obra/superpowers` 作为默认的规划和交付引擎
 - 使用 `superpowers@frad-dotclaude` 作为 Claude Code 下可选的 loop 执行增强层
-- 使用 `impeccable` 负责 UI/UX 生成、审查和落地后的质量控制
+- 使用 `impeccable` 负责 UI/UX 生成、审查、design system 定义和落地后的质量控制
 - 内置 `sensortower-research` 用于竞品调研、评论挖掘和有证据支撑的 PRD 产出
 - 内置翻译 skills 用于本地化提取、key 同步和多语言补全
 
@@ -78,7 +78,7 @@
 
 1. 先做 research。先做竞品、评论、功能机会分析，再写 PRD。
 2. 再做 PRD。每份 PRD 都必须回指 research window 和竞品证据。
-3. 再做 design。用 `impeccable` 定义视觉方向、页面级 UI/UX、对比度和可读性规则。
+3. 再做 design。用 `impeccable` 定义视觉方向、design system、关键旅程页面，以及对比度、可读性和交互质量规则。
 4. 再做 implementation。用最新 `superpowers` 做规划、测试先行、执行和验证；只有当 Claude Code 任务确实需要有限持久循环时，才启用 Frad loop。
 5. 持续提交。每个经过验证的 batch 都应该提交到 git。
 
