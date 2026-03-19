@@ -28,6 +28,8 @@ After running the prompt manually, import the structured result first:
   --report-json /path/to/report.json
 ```
 
+Make sure the imported report's `evidence_artifacts` actually point at real files. `import-execution` now rejects unresolved paths before it writes a packet.
+
 Then continue with:
 
 ```bash

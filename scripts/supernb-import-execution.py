@@ -11,10 +11,12 @@ from pathlib import Path
 from typing import Any
 
 from lib.supernb_common import (
+    PHASES,
     artifact_path as common_artifact_path,
     load_spec,
     nested_get,
     project_root as common_project_root,
+    resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
 )
 
@@ -35,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import a manually executed phase result as a structured supernb execution packet.")
     parser.add_argument("--initiative-id", help="Existing initiative id, e.g. 2026-03-19-my-product")
     parser.add_argument("--spec", help="Path to initiative.yaml")
-    parser.add_argument("--phase", required=True, help="Phase name for this imported execution")
+    parser.add_argument("--phase", required=True, choices=PHASES, help="Phase name for this imported execution")
     parser.add_argument("--report-json", required=True, help="Structured execution report JSON file matching the supernb REPORT contract")
     parser.add_argument("--response-file", help="Optional plain-text or markdown response body to store ahead of the REPORT JSON block")
     parser.add_argument("--stdout-file", help="Optional stdout log to copy into the packet")
@@ -74,13 +76,20 @@ def load_execute_next_module() -> Any:
     return module
 
 
-def read_optional_text(path_value: str | None) -> str:
+def resolve_optional_file_path(path_value: str | None) -> Path | None:
     if not path_value:
-        return ""
+        return None
     path = Path(path_value).expanduser().resolve()
     if not path.is_file():
         raise FileNotFoundError(f"File not found: {path}")
-    return path.read_text(encoding="utf-8")
+    return path
+
+
+def read_optional_text(path_value: str | None) -> tuple[Path | None, str]:
+    path = resolve_optional_file_path(path_value)
+    if path is None:
+        return None, ""
+    return path, path.read_text(encoding="utf-8")
 
 
 def ensure_list(value: Any) -> list[str]:
@@ -137,6 +146,31 @@ def build_summary_md(
     return "\n".join(lines) + "\n"
 
 
+def resolve_evidence_artifacts(
+    module: Any,
+    raw_paths: list[str],
+    project_dir: Path,
+    search_roots: list[Path],
+) -> tuple[list[str], list[str]]:
+    resolved_artifacts: list[str] = []
+    missing_artifacts: list[str] = []
+    seen: set[str] = set()
+    for raw_path in raw_paths:
+        candidate = str(raw_path).strip()
+        if not candidate:
+            continue
+        resolved = resolve_existing_path(candidate, search_roots)
+        if resolved is None:
+            missing_artifacts.append(candidate)
+            continue
+        rendered = module.display_path(resolved if resolved.is_absolute() else (project_dir / resolved).resolve())
+        if rendered in seen:
+            continue
+        seen.add(rendered)
+        resolved_artifacts.append(rendered)
+    return resolved_artifacts, missing_artifacts
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -177,20 +211,37 @@ def main() -> int:
     merged_report["evidence_artifacts"] = ensure_list(merged_report.get("evidence_artifacts")) + ensure_list(args.artifact_path)
     merged_report["evidence_artifacts"] = ensure_list(merged_report["evidence_artifacts"])
 
-    response_prefix = ""
-    stdout_text = ""
-    stderr_text = ""
     imported_sources = [str(report_path)]
     try:
-        response_prefix = read_optional_text(args.response_file)
-        stdout_text = read_optional_text(args.stdout_file)
-        stderr_text = read_optional_text(args.stderr_file)
+        response_file_path, response_prefix = read_optional_text(args.response_file)
+        stdout_file_path, stdout_text = read_optional_text(args.stdout_file)
+        stderr_file_path, stderr_text = read_optional_text(args.stderr_file)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    for candidate in [args.response_file, args.stdout_file, args.stderr_file]:
-        if candidate:
-            imported_sources.append(str(Path(candidate).expanduser().resolve()))
+    for candidate in [response_file_path, stdout_file_path, stderr_file_path]:
+        if candidate is not None:
+            imported_sources.append(str(candidate))
+
+    evidence_search_roots = [project_dir, report_path.parent]
+    for candidate in [response_file_path, stdout_file_path, stderr_file_path]:
+        if candidate is not None:
+            evidence_search_roots.append(candidate.parent)
+
+    resolved_evidence_artifacts, missing_evidence_artifacts = resolve_evidence_artifacts(
+        module,
+        ensure_list(merged_report.get("evidence_artifacts")),
+        project_dir,
+        evidence_search_roots,
+    )
+    if missing_evidence_artifacts:
+        print(
+            "Structured report references evidence artifacts that do not exist: "
+            + ", ".join(missing_evidence_artifacts),
+            file=sys.stderr,
+        )
+        return 1
+    merged_report["evidence_artifacts"] = resolved_evidence_artifacts
 
     response_text = build_response_text(module, merged_report, response_prefix)
     normalized_report = module.extract_report_json(response_text)

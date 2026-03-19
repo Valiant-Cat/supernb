@@ -21,6 +21,8 @@ from lib.supernb_common import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
+RESULT_STATUSES = ["succeeded", "blocked", "needs-follow-up", "manual-follow-up", "not-run", "failed"]
+RESULT_SOURCES = ["manual-override", "execution-packet"]
 
 
 def utc_now() -> str:
@@ -36,8 +38,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--initiative-id", help="Existing initiative id, e.g. 2026-03-19-my-product")
     parser.add_argument("--spec", help="Path to initiative.yaml")
     parser.add_argument("--phase", help="Phase name. Defaults to the current selected phase from run-status.json.")
-    parser.add_argument("--status", required=True, help="Outcome label, e.g. succeeded, blocked, needs-follow-up, approved, verified")
+    parser.add_argument("--status", required=True, choices=RESULT_STATUSES, help="Outcome label for the recorded phase result")
     parser.add_argument("--summary", required=True, help="One-line execution summary")
+    parser.add_argument("--source", choices=RESULT_SOURCES, default="manual-override", help="Whether this result is a manual override or sourced from an execution packet")
+    parser.add_argument("--override-reason", help="Why a manual override is necessary. Required for manual overrides.")
+    parser.add_argument("--source-packet", help="Execution packet directory when --source execution-packet is used")
     parser.add_argument("--notes-file", help="Optional markdown/text file to embed into the result record")
     parser.add_argument("--artifact-path", action="append", default=[], help="Repeatable evidence artifact path")
     parser.add_argument("--no-rerun", action="store_true", help="Do not invoke supernb run after recording the result")
@@ -73,7 +78,17 @@ def current_phase_from_run_status(spec: dict[str, Any]) -> str:
     return phase
 
 
-def append_to_run_log(log_path: Path, phase: str, status: str, summary: str, result_path: Path, artifact_paths: list[str]) -> None:
+def append_to_run_log(
+    log_path: Path,
+    phase: str,
+    status: str,
+    summary: str,
+    result_path: Path,
+    artifact_paths: list[str],
+    source: str,
+    source_packet: str,
+    override_reason: str,
+) -> None:
     if not log_path.exists():
         log_path.write_text("# Run Log\n\n", encoding="utf-8")
 
@@ -83,8 +98,13 @@ def append_to_run_log(log_path: Path, phase: str, status: str, summary: str, res
         f"- Phase: `{phase}`",
         f"- Result status: `{status}`",
         f"- Summary: {summary}",
+        f"- Source: `{source}`",
         f"- Result record: `{display_path(result_path)}`",
     ]
+    if source_packet:
+        lines.append(f"- Source packet: `{source_packet}`")
+    if override_reason:
+        lines.append(f"- Override reason: {override_reason}")
     if artifact_paths:
         lines.append(f"- Evidence artifacts: {', '.join(f'`{path}`' for path in artifact_paths)}")
     lines.append("")
@@ -116,7 +136,21 @@ def main() -> int:
     results_dir = artifact_path(spec, "phase_results_dir")
     run_log_path = artifact_path(spec, "run_log_md")
     results_dir.mkdir(parents=True, exist_ok=True)
-    base_dirs = [project_root(spec)]
+    base_dirs = [project_root(spec), spec_path.parent]
+
+    source_packet_display = ""
+    if args.source == "manual-override" and not args.override_reason:
+        print("--override-reason is required when --source manual-override is used.", file=sys.stderr)
+        return 1
+    if args.source == "execution-packet":
+        if not args.source_packet:
+            print("--source-packet is required when --source execution-packet is used.", file=sys.stderr)
+            return 1
+        source_packet = resolve_existing_path(args.source_packet, base_dirs)
+        if source_packet is None or not source_packet.is_dir():
+            print(f"Execution packet not found: {args.source_packet}", file=sys.stderr)
+            return 1
+        source_packet_display = display_path(source_packet)
 
     notes = ""
     if args.notes_file:
@@ -145,10 +179,16 @@ def main() -> int:
         f"- Recorded: `{utc_now()}`",
         f"- Result status: `{args.status}`",
         f"- Summary: {args.summary}",
+        f"- Source: `{args.source}`",
         "",
         "## Evidence Artifacts",
         "",
     ]
+    if source_packet_display:
+        lines.insert(8, f"- Source packet: `{source_packet_display}`")
+    if args.override_reason:
+        insert_at = 9 if source_packet_display else 8
+        lines.insert(insert_at, f"- Override reason: {args.override_reason}")
     if resolved_artifacts:
         for artifact in resolved_artifacts:
             lines.append(f"- `{artifact}`")
@@ -171,7 +211,17 @@ def main() -> int:
     )
     result_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    append_to_run_log(run_log_path, phase, args.status, args.summary, result_path, resolved_artifacts)
+    append_to_run_log(
+        run_log_path,
+        phase,
+        args.status,
+        args.summary,
+        result_path,
+        resolved_artifacts,
+        args.source,
+        source_packet_display,
+        args.override_reason or "",
+    )
 
     print(f"Recorded phase result: {result_path}")
     if not args.no_rerun:

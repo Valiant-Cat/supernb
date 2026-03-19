@@ -115,7 +115,7 @@ If the phase was executed manually, or via OpenCode after `execute-next` prepare
   --report-json /path/to/report.json
 ```
 
-That command creates a normal execution packet under `executions/` so the rest of the workflow can still use `apply-execution`, `certify-phase`, and `advance-phase`.
+That command creates a normal execution packet under `executions/` so the rest of the workflow can still use `apply-execution`, `certify-phase`, and `advance-phase`. It now validates every declared evidence path before writing the packet.
 
 ## 6. Record The Outcome
 
@@ -124,13 +124,15 @@ After a phase execution, record what happened:
 ```bash
 ./scripts/supernb record-result \
   --initiative-id <initiative-id> \
-  --status succeeded \
-  --summary "Research batch completed"
+  --status needs-follow-up \
+  --summary "Research batch completed" \
+  --source manual-override \
+  --override-reason "Packet evidence was incomplete"
 ```
 
 This writes a timestamped result file into `phase-results/`, appends to `run-log.md`, and reruns `supernb run` by default.
 
-Use this direct path only when you need to override the packet suggestion manually.
+Use this direct path only when you need to override the packet suggestion manually. Packet-backed results should continue to use `apply-execution`.
 
 If you are bringing an older loose `.supernb` workspace forward, run:
 
@@ -145,6 +147,8 @@ If execution history gets noisy after many previews and retries, inspect cleanup
 ```bash
 ./scripts/supernb clean-initiative --initiative-id <initiative-id>
 ```
+
+Add `--apply` to archive the selected artifacts into a cleanup session with a manifest, or `--apply --delete` if you explicitly want hard deletion.
 
 ## 7. Certify The Phase
 

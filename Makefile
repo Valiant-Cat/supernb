@@ -51,9 +51,9 @@ import-execution:
 	./scripts/supernb import-execution $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) --phase "$(PHASE)" --report-json "$(REPORT_JSON)" $(if $(RESPONSE_FILE),--response-file "$(RESPONSE_FILE)",) $(if $(STDOUT_FILE),--stdout-file "$(STDOUT_FILE)",) $(if $(STDERR_FILE),--stderr-file "$(STDERR_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(EXECUTION_STATUS),--execution-status "$(EXECUTION_STATUS)",) $(if $(EXIT_CODE),--exit-code "$(EXIT_CODE)",)
 
 record-result:
-	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> SOURCE=manual-override OVERRIDE_REASON='...' or SOURCE=execution-packet SOURCE_PACKET=/path NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi
 	@if [ -z "$(STATUS)" ] || [ -z "$(SUMMARY)" ]; then echo "STATUS and SUMMARY are required."; exit 1; fi
-	./scripts/supernb record-result $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) --status "$(STATUS)" --summary "$(SUMMARY)" $(if $(NOTES_FILE),--notes-file "$(NOTES_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(NO_RERUN),--no-rerun,)
+	./scripts/supernb record-result $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) --status "$(STATUS)" --summary "$(SUMMARY)" $(if $(SOURCE),--source "$(SOURCE)",) $(if $(OVERRIDE_REASON),--override-reason "$(OVERRIDE_REASON)",) $(if $(SOURCE_PACKET),--source-packet "$(SOURCE_PACKET)",) $(if $(NOTES_FILE),--notes-file "$(NOTES_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(NO_RERUN),--no-rerun,)
 
 advance-phase:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make advance-phase INITIATIVE_ID=<id> PHASE=<phase> STATUS=<status> [ACTOR=name] [SUMMARY='...']"; exit 1; fi
@@ -73,8 +73,8 @@ migrate-legacy:
 	./scripts/supernb migrate-legacy $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(LEGACY_ROOT),--legacy-root "$(LEGACY_ROOT)",) $(if $(NO_UPGRADE),--no-upgrade,)
 
 clean-initiative:
-	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make clean-initiative INITIATIVE_ID=<id> [APPLY=1]"; exit 1; fi
-	./scripts/supernb clean-initiative $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(APPLY),--apply,) $(if $(KEEP_COMMAND_BRIEFS),--keep-command-briefs "$(KEEP_COMMAND_BRIEFS)",) $(if $(KEEP_EXECUTIONS_PER_PHASE),--keep-executions-per-phase "$(KEEP_EXECUTIONS_PER_PHASE)",) $(if $(PRUNE_PHASE_RESULTS),--prune-phase-results,) $(if $(KEEP_PHASE_RESULTS_PER_PHASE),--keep-phase-results-per-phase "$(KEEP_PHASE_RESULTS_PER_PHASE)",)
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make clean-initiative INITIATIVE_ID=<id> [APPLY=1] [DELETE=1] [ARCHIVE_DIR=/path]"; exit 1; fi
+	./scripts/supernb clean-initiative $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(APPLY),--apply,) $(if $(DELETE),--delete,) $(if $(ARCHIVE_DIR),--archive-dir "$(ARCHIVE_DIR)",) $(if $(KEEP_COMMAND_BRIEFS),--keep-command-briefs "$(KEEP_COMMAND_BRIEFS)",) $(if $(KEEP_EXECUTIONS_PER_PHASE),--keep-executions-per-phase "$(KEEP_EXECUTIONS_PER_PHASE)",) $(if $(PRUNE_PHASE_RESULTS),--prune-phase-results,) $(if $(KEEP_PHASE_RESULTS_PER_PHASE),--keep-phase-results-per-phase "$(KEEP_PHASE_RESULTS_PER_PHASE)",)
 
 test:
 	./scripts/supernb test

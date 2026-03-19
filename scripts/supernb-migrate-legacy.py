@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,7 @@ LEGACY_PRIORITY_PATHS = [
     "implementation/IMPLEMENTATION-PLAN.md",
 ]
 LEGACY_INCLUDE_EXTENSIONS = {".md", ".markdown", ".txt", ".json", ".yaml", ".yml"}
+LEGACY_INTEREST_DIRS = {"research", "prd", "design", "implementation", "release"}
 LEGACY_SKIP_DIRS = {
     "initiatives",
     "command-briefs",
@@ -60,6 +62,10 @@ def should_skip_relative(relative: Path) -> bool:
     return any(part in LEGACY_SKIP_DIRS for part in relative.parts)
 
 
+def is_priority_relative(relative: Path) -> bool:
+    return relative.as_posix() in LEGACY_PRIORITY_PATHS
+
+
 def discover_legacy_files(legacy_root: Path) -> list[Path]:
     discovered: list[Path] = []
     seen: set[Path] = set()
@@ -81,9 +87,104 @@ def discover_legacy_files(legacy_root: Path) -> list[Path]:
             continue
         if source.suffix.lower() not in LEGACY_INCLUDE_EXTENSIONS:
             continue
+        if not is_priority_relative(relative):
+            if not relative.parts:
+                continue
+            if len(relative.parts) == 1:
+                continue
+            if relative.parts[0] not in LEGACY_INTEREST_DIRS:
+                continue
         seen.add(relative)
         discovered.append(relative)
     return discovered
+
+
+def suggest_target(spec: dict[str, Any], relative: Path) -> tuple[str, str, str]:
+    relative_text = relative.as_posix().lower()
+    if relative_text == "brainstorm.md":
+        return (
+            str(artifact_path(spec, "research_dir") / "03-feature-opportunities.md"),
+            "medium",
+            "Merge distilled opportunity themes and unmet-need notes into feature opportunities.",
+        )
+    if relative_text in {"research.md", "research/market-research.md"}:
+        return (
+            str(artifact_path(spec, "research_dir") / "01-competitor-landscape.md"),
+            "high",
+            "Merge competitor coverage, metadata, monetization, and market observations into the research landscape artifact.",
+        )
+    if relative_text.startswith("research/"):
+        if "review" in relative_text or "insight" in relative_text:
+            target = artifact_path(spec, "research_dir") / "02-review-insights.md"
+            rationale = "Merge review-mining findings into the review insights artifact."
+        elif "feature" in relative_text or "opportun" in relative_text:
+            target = artifact_path(spec, "research_dir") / "03-feature-opportunities.md"
+            rationale = "Merge opportunity framing into the feature opportunities artifact."
+        else:
+            target = artifact_path(spec, "research_dir") / "01-competitor-landscape.md"
+            rationale = "Merge broader market and competitor notes into the research landscape artifact."
+        return str(target), "medium", rationale
+    if relative_text.startswith("prd/"):
+        return (
+            str(artifact_path(spec, "prd_dir") / "product-requirements.md"),
+            "high",
+            "Merge legacy PRD content into the initiative-scoped product requirements document.",
+        )
+    if relative_text.startswith("design/"):
+        return (
+            str(artifact_path(spec, "design_dir") / "ui-ux-spec.md"),
+            "high",
+            "Merge UI/UX specifications into the initiative-scoped design spec.",
+        )
+    if relative_text.startswith("implementation/"):
+        return (
+            str(artifact_path(spec, "plan_dir") / "implementation-plan.md"),
+            "high",
+            "Merge delivery sequencing, batches, and verification details into the current implementation plan.",
+        )
+    if relative_text.startswith("release/"):
+        return (
+            str(artifact_path(spec, "release_dir") / "release-readiness.md"),
+            "high",
+            "Merge release checks, rollout, and watchlist detail into the release readiness artifact.",
+        )
+    return ("manual-review", "low", "Review manually and merge only if the content materially strengthens the current initiative artifacts.")
+
+
+def write_mapping_reports(
+    mapping_md_path: Path,
+    mapping_json_path: Path,
+    initiative_id: str,
+    legacy_root: Path,
+    mapping_rows: list[dict[str, str]],
+) -> None:
+    lines = [
+        "# Legacy Mapping Suggestions",
+        "",
+        f"- Initiative ID: `{initiative_id}`",
+        f"- Generated at: `{utc_now()}`",
+        f"- Legacy root: `{legacy_root}`",
+        "",
+        "## Suggested Mappings",
+        "",
+    ]
+    if mapping_rows:
+        for row in mapping_rows:
+            lines.extend(
+                [
+                    f"### `{row['relative_path']}`",
+                    "",
+                    f"- Imported copy: `{row['imported_copy']}`",
+                    f"- Suggested target: `{row['suggested_target']}`",
+                    f"- Confidence: `{row['confidence']}`",
+                    f"- Rationale: {row['rationale']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("- No legacy files were imported, so no mapping suggestions were generated.")
+    mapping_md_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    mapping_json_path.write_text(json.dumps({"initiative_id": initiative_id, "generated_at": utc_now(), "mappings": mapping_rows}, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> int:
@@ -116,14 +217,28 @@ def main() -> int:
     initiative_dir = artifact_path(spec, "run_status_md").parent
     legacy_import_dir = initiative_dir / "legacy-import"
     legacy_import_dir.mkdir(parents=True, exist_ok=True)
+    mapping_md_path = legacy_import_dir / "legacy-mapping.md"
+    mapping_json_path = legacy_import_dir / "legacy-mapping.json"
 
     imported: list[tuple[Path, Path]] = []
+    mapping_rows: list[dict[str, str]] = []
     for relative in discover_legacy_files(legacy_root):
         source = legacy_root / relative
         destination = legacy_import_dir / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
         imported.append((source, destination))
+        suggested_target, confidence, rationale = suggest_target(spec, relative)
+        mapping_rows.append(
+            {
+                "relative_path": relative.as_posix(),
+                "source_path": str(source),
+                "imported_copy": str(destination),
+                "suggested_target": suggested_target,
+                "confidence": confidence,
+                "rationale": rationale,
+            }
+        )
 
     report_path = legacy_import_dir / "legacy-import.md"
     lines = [
@@ -144,14 +259,21 @@ def main() -> int:
     lines.extend(
         [
             "",
+            "## Mapping Suggestions",
+            "",
+            f"- Mapping report: `{mapping_md_path}`",
+            f"- Mapping data: `{mapping_json_path}`",
+            "",
             "## Next Steps",
             "",
             f"- Review the imported legacy files under `{legacy_import_dir}`.",
+            f"- Start with the suggested targets in `{mapping_md_path}` instead of reconciling files ad hoc.",
             f"- Update the initiative-scoped artifacts under `{initiative_dir}` with the parts you want to preserve.",
             f"- Run `./scripts/supernb run --initiative-id {initiative_id}` after the migrated artifacts are reconciled.",
         ]
     )
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_mapping_reports(mapping_md_path, mapping_json_path, initiative_id, legacy_root, mapping_rows)
 
     if imported and not args.no_upgrade:
         subprocess.run(
@@ -163,6 +285,7 @@ def main() -> int:
     print(f"Legacy root: {legacy_root}")
     print(f"Legacy import dir: {legacy_import_dir}")
     print(f"Import report: {report_path}")
+    print(f"Mapping report: {mapping_md_path}")
     if imported:
         print(f"Imported files: {len(imported)}")
         if args.no_upgrade:

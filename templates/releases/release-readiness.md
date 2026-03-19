@@ -76,6 +76,14 @@
 - Revenue or conversion signal to watch:
 - Quality or support signal to watch:
 
+## Delivered Traceability Summary
+
+Show that the shipped product still matches the launch-critical capabilities and surfaces promised upstream.
+
+| PRD capability | Design surface | Delivered evidence | Release verification | Watch signal |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+
 ## Release Notes Draft
 
 - Added:

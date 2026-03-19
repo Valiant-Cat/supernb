@@ -83,14 +83,20 @@ If the work was run manually, or via OpenCode after preparing the prompt, import
   --report-json /path/to/report.json
 ```
 
+That import will now fail immediately if the declared evidence artifact paths do not exist.
+
 After the phase work is done, record it:
 
 ```bash
 ./scripts/supernb record-result \
   --initiative-id <initiative-id> \
-  --status succeeded \
-  --summary "Describe the completed batch"
+  --status needs-follow-up \
+  --summary "Describe the completed batch" \
+  --source manual-override \
+  --override-reason "Packet evidence was incomplete"
 ```
+
+Use this path only for controlled overrides. Packet-backed execution results should keep flowing through `apply-execution`.
 
 Before advancing, certify the artifact set against both structural and semantic readiness:
 
@@ -116,11 +122,15 @@ For a legacy loose `.supernb` workspace that predates initiatives, create the ne
 ./scripts/supernb migrate-legacy --initiative-id <initiative-id>
 ```
 
+That flow now writes both `legacy-import.md` and `legacy-mapping.md/json` so the imported files come with suggested target artifacts.
+
 If repeated previews and retries have filled `executions/` with stale packets, preview cleanup candidates with:
 
 ```bash
 ./scripts/supernb clean-initiative --initiative-id <initiative-id>
 ```
+
+Re-run with `--apply` to archive the selected artifacts into a cleanup session and manifest, or add `--delete` for an explicit hard-delete.
 
 ## 4. Run Research Before PRD
 
@@ -131,6 +141,7 @@ Fill these first:
 - `03-feature-opportunities.md`
 
 Use `sensortower-research` whenever available. Export raw data first, then summarize.
+Carry the core insights forward into the PRD traceability matrix so later design, planning, and release docs can prove they are still building the same product.
 
 ## 5. Write The PRD
 

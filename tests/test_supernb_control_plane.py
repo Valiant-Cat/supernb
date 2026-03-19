@@ -263,6 +263,49 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertIn("Design System Definition", combined)
             self.assertIn("Conversion And Retention Surfaces", combined)
 
+    def test_traceability_checks_flag_cross_phase_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            initiative_id = "2026-03-19-demo"
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            prd_dir.mkdir(parents=True, exist_ok=True)
+            design_dir.mkdir(parents=True, exist_ok=True)
+
+            (prd_dir / "product-requirements.md").write_text(
+                "# PRD\n\n"
+                "## Cross-Phase Traceability Matrix\n\n"
+                "| Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| Users hate manual setup | Smart onboarding | Onboarding flow | Batch 1 | Activation QA |\n"
+                "| Users want trusted insights | Insight feed | Insight dashboard | Batch 2 | Insight regression |\n",
+                encoding="utf-8",
+            )
+            (design_dir / "ui-ux-spec.md").write_text(
+                "# UI UX Spec\n\n"
+                "## Traceability To Research And PRD\n\n"
+                "| PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |\n"
+                "| --- | --- | --- | --- | --- |\n"
+                "| Smart onboarding | Users hate manual setup | Onboarding flow | Empty/loading/error | Audit v1 |\n",
+                encoding="utf-8",
+            )
+
+            spec = {
+                "initiative": {"id": initiative_id},
+                "delivery": {"project_dir": str(project_dir)},
+                "artifacts": {
+                    "prd_dir": ".supernb/prd/2026-03-19-demo",
+                    "design_dir": ".supernb/design/2026-03-19-demo",
+                },
+            }
+
+            checks = execute_next.build_traceability_checks(spec, "design")
+            issues = [issue for check in checks for issue in check.get("issues", [])]
+
+            self.assertTrue(any("missing capabilities" in issue for issue in issues))
+            self.assertTrue(any("Insight feed" in issue for issue in issues))
+
 
 if __name__ == "__main__":
     unittest.main()

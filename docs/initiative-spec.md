@@ -105,16 +105,20 @@ For OpenCode or other manual handoff flows, import a structured execution result
   --report-json /path/to/report.json
 ```
 
+`import-execution` now validates every declared `evidence_artifacts` path before it writes the packet.
+
 After phase execution, record the outcome with:
 
 ```bash
 ./scripts/supernb record-result \
   --initiative-id <initiative-id> \
-  --status succeeded \
-  --summary "Research batch completed"
+  --status needs-follow-up \
+  --summary "Research batch completed" \
+  --source manual-override \
+  --override-reason "Packet evidence was incomplete"
 ```
 
-That command writes a timestamped phase result, appends to `run-log.md`, and reruns `supernb run` by default.
+That command writes a timestamped phase result, appends to `run-log.md`, and reruns `supernb run` by default. Manual use is now treated as a controlled override path rather than a peer of execution packets.
 
 When the phase should really advance, apply the gate update:
 
@@ -142,9 +146,12 @@ Current default initiative posture:
 
 - `delivery.scale_target_dau` defaults to `10000000`
 - `delivery.quality_bar` defaults to `10m-dau-grade`
+- PRD, design, implementation plan, and release readiness are expected to carry aligned cross-phase traceability matrices
 - old initiatives can be brought forward with `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`
 - pre-initiative loose workspaces can be imported with `./scripts/supernb migrate-legacy --initiative-id <initiative-id>`
-- stale dry runs, unsupported packets, and older execution artifacts can be previewed or pruned with `./scripts/supernb clean-initiative --initiative-id <initiative-id> [--apply]`
+- legacy imports now include `legacy-mapping.md/json` so reconciliation starts from suggested target artifacts instead of ad hoc copying
+- stale dry runs, unsupported packets, and older execution artifacts can be previewed or archived with `./scripts/supernb clean-initiative --initiative-id <initiative-id> [--apply]`
+- hard deletion is now explicit: `./scripts/supernb clean-initiative --initiative-id <initiative-id> --apply --delete`
 
 ## Gate Fields In Artifact Templates
 

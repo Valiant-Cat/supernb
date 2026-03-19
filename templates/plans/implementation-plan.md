@@ -104,3 +104,11 @@ Use Frad loop mode only for bounded tasks.
 - Abuse / fraud / trust safeguards:
 - Observability and incident readiness:
 - Growth surface instrumentation:
+
+## Delivery Traceability Map
+
+Carry the same launch-critical capabilities from the PRD/design traceability matrix into concrete delivery batches and verification.
+
+| PRD capability | Design surface | Delivery batch | Verification evidence | Release dependency |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |

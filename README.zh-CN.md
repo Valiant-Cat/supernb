@@ -257,14 +257,17 @@ make bootstrap HARNESS=codex
 1. 运行 `./scripts/supernb init-initiative my-product "My Product"`。
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
+   现在 PRD、design、implementation plan、release readiness 都带有 traceability matrix；这些矩阵一旦对不上，certification 会直接拦住 phase 漂移。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
    `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。
    如果是 OpenCode，这一步会先准备 execution packet 和 prompt，再由你在 OpenCode 里手动执行。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。
 6. 对 OpenCode 或其他手动执行场景，用 `./scripts/supernb import-execution --initiative-id <initiative-id> --phase <phase> --report-json /path/to/report.json` 导入结构化执行结果，再应用该 packet。
+   `import-execution` 现在会在落 packet 之前先校验所有 `evidence_artifacts` 路径是否真实存在。
 7. 如果你需要单独认证某个阶段，运行 `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>`。
 8. 只有在你想覆盖 packet 建议时，才手动运行 `./scripts/supernb record-result ...`。
+   手工 override 现在必须带 `--override-reason`；来自 packet 的结果继续走 `apply-execution`。
 9. 只有在你想绕过认证助手时，才手动运行 `./scripts/supernb advance-phase ...`。
 
 如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：
@@ -277,12 +280,13 @@ make bootstrap HARNESS=codex
 
 1. 先运行 `./scripts/supernb init-initiative ...` 创建新 initiative。
 2. 再运行 `./scripts/supernb migrate-legacy --initiative-id <initiative-id> [--legacy-root /path/to/.supernb]`。
-3. 检查 `legacy-import/`，把需要保留的内容并回 initiative 作用域文档，然后重新执行 `./scripts/supernb run`。
+3. 检查 `legacy-import/` 和 `legacy-mapping.md`，把需要保留的内容并回 initiative 作用域文档，然后重新执行 `./scripts/supernb run`。
 
 如果经过大量 dry-run 和重试后需要清理产物：
 
 - 用 `./scripts/supernb clean-initiative --initiative-id <initiative-id>` 预览旧 command brief、dry-run packet、unsupported packet 和较旧 execution artifact。
-- 仅在确认预览结果后，再加 `--apply` 真正删除。
+- 确认预览结果后，加 `--apply` 会先归档到 cleanup session，并附带 manifest。
+- 只有明确要硬删除时，才额外加 `--delete`。
 
 ## 常用命令
 
@@ -303,7 +307,7 @@ make upgrade-artifacts INITIATIVE_ID=2026-03-19-my-product
 make migrate-legacy INITIATIVE_ID=2026-03-19-my-product LEGACY_ROOT=/path/to/.supernb
 make clean-initiative INITIATIVE_ID=2026-03-19-my-product
 make test
-make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
+make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=needs-follow-up SUMMARY="Manual override after audit" SOURCE=manual-override OVERRIDE_REASON="Packet evidence was incomplete"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
@@ -334,7 +338,7 @@ make install-opencode
 ./scripts/supernb migrate-legacy --initiative-id 2026-03-19-my-product --legacy-root /path/to/.supernb
 ./scripts/supernb clean-initiative --initiative-id 2026-03-19-my-product
 ./scripts/supernb test
-./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
+./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status needs-follow-up --summary "Manual override after audit" --source manual-override --override-reason "Packet evidence was incomplete"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy
 ./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"

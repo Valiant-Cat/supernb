@@ -99,6 +99,7 @@ SECTION_EXPECTATIONS = {
             "Risks",
             "Operational And Trust Requirements",
             "Scale Readiness Requirements",
+            "Cross-Phase Traceability Matrix",
             "Evidence Appendix",
         ],
     },
@@ -121,6 +122,7 @@ SECTION_EXPECTATIONS = {
             "Trust And Feedback Cues",
             "Scale UX Requirements",
             "Conversion And Retention Surfaces",
+            "Traceability To Research And PRD",
             "Impeccable Review Notes",
         ],
         "i18n-strategy.md": [
@@ -148,6 +150,7 @@ SECTION_EXPECTATIONS = {
             "Commit Strategy",
             "Rollout And Recovery Plan",
             "Scale And Reliability Workstreams",
+            "Delivery Traceability Map",
         ],
     },
     "delivery": {
@@ -163,6 +166,7 @@ SECTION_EXPECTATIONS = {
             "Commit Strategy",
             "Rollout And Recovery Plan",
             "Scale And Reliability Workstreams",
+            "Delivery Traceability Map",
         ],
         "release-readiness.md": [
             "Verification Summary",
@@ -172,6 +176,7 @@ SECTION_EXPECTATIONS = {
             "Rollout And Rollback Plan",
             "Scale Launch Controls",
             "Post-Launch Watchlist",
+            "Delivered Traceability Summary",
         ],
     },
     "release": {
@@ -185,6 +190,7 @@ SECTION_EXPECTATIONS = {
             "Rollout And Rollback Plan",
             "Scale Launch Controls",
             "Post-Launch Watchlist",
+            "Delivered Traceability Summary",
             "Release Notes Draft",
             "Go Or No-Go Rationale",
         ],
@@ -198,6 +204,46 @@ WORKFLOW_TRACE_KEYS = [
     "using_git_worktrees",
     "subagent_or_executing_plans",
 ]
+TRACEABILITY_ARTIFACTS = {
+    "prd": {
+        "artifact_key": "prd_dir",
+        "filename": "product-requirements.md",
+        "section": "Cross-Phase Traceability Matrix",
+        "capability_col": 1,
+        "surface_col": 2,
+        "reference_col": 0,
+    },
+    "design": {
+        "artifact_key": "design_dir",
+        "filename": "ui-ux-spec.md",
+        "section": "Traceability To Research And PRD",
+        "capability_col": 0,
+        "surface_col": 2,
+        "reference_col": 1,
+    },
+    "plan": {
+        "artifact_key": "plan_dir",
+        "filename": "implementation-plan.md",
+        "section": "Delivery Traceability Map",
+        "capability_col": 0,
+        "surface_col": 1,
+        "reference_col": None,
+    },
+    "release": {
+        "artifact_key": "release_dir",
+        "filename": "release-readiness.md",
+        "section": "Delivered Traceability Summary",
+        "capability_col": 0,
+        "surface_col": 1,
+        "reference_col": None,
+    },
+}
+TRACEABILITY_COMPARISONS = {
+    "design": [("prd", "design", True)],
+    "planning": [("prd", "design", True), ("design", "plan", False)],
+    "delivery": [("prd", "design", True), ("design", "plan", False), ("plan", "release", False)],
+    "release": [("prd", "design", True), ("design", "plan", False), ("plan", "release", False)],
+}
 
 
 def utc_now() -> str:
@@ -739,6 +785,36 @@ def table_data_rows(lines: list[str], phase: str) -> list[list[str]]:
     return rows
 
 
+def normalize_traceability_label(value: str) -> str:
+    normalized = str(value or "").strip().strip("`").lower()
+    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def table_label_map(rows: list[list[str]], cell_index: int | None) -> dict[str, str]:
+    if cell_index is None:
+        return {}
+    labels: dict[str, str] = {}
+    for row in rows:
+        if cell_index >= len(row):
+            continue
+        raw_value = row[cell_index].strip().strip("`")
+        normalized = normalize_traceability_label(raw_value)
+        if not raw_value or not normalized or normalized in labels:
+            continue
+        labels[normalized] = raw_value
+    return labels
+
+
+def summarize_labels(labels: list[str], limit: int = 5) -> str:
+    if len(labels) <= limit:
+        return ", ".join(labels)
+    remaining = len(labels) - limit
+    preview = ", ".join(labels[:limit])
+    return f"{preview}, +{remaining} more"
+
+
 def code_block_commands(lines: list[str]) -> list[str]:
     commands: list[str] = []
     in_block = False
@@ -804,6 +880,121 @@ def complete_named_blocks(lines: list[str], required_fields: list[str]) -> int:
         if count_filled_fields(values, required_fields) == len(required_fields):
             completed += 1
     return completed
+
+
+def load_traceability_matrix(spec: dict[str, Any], trace_key: str) -> dict[str, Any]:
+    config = TRACEABILITY_ARTIFACTS[trace_key]
+    path = artifact_path(spec, config["artifact_key"]) / config["filename"]
+    result: dict[str, Any] = {
+        "path": display_path(path),
+        "exists": path.is_file(),
+        "section": config["section"],
+        "section_present": False,
+        "row_count": 0,
+        "capability_labels": {},
+        "surface_labels": {},
+        "reference_labels": {},
+    }
+    if not path.is_file():
+        return result
+
+    sections = level2_sections(path.read_text(encoding="utf-8"))
+    section_lines = sections.get(config["section"], [])
+    if section_lines:
+        result["section_present"] = True
+    rows = table_data_rows(section_lines, trace_key)
+    result["row_count"] = len(rows)
+    result["capability_labels"] = table_label_map(rows, config["capability_col"])
+    result["surface_labels"] = table_label_map(rows, config["surface_col"])
+    result["reference_labels"] = table_label_map(rows, config["reference_col"])
+    return result
+
+
+def missing_traceability_labels(source_labels: dict[str, str], target_labels: dict[str, str]) -> list[str]:
+    missing = [label for key, label in source_labels.items() if key not in target_labels]
+    return sorted(missing)
+
+
+def compare_traceability_pair(
+    source_name: str,
+    target_name: str,
+    source_matrix: dict[str, Any],
+    target_matrix: dict[str, Any],
+    compare_references: bool,
+) -> dict[str, Any]:
+    issues: list[str] = []
+    source_label = source_name.upper() if source_name != "plan" else "PLAN"
+    target_label = target_name.upper() if target_name != "plan" else "PLAN"
+
+    if not source_matrix["exists"]:
+        issues.append(f"{source_label} traceability artifact is missing: {source_matrix['path']}.")
+    elif not source_matrix["section_present"]:
+        issues.append(f"{source_label} traceability section is missing: {source_matrix['section']}.")
+    elif source_matrix["row_count"] == 0:
+        issues.append(f"{source_label} traceability section has no populated rows.")
+
+    if not target_matrix["exists"]:
+        issues.append(f"{target_label} traceability artifact is missing: {target_matrix['path']}.")
+    elif not target_matrix["section_present"]:
+        issues.append(f"{target_label} traceability section is missing: {target_matrix['section']}.")
+    elif target_matrix["row_count"] == 0:
+        issues.append(f"{target_label} traceability section has no populated rows.")
+
+    if not issues:
+        missing_capabilities = missing_traceability_labels(source_matrix["capability_labels"], target_matrix["capability_labels"])
+        if missing_capabilities:
+            issues.append(
+                f"{target_label} traceability is missing capabilities carried by {source_label}: {summarize_labels(missing_capabilities)}."
+            )
+
+        missing_surfaces = missing_traceability_labels(source_matrix["surface_labels"], target_matrix["surface_labels"])
+        if missing_surfaces:
+            issues.append(
+                f"{target_label} traceability is missing primary surfaces carried by {source_label}: {summarize_labels(missing_surfaces)}."
+            )
+
+        if compare_references:
+            missing_references = missing_traceability_labels(source_matrix["reference_labels"], target_matrix["reference_labels"])
+            if missing_references:
+                issues.append(
+                    f"{target_label} traceability is missing research evidence references carried by {source_label}: {summarize_labels(missing_references)}."
+                )
+
+    return {
+        "name": f"{source_name}-to-{target_name}",
+        "source_path": source_matrix["path"],
+        "target_path": target_matrix["path"],
+        "source_section": source_matrix["section"],
+        "target_section": target_matrix["section"],
+        "issues": issues,
+        "ready": not issues,
+        "metrics": {
+            "source_rows": source_matrix["row_count"],
+            "target_rows": target_matrix["row_count"],
+            "source_capabilities": len(source_matrix["capability_labels"]),
+            "target_capabilities": len(target_matrix["capability_labels"]),
+            "source_surfaces": len(source_matrix["surface_labels"]),
+            "target_surfaces": len(target_matrix["surface_labels"]),
+            "source_references": len(source_matrix["reference_labels"]),
+            "target_references": len(target_matrix["reference_labels"]),
+        },
+    }
+
+
+def build_traceability_checks(spec: dict[str, Any], phase: str) -> list[dict[str, Any]]:
+    comparisons = TRACEABILITY_COMPARISONS.get(phase, [])
+    if not comparisons:
+        return []
+
+    loaded: dict[str, dict[str, Any]] = {}
+    checks: list[dict[str, Any]] = []
+    for source_name, target_name, compare_references in comparisons:
+        if source_name not in loaded:
+            loaded[source_name] = load_traceability_matrix(spec, source_name)
+        if target_name not in loaded:
+            loaded[target_name] = load_traceability_matrix(spec, target_name)
+        checks.append(compare_traceability_pair(source_name, target_name, loaded[source_name], loaded[target_name], compare_references))
+    return checks
 
 
 def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, list[str]]) -> tuple[list[str], dict[str, Any]]:
@@ -946,6 +1137,7 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Scale Readiness Requirements", [])),
             ["Target scale assumption", "Performance and latency expectations", "Abuse / fraud / moderation model", "Analytics and experimentation instrumentation", "Operational ownership and on-call expectation"],
         )
+        metrics["traceability_rows"] = len(table_data_rows(sections.get("Cross-Phase Traceability Matrix", []), phase))
         metrics["evidence_appendix_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Evidence Appendix", [])),
             ["Competitor landscape", "Review insights", "Feature opportunities", "Key review quotes or themes file", "Additional market notes"],
@@ -980,6 +1172,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Operational And Trust Requirements should cover reliability, trust, and support expectations.")
         if metrics["scale_readiness_fields"] < 4:
             issues.append("Scale Readiness Requirements should define target scale, performance, abuse controls, instrumentation, and operational ownership.")
+        if metrics["traceability_rows"] < 4:
+            issues.append("Cross-Phase Traceability Matrix should map at least four research-backed capabilities through design, delivery, and release.")
         if metrics["evidence_appendix_fields"] < 4:
             issues.append("Evidence Appendix should point back to research artifacts and richer supporting evidence.")
 
@@ -1084,6 +1278,7 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
                 "Remaining design debt or open tensions",
             ],
         )
+        metrics["traceability_rows"] = len(table_data_rows(sections.get("Traceability To Research And PRD", []), phase))
         if metrics["design_context_fields"] < 4:
             issues.append("UI UX spec should define audience, use cases, brand tone, and product maturity target.")
         if metrics["experience_strategy_fields"] < 4:
@@ -1118,6 +1313,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Scale UX Requirements should cover onboarding, repeat use, power-user efficiency, localization adaptation, and trust or abuse entry points.")
         if metrics["conversion_retention_fields"] < 4:
             issues.append("Conversion And Retention Surfaces should define onboarding, habit loops, upgrade moments, and re-engagement surfaces.")
+        if metrics["traceability_rows"] < 4:
+            issues.append("Traceability To Research And PRD should map at least four launch-critical capabilities to concrete design surfaces.")
         if metrics["impeccable_review_fields"] < 5:
             issues.append("Impeccable Review Notes should capture foundation, workflow, critique, polish, and unresolved design tradeoffs.")
 
@@ -1218,6 +1415,7 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Scale And Reliability Workstreams", [])),
             ["Performance and capacity work", "Analytics and experimentation work", "Abuse / fraud / trust safeguards", "Observability and incident readiness", "Growth surface instrumentation"],
         )
+        metrics["traceability_rows"] = len(table_data_rows(sections.get("Delivery Traceability Map", []), phase))
         if metrics["scope_fields"] < 2:
             issues.append("Implementation plan should define what is included and excluded.")
         if metrics["architecture_strategy_fields"] < 4:
@@ -1240,6 +1438,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Rollout And Recovery Plan should define release unit, rollback strategy, and post-merge checks.")
         if metrics["scale_reliability_fields"] < 4:
             issues.append("Scale And Reliability Workstreams should define performance, observability, trust, analytics, and growth instrumentation work.")
+        if metrics["traceability_rows"] < 4:
+            issues.append("Delivery Traceability Map should map at least four capabilities from PRD/design into delivery batches and verification.")
 
     if phase == "delivery" and name == "release-readiness.md":
         metrics["verification_summary_fields"] = count_filled_fields(
@@ -1277,6 +1477,7 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Post-Launch Watchlist", [])),
             ["Activation signal to watch", "Retention signal to watch", "Revenue or conversion signal to watch", "Quality or support signal to watch"],
         )
+        metrics["traceability_rows"] = len(table_data_rows(sections.get("Delivered Traceability Summary", []), phase))
         if metrics["verification_summary_fields"] < 2:
             issues.append("Delivery should already update Verification Summary with meaningful implementation evidence.")
         if metrics["ux_audit_fields"] < 3:
@@ -1291,6 +1492,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Delivery should update Scale Launch Controls with traffic, rollout, and support assumptions.")
         if metrics["watchlist_fields"] < 3:
             issues.append("Delivery should define an initial post-launch watchlist before delivery is certified.")
+        if metrics["traceability_rows"] < 4:
+            issues.append("Delivered Traceability Summary should map at least four shipped capabilities to their design surfaces and release checks.")
 
     if phase == "release" and name == "release-readiness.md":
         metrics["verification_summary_fields"] = count_filled_fields(
@@ -1340,6 +1543,7 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Go Or No-Go Rationale", [])),
             ["Reasons to ship", "Remaining risks", "Final recommendation"],
         )
+        metrics["traceability_rows"] = len(table_data_rows(sections.get("Delivered Traceability Summary", []), phase))
         if metrics["verification_summary_fields"] < 4:
             issues.append("Release readiness should fill test/build/lint/manual QA status.")
         if metrics["ux_audit_fields"] < 5:
@@ -1358,6 +1562,8 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Scale Launch Controls should define traffic assumptions, staged rollout controls, incident rehearsal, support readiness, and analytics ownership.")
         if metrics["watchlist_fields"] < 4:
             issues.append("Post-Launch Watchlist should define activation, retention, revenue, and quality watch signals.")
+        if metrics["traceability_rows"] < 4:
+            issues.append("Delivered Traceability Summary should map launch-critical capabilities to shipped evidence and release verification.")
         if metrics["release_notes_fields"] < 2:
             issues.append("Release notes draft should contain more than a token-level summary.")
         if metrics["go_no_go_fields"] < 3:
@@ -1434,11 +1640,13 @@ def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
         expected_sections = SECTION_EXPECTATIONS.get(phase, {}).get(target.name, [])
         checks.append(inspect_artifact_readiness(target, phase, expected_sections))
 
+    traceability_checks = build_traceability_checks(spec, phase)
     total_missing = sum(len(check["missing_sections"]) for check in checks)
     total_thin = sum(len(check["thin_sections"]) for check in checks)
     total_placeholders = sum(int(check["placeholder_count"]) for check in checks)
     total_semantic_issues = sum(len(check.get("semantic_issues", [])) for check in checks)
-    ready = all(bool(check["ready"]) for check in checks)
+    total_traceability_issues = sum(len(check.get("issues", [])) for check in traceability_checks)
+    ready = all(bool(check["ready"]) for check in checks) and total_traceability_issues == 0
 
     if ready:
         summary = f"{phase} artifacts appear structurally and semantically ready for certification."
@@ -1446,17 +1654,19 @@ def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
         summary = (
             f"{phase} artifacts still have {total_missing} missing sections, "
             f"{total_thin} thin sections, {total_placeholders} unresolved placeholder lines, "
-            f"and {total_semantic_issues} semantic readiness issues."
+            f"{total_semantic_issues} semantic readiness issues, and {total_traceability_issues} cross-phase traceability issues."
         )
 
     return {
         "phase": phase,
         "ready_for_certification": ready,
         "artifact_checks": checks,
+        "traceability_checks": traceability_checks,
         "total_missing_sections": total_missing,
         "total_thin_sections": total_thin,
         "total_placeholders": total_placeholders,
         "total_semantic_issues": total_semantic_issues,
+        "total_traceability_issues": total_traceability_issues,
         "summary": summary,
     }
 
@@ -1835,6 +2045,7 @@ def write_result_suggestion_md(
     lines.append(f"- Ready for certification: `{'yes' if readiness.get('ready_for_certification') else 'no'}`")
     lines.append(f"- Summary: {readiness.get('summary', 'No readiness summary.')}")
     lines.append(f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`")
+    lines.append(f"- Traceability issues: `{readiness.get('total_traceability_issues', 0)}`")
     if readiness.get("artifact_checks"):
         for check in readiness["artifact_checks"]:
             lines.append(f"- `{check['path']}` ready=`{'yes' if check.get('ready') else 'no'}` placeholders=`{check.get('placeholder_count', 0)}`")
@@ -1850,6 +2061,15 @@ def write_result_suggestion_md(
                 lines.append("  semantic metrics:")
                 for key in sorted(check["semantic_metrics"]):
                     lines.append(f"  - {key}: {format_metric_value(check['semantic_metrics'][key])}")
+    if readiness.get("traceability_checks"):
+        lines.append("- Cross-phase traceability:")
+        for check in readiness["traceability_checks"]:
+            lines.append(
+                f"  - `{check['name']}` ready=`{'yes' if check.get('ready') else 'no'}` "
+                f"source=`{check.get('source_path')}` target=`{check.get('target_path')}`"
+            )
+            for issue in check.get("issues", []):
+                lines.append(f"    - {issue}")
     if suggestion.get("response_excerpt"):
         lines.extend(["", "## Response Excerpt", "", suggestion["response_excerpt"]])
     if suggestion.get("stderr_excerpt"):
@@ -1876,6 +2096,7 @@ def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
         f"- Thin sections: `{readiness.get('total_thin_sections', 0)}`",
         f"- Placeholder lines: `{readiness.get('total_placeholders', 0)}`",
         f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`",
+        f"- Traceability issues: `{readiness.get('total_traceability_issues', 0)}`",
         "",
         "## Artifact Checks",
         "",
@@ -1894,6 +2115,15 @@ def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
             lines.append("  semantic metrics:")
             for key in sorted(check["semantic_metrics"]):
                 lines.append(f"  - {key}: {format_metric_value(check['semantic_metrics'][key])}")
+    if readiness.get("traceability_checks"):
+        lines.extend(["", "## Cross-Phase Traceability", ""])
+        for check in readiness["traceability_checks"]:
+            lines.append(
+                f"- `{check['name']}` ready=`{'yes' if check.get('ready') else 'no'}` "
+                f"source=`{check.get('source_path')}` target=`{check.get('target_path')}`"
+            )
+            for issue in check.get("issues", []):
+                lines.append(f"  - {issue}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

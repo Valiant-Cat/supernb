@@ -167,6 +167,14 @@
 - Analytics and experimentation instrumentation:
 - Operational ownership and on-call expectation:
 
+## Cross-Phase Traceability Matrix
+
+Map launch-critical capabilities only. Each row should carry one research-backed capability through design, delivery, and release.
+
+| Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+
 ## Evidence Appendix
 
 - Competitor landscape:

@@ -256,14 +256,17 @@ For a new product initiative:
 1. Run `./scripts/supernb init-initiative my-product "My Product"`.
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
+   PRD, design, implementation plan, and release readiness now each carry traceability matrices. Certification blocks phase drift when those matrices stop lining up.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
 6. For OpenCode or any manual handoff, import a structured execution result with `./scripts/supernb import-execution --initiative-id <initiative-id> --phase <phase> --report-json /path/to/report.json`, then apply that imported packet.
+   `import-execution` now validates every declared `evidence_artifacts` path before it writes the packet.
 7. Run `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>` if you need an explicit standalone certification check.
 8. Record the outcome manually with `./scripts/supernb record-result ...` only when you want to override the packet suggestion.
+   Manual overrides now require `--override-reason`; packet-sourced results should continue to flow through `apply-execution`.
 9. Apply the gate update with `./scripts/supernb advance-phase ...` only when you want to bypass the certification helper.
 
 For an existing initiative created before the deeper templates and stricter gates were added:
@@ -276,12 +279,13 @@ For a legacy loose `.supernb` project that predates initiatives entirely:
 
 1. Create the new initiative first with `./scripts/supernb init-initiative ...`.
 2. Run `./scripts/supernb migrate-legacy --initiative-id <initiative-id> [--legacy-root /path/to/.supernb]`.
-3. Review `legacy-import/`, reconcile the imported content into the initiative-scoped artifacts, then rerun `./scripts/supernb run`.
+3. Review `legacy-import/` plus `legacy-mapping.md`, reconcile the imported content into the initiative-scoped artifacts, then rerun `./scripts/supernb run`.
 
 For housekeeping after many previews and retries:
 
 - Run `./scripts/supernb clean-initiative --initiative-id <initiative-id>` to preview stale command briefs, dry-run packets, unsupported packets, and older execution artifacts.
-- Re-run with `--apply` only after reviewing the preview output.
+- Re-run with `--apply` to archive the selected artifacts into a cleanup session with a manifest.
+- Add `--delete` only when you explicitly want hard deletion instead of archival.
 
 ## Handy Commands
 
@@ -302,7 +306,7 @@ make upgrade-artifacts INITIATIVE_ID=2026-03-19-my-product
 make migrate-legacy INITIATIVE_ID=2026-03-19-my-product LEGACY_ROOT=/path/to/.supernb
 make clean-initiative INITIATIVE_ID=2026-03-19-my-product
 make test
-make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
+make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=needs-follow-up SUMMARY="Manual override after audit" SOURCE=manual-override OVERRIDE_REASON="Packet evidence was incomplete"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
@@ -333,7 +337,7 @@ Or use the scripts directly:
 ./scripts/supernb migrate-legacy --initiative-id 2026-03-19-my-product --legacy-root /path/to/.supernb
 ./scripts/supernb clean-initiative --initiative-id 2026-03-19-my-product
 ./scripts/supernb test
-./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
+./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status needs-follow-up --summary "Manual override after audit" --source manual-override --override-reason "Packet evidence was incomplete"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy
 ./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"

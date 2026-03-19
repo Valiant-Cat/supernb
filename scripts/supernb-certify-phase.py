@@ -409,6 +409,7 @@ def write_report(
             f"- Thin sections: `{readiness.get('total_thin_sections', 0)}`",
             f"- Placeholder lines: `{readiness.get('total_placeholders', 0)}`",
             f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`",
+            f"- Traceability issues: `{readiness.get('total_traceability_issues', 0)}`",
         ]
     )
 
@@ -425,8 +426,13 @@ def write_report(
             lines.append(f"- `{check['path']}` thin sections: {', '.join(check['thin_sections'])}")
         for semantic_issue in check.get("semantic_issues", []):
             lines.append(f"- `{check['path']}` semantic gap: {semantic_issue}")
+    for check in readiness.get("traceability_checks", []):
+        for traceability_issue in check.get("issues", []):
+            lines.append(
+                f"- traceability `{check.get('name')}` ({check.get('source_path')} -> {check.get('target_path')}): {traceability_issue}"
+            )
     if not issues and not execution_findings and readiness_ok:
-        lines.append("- No unresolved template placeholders, missing sections, thin sections, or semantic readiness gaps were detected.")
+        lines.append("- No unresolved template placeholders, missing sections, thin sections, semantic readiness gaps, or cross-phase traceability gaps were detected.")
 
     lines.extend(["", "## Next Action", ""])
     if issues or execution_findings or not readiness_ok:
@@ -465,6 +471,7 @@ def write_certification_state(
         "total_thin_sections": int(readiness.get("total_thin_sections", 0)),
         "total_placeholders": int(readiness.get("total_placeholders", 0)),
         "total_semantic_issues": int(readiness.get("total_semantic_issues", 0)),
+        "total_traceability_issues": int(readiness.get("total_traceability_issues", 0)),
     }
     state["initiative_id"] = nested_get(spec, "initiative", "id")
     state["updated_at"] = utc_now()

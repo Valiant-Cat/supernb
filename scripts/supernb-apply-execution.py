@@ -193,14 +193,18 @@ def main() -> int:
     record_command = [
         sys.executable,
         str(ROOT_DIR / "scripts" / "supernb-record-result.py"),
-        "--initiative-id",
-        initiative_id,
+        "--spec",
+        str(spec_path),
         "--phase",
         phase,
         "--status",
         status,
         "--summary",
         summary,
+        "--source",
+        "execution-packet",
+        "--source-packet",
+        str(packet_dir),
         "--notes-file",
         str(packet_dir / "summary.md"),
     ]
@@ -215,8 +219,8 @@ def main() -> int:
         certify_command = [
             sys.executable,
             str(ROOT_DIR / "scripts" / "supernb-certify-phase.py"),
-            "--initiative-id",
-            initiative_id,
+            "--spec",
+            str(spec_path),
             "--phase",
             phase,
         ]
@@ -227,7 +231,7 @@ def main() -> int:
         subprocess.run(certify_command, check=True)
 
     if not args.no_rerun and not args.apply_certification:
-        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--initiative-id", initiative_id], check=True)
+        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)], check=True)
 
     print(f"Applied execution packet: {packet_dir}")
     print(f"Recorded result status: {status}")

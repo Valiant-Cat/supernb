@@ -178,6 +178,14 @@
 - Re-engagement or win-back surfaces:
 - Referral, sharing, or collaboration surfaces:
 
+## Traceability To Research And PRD
+
+Map launch-critical capabilities one row at a time so the design spec proves it is covering the same product defined by research and PRD.
+
+| PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |
+| --- | --- | --- | --- | --- |
+|  |  |  |  |  |
+
 ## Impeccable Review Notes
 
 - Foundation directions explored:
