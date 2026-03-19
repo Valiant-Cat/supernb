@@ -131,6 +131,7 @@ For a new product initiative:
 5. Keep `supernb-orchestrator` active when the goal is end-to-end product delivery.
 
 Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
+Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
 
 ## Notes
 

@@ -20,9 +20,13 @@ Never skip straight to coding when the product direction is still unclear.
 
 ## Routing Rules
 
+- For a request to build a complete product from idea to shippable commercial-grade release, use `full-product-delivery`.
+- For brainstorming with local document output, use `brainstorm-and-save`.
 - For competitor analysis, app reviews, market signals, or feature opportunity discovery, use `product-research-prd`.
 - For UI/UX generation or review, use `ui-ux-governance`.
+- For UI/UX modernization of an existing local project, use `ui-ux-upgrade`.
 - For implementation after PRD and design approval, use `autonomous-delivery`.
+- For focused coding or feature implementation in an existing codebase, use `implementation-execution`.
 - If upstream `superpowers` skills are available, use them for brainstorming, planning, and execution instead of improvising ad hoc workflows.
 
 ## Deliverable Rules
@@ -43,4 +47,3 @@ Before release, the workspace should contain:
 ## Commit Rule
 
 Each validated batch should end in a git commit. Avoid giant unreviewable changesets.
-
