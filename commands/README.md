@@ -26,8 +26,10 @@ Output: <what should be saved, implemented, or returned>
 
 - `./scripts/show-command-template.sh <command>` prints the raw template
 - `./scripts/render-command.sh --command <command> ...` renders a filled prompt
+- `./scripts/save-command-brief.sh --command <command> ...` saves a dated brief into `artifacts/commands/`
 - `make show-command COMMAND=<command>` is the shortcut
 - `make render-command COMMAND=<command> GOAL="..." ...` is the machine-fill shortcut
+- `make save-command COMMAND=<command> TITLE="..." GOAL="..." ...` is the archival shortcut
 
 ## Example
 

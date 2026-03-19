@@ -9,8 +9,10 @@ The stable cross-harness base is:
 - command templates live in `commands/`
 - `./scripts/show-command-template.sh <command>` prints the template
 - `./scripts/render-command.sh --command <command> ...` renders a filled command prompt
+- `./scripts/save-command-brief.sh --command <command> ...` stores a dated command brief in `artifacts/commands/`
 - `make show-command COMMAND=<command>` is the shortcut
 - `make render-command COMMAND=<command> GOAL="..." ...` is the structured shortcut
+- `make save-command COMMAND=<command> TITLE="..." GOAL="..." ...` is the archival shortcut
 
 Available harness guides:
 

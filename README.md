@@ -107,6 +107,7 @@ make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
 make render-command COMMAND=full-product-delivery GOAL="Build a finance app" STACK="flutter"
+make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -122,6 +123,7 @@ Or use the scripts directly:
 ./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/show-command-template.sh full-product-delivery
 ./scripts/render-command.sh --command full-product-delivery --goal "Build a finance app" --stack flutter
+./scripts/save-command-brief.sh --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app"
 ./scripts/install-codex.sh
 ```
 
@@ -130,6 +132,7 @@ Or use the scripts directly:
 ```text
 supernb/
 ├── artifacts/
+│   ├── commands/
 │   ├── design/
 │   ├── initiatives/
 │   ├── plans/

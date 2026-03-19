@@ -1,11 +1,13 @@
 /upstreams/
 /artifacts/*
 !/artifacts/design/
+!/artifacts/commands/
 !/artifacts/initiatives/
 !/artifacts/plans/
 !/artifacts/prd/
 !/artifacts/releases/
 !/artifacts/research/
+!/artifacts/commands/.gitkeep
 !/artifacts/design/.gitkeep
 !/artifacts/initiatives/.gitkeep
 !/artifacts/plans/.gitkeep

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command
+.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command
 
 update:
 	./scripts/update-upstreams.sh
@@ -35,3 +35,7 @@ show-command:
 render-command:
 	@if [ -z "$(COMMAND)" ]; then echo "Usage: make render-command COMMAND=<command-name> [GOAL='...'] [REPOSITORY='...'] [STACK='...']"; exit 1; fi
 	./scripts/render-command.sh --command "$(COMMAND)" $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",)
+
+save-command:
+	@if [ -z "$(COMMAND)" ]; then echo "Usage: make save-command COMMAND=<command-name> [GOAL='...'] [TITLE='...']"; exit 1; fi
+	./scripts/save-command-brief.sh --command "$(COMMAND)" $(if $(TITLE),--title "$(TITLE)",) $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",)
