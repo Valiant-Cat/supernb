@@ -19,9 +19,14 @@ ln -sfn "${ROOT_DIR}/skills" "${CLAUDE_DIR}/skills/supernb"
 cat <<EOF
 Installed project-local assets into ${TARGET_DIR}
 
-Next, install the FradSer plugin in Claude Code:
+Default next step in Claude Code:
+  /plugin install superpowers@claude-plugins-official
+
+Optional loop-oriented alternative:
   claude plugin marketplace add FradSer/dotclaude
   claude plugin install superpowers@frad-dotclaude
+
+Do not use both same-named superpowers plugins side by side.
 
 Restart Claude Code after plugin install.
 EOF

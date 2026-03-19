@@ -2,8 +2,8 @@
 
 `supernb` is an orchestration layer that combines four capabilities into one product-building workflow:
 
-- `superpowers` for structured planning, task decomposition, and agent-driven implementation
-- `superpowers@frad-dotclaude` for BDD-first execution and the Superpower Loop (`ralph-loop`)
+- the latest `obra/superpowers` as the default planning and delivery engine
+- `superpowers@frad-dotclaude` as an optional Claude Code loop executor for bounded long-running tasks
 - `impeccable` for UI/UX generation, critique, and post-implementation quality control
 - `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
 
@@ -23,12 +23,12 @@ This repository does not fork and rewrite the upstream projects. It acts as the 
 As inspected locally on 2026-03-19:
 
 - `obra/superpowers`
-  - package version: `5.0.4`
+  - package version: `5.0.5`
   - provides a mature skills-based software delivery workflow
   - key strengths: brainstorming, plans, TDD, subagent-driven development, review, worktrees
 - `FradSer/dotclaude`
   - relevant plugin: `superpowers` version `2.0.0`
-  - key addition: BDD-oriented execution plus Superpower Loop state/hook automation
+  - key addition: BDD-oriented execution plus optional Superpower Loop state/hook automation
   - `ralph-loop` is not a separate repo here; it is the loop machinery in `scripts/setup-superpower-loop.sh` and `hooks/stop-hook.sh`
 - `pbakaus/impeccable`
   - package version: `1.5.1`
@@ -49,7 +49,8 @@ More detail: [docs/upstream-analysis.md](/Users/xiaomiao26_1_26/projects/supernb
 3. Design third.
    Use `impeccable` to define visual direction, page-level UI/UX, and contrast/readability checks.
 4. Implementation fourth.
-   Use `superpowers + ralph-loop` to plan, write tests first, execute tasks, and keep iterating until verified.
+   Use the latest `superpowers` to plan, write tests first, execute tasks, and verify outputs.
+   Use the Frad loop only when a Claude Code task genuinely benefits from bounded persistence.
 5. Commit continuously.
    Every validated batch should be committed to git.
 
@@ -71,8 +72,16 @@ That will:
 Then install for the harness you use:
 
 - Claude Code: [docs/install/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md)
+- Claude Code loop mode: [docs/install/claude-code-loop-mode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code-loop-mode.md)
 - Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
 - OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
+
+## Default And Optional Engines
+
+- Default baseline for all supported harnesses: latest `obra/superpowers`
+- Optional Claude Code-only enhancer: `superpowers@frad-dotclaude`
+- Do not install both `superpowers` plugins side by side in the same Claude Code environment. They share the same plugin name and overlapping skill names.
+- In `supernb`, `dotclaude` is treated as an execution add-on, not the primary workflow base.
 
 ## Handy Commands
 
@@ -122,4 +131,3 @@ For a new product initiative:
 - `sensortower-research` expects a configured Sensor Tower token.
 - `impeccable` bundles are generated from source and are not committed here.
 - `upstreams/` is intentionally a local cache so `supernb` can track latest upstream code without vendoring entire repositories into git.
-

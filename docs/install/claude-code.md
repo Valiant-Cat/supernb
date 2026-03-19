@@ -2,9 +2,10 @@
 
 `supernb` on Claude Code uses:
 
-- `superpowers@frad-dotclaude` for planning, BDD execution, and loop automation
+- latest `obra/superpowers` as the default planning and delivery plugin
 - local `supernb` skills for orchestration
 - built `impeccable` Claude Code bundle for UI/UX work
+- optional `superpowers@frad-dotclaude` only when you specifically need the loop workflow
 
 ## 1. Sync upstreams and build `impeccable`
 
@@ -14,14 +15,20 @@ From this repo:
 make update
 ```
 
-## 2. Install the FradSer marketplace and plugin
+## 2. Install the default `superpowers` plugin
 
 ```bash
-claude plugin marketplace add FradSer/dotclaude
-claude plugin install superpowers@frad-dotclaude
+/plugin install superpowers@claude-plugins-official
 ```
 
 Restart Claude Code after install.
+
+If your Claude Code setup does not use the official marketplace path, use the upstream marketplace fallback from `obra/superpowers` instead:
+
+```bash
+/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+```
 
 ## 3. Install local `supernb` and `impeccable` assets into a project
 
@@ -36,16 +43,31 @@ What the script does:
 - symlinks `supernb/skills` to `<project>/.claude/skills/supernb`
 - copies the built `impeccable` Claude Code bundle into `<project>/.claude/`
 
-## 4. Recommended Session Flow
+## 4. Optional Frad Loop Mode
+
+Only use this mode if you need the loop executor and are willing to replace the default Claude Code `superpowers` plugin for that environment.
+
+```bash
+claude plugin marketplace add FradSer/dotclaude
+claude plugin install superpowers@frad-dotclaude
+```
+
+Rules:
+
+- do not keep both same-named `superpowers` plugins installed side by side in one Claude Code environment
+- prefer the latest `obra/superpowers` as the default baseline
+- use the Frad plugin only for bounded loop-oriented execution sessions
+
+## 5. Recommended Session Flow
 
 1. Start with `product-research-prd`.
 2. Write or refine the PRD.
 3. Use `ui-ux-governance`.
-4. Run `superpowers` planning and execution.
-5. Use the Superpower Loop only on explicit bounded tasks.
+4. Run the latest `superpowers` planning and execution flow.
+5. Switch to the Frad plugin only if you explicitly need Superpower Loop behavior for a bounded task.
 
 ## Notes
 
 - `sensortower-research` is a local Codex skill, not a Claude marketplace plugin. For Claude Code sessions, use the research outputs generated locally and checked into `artifacts/research/`.
 - If you want Claude Code to consume Sensor Tower data directly, expose that workflow separately through your own scripts or MCP setup.
-
+- The default recommendation here follows the current upstream `obra/superpowers` install docs, verified on 2026-03-19 from the project README: https://github.com/obra/superpowers/blob/main/README.md

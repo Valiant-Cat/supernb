@@ -70,7 +70,7 @@ Gate:
 
 ### 4. Planning And Delivery
 
-Primary engine: `superpowers`
+Primary engine: latest `obra/superpowers`
 
 Required outputs:
 
@@ -89,7 +89,7 @@ Gate:
 
 ### 5. Autonomous Execution Loop
 
-Primary engine: `superpowers@frad-dotclaude`
+Primary engine: optional `superpowers@frad-dotclaude`
 
 Loop model:
 
@@ -101,6 +101,7 @@ Loop model:
 Gate:
 
 - completion requires passing verification, not just code generation
+- this layer is optional and should not replace the primary `superpowers` baseline
 
 ### 6. Release Readiness
 
@@ -123,15 +124,16 @@ Storage target:
 2. PRD is mandatory before design finalization.
 3. Design approval is mandatory before implementation.
 4. `impeccable` is used both before and after frontend implementation.
-5. `superpowers + ralph-loop` is used for execution, not for deciding product strategy in the dark.
-6. Every verified batch is committed to git.
+5. Latest `superpowers` is the default execution baseline.
+6. The Frad loop is only used as an optional bounded persistence layer on Claude Code.
+7. Do not install two same-named `superpowers` plugins in one Claude Code environment.
+8. Every verified batch is committed to git.
 
 ## Why This Split Works
 
 - `sensortower-research` provides evidence
 - `superpowers` provides execution discipline
-- `ralph-loop` provides persistence
+- `ralph-loop` provides optional persistence
 - `impeccable` provides design quality control
 
 Each tool covers a real weakness of the others instead of duplicating them.
-

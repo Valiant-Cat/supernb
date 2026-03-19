@@ -31,6 +31,7 @@ What matters for `supernb`:
 - it is the cleanest upstream foundation for implementation planning and execution
 - its Codex and OpenCode install docs are already good enough to reuse
 - its strength is software execution discipline, not market research or UI review
+- it should be the default `supernb` base because it is broader and currently newer than the Frad fork
 
 ## `FradSer/dotclaude`
 
@@ -50,6 +51,7 @@ What it is:
 - a curated plugin marketplace for Claude Code
 - the relevant piece for `supernb` is the `superpowers@frad-dotclaude` plugin
 - that plugin adds BDD-focused execution and a stronger agent-team story than upstream `obra/superpowers`
+- it reuses the same plugin name, `superpowers`, and overlaps several skill names with the upstream project
 
 What the so-called `ralph-loop` is in practice:
 
@@ -63,6 +65,7 @@ Why it matters for `supernb`:
 - it is the closest piece in the inspected code to "keep going until the work is actually done"
 - it fits the implementation stage after PRD and design are approved
 - it should be used with explicit completion promises and small task batches to avoid runaway loops
+- it should not be treated as a second parallel baseline install in the same Claude Code environment because of same-name overlap
 
 ## `pbakaus/impeccable`
 
@@ -112,12 +115,17 @@ Why it matters for `supernb`:
 
 ## Integration Conclusion
 
-`supernb` should treat these projects as four non-overlapping layers:
+`supernb` should treat these projects as four layers, with one explicit caveat:
 
 1. Research intelligence: `sensortower-research`
-2. Product planning and software execution: `superpowers`
-3. Long-running autonomous implementation loop: `superpowers@frad-dotclaude`
+2. Default product planning and software execution: latest `obra/superpowers`
+3. Optional Claude Code persistence layer: `superpowers@frad-dotclaude`
 4. UI/UX generation and enforcement: `impeccable`
 
-That layering is the basis of the repository structure and skills in this repo.
+Conflict note:
 
+- both upstreams use the plugin name `superpowers`
+- both define overlapping skills like `brainstorming`, `writing-plans`, `executing-plans`, and `systematic-debugging`
+- because of that, `supernb` treats `dotclaude` as an optional specialist add-on, not a co-equal baseline install
+
+That layering is the basis of the repository structure and skills in this repo.
