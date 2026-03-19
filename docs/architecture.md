@@ -1,0 +1,137 @@
+# supernb Architecture
+
+## Core Idea
+
+`supernb` is a phase-gated orchestration system for full-product delivery. It coordinates research, PRD generation, design, implementation, and verification. Each phase has a designated upstream engine and a required artifact set.
+
+## Phases
+
+### 1. Research
+
+Primary engine: local `sensortower-research`
+
+Required outputs:
+
+- competitor shortlist
+- metadata snapshot
+- review export
+- review insight summary
+- feature opportunity list
+- anti-feature list
+
+Storage target:
+
+- `artifacts/research/`
+
+Gate:
+
+- no PRD may be finalized without citing the research window, countries, and apps reviewed
+
+### 2. PRD
+
+Primary engine: `supernb` orchestration + `superpowers` brainstorming discipline
+
+Required outputs:
+
+- product brief
+- user problems and target segments
+- scope and non-goals
+- core journeys
+- success metrics
+- evidence appendix linking back to research
+
+Storage target:
+
+- `artifacts/prd/`
+
+Gate:
+
+- PRD must explicitly tie feature choices to competitor evidence or review evidence
+
+### 3. UI/UX Design
+
+Primary engine: `impeccable`
+
+Required outputs:
+
+- visual direction
+- typography and color rules
+- page-by-page UI/UX notes
+- interaction and empty-state behavior
+- accessibility and contrast review
+
+Storage target:
+
+- `artifacts/design/`
+
+Gate:
+
+- no implementation starts before the design pass calls out contrast, readability, and state coverage
+
+### 4. Planning And Delivery
+
+Primary engine: `superpowers`
+
+Required outputs:
+
+- implementation plan
+- task dependency graph
+- test-first execution order
+- validation checkpoints
+
+Storage target:
+
+- `artifacts/plans/`
+
+Gate:
+
+- tasks must be granular enough for autonomous execution and review
+
+### 5. Autonomous Execution Loop
+
+Primary engine: `superpowers@frad-dotclaude`
+
+Loop model:
+
+- create or update the state file with `setup-superpower-loop.sh`
+- run bounded batches with explicit completion promises
+- use BDD/TDD to keep Red and Green phases verifiable
+- commit each validated batch
+
+Gate:
+
+- completion requires passing verification, not just code generation
+
+### 6. Release Readiness
+
+Primary engines: `superpowers` verification and `impeccable` final UX audit
+
+Required outputs:
+
+- final design audit
+- final test results
+- release notes
+- git tag or release commit trail
+
+Storage target:
+
+- `artifacts/releases/`
+
+## Coordination Rules
+
+1. Research is mandatory before PRD.
+2. PRD is mandatory before design finalization.
+3. Design approval is mandatory before implementation.
+4. `impeccable` is used both before and after frontend implementation.
+5. `superpowers + ralph-loop` is used for execution, not for deciding product strategy in the dark.
+6. Every verified batch is committed to git.
+
+## Why This Split Works
+
+- `sensortower-research` provides evidence
+- `superpowers` provides execution discipline
+- `ralph-loop` provides persistence
+- `impeccable` provides design quality control
+
+Each tool covers a real weakness of the others instead of duplicating them.
+

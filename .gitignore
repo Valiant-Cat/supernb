@@ -1,0 +1,17 @@
+/upstreams/
+/artifacts/*
+!/artifacts/design/
+!/artifacts/plans/
+!/artifacts/prd/
+!/artifacts/releases/
+!/artifacts/research/
+!/artifacts/design/.gitkeep
+!/artifacts/plans/.gitkeep
+!/artifacts/prd/.gitkeep
+!/artifacts/releases/.gitkeep
+!/artifacts/research/.gitkeep
+!/artifacts/**/.gitkeep
+/tmp/
+/node_modules/
+/build/
+/dist/
