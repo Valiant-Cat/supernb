@@ -42,3 +42,13 @@ Restart OpenCode.
 - load `supernb/ui-ux-governance` for design generation or design review
 - use upstream `superpowers` for implementation planning and execution
 
+For stable structured invocation, use:
+
+- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+- [docs/commands/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/opencode.md)
+
+Shortcut:
+
+```bash
+make show-command COMMAND=ui-ux-upgrade
+```

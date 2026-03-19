@@ -105,6 +105,7 @@ make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
+make show-command COMMAND=full-product-delivery
 make install-codex
 make install-claude-code
 make install-opencode
@@ -118,6 +119,7 @@ Or use the scripts directly:
 ./scripts/init-initiative.sh my-product "My Product"
 ./scripts/check-no-hardcoded-copy.sh
 ./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
+./scripts/show-command-template.sh full-product-delivery
 ./scripts/install-codex.sh
 ```
 
@@ -154,6 +156,7 @@ Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/super
 Capability matrix: [docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
 I18n guidance: [docs/i18n-stack-guidance.md](/Users/xiaomiao26_1_26/projects/supernb/docs/i18n-stack-guidance.md)
 Command entrypoints: [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+Harness mapping: [docs/commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/README.md)
 
 ## Notes
 

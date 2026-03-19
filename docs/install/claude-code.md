@@ -66,6 +66,19 @@ Rules:
 4. Run the latest `superpowers` planning and execution flow.
 5. Switch to the Frad plugin only if you explicitly need Superpower Loop behavior for a bounded task.
 
+## 6. Command Templates
+
+Use the `supernb` command templates from:
+
+- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+- [docs/commands/claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/claude-code.md)
+
+Shortcut:
+
+```bash
+make show-command COMMAND=full-product-delivery
+```
+
 ## Notes
 
 - `sensortower-research` is a local Codex skill, not a Claude marketplace plugin. For Claude Code sessions, use the research outputs generated locally and checked into `artifacts/research/`.

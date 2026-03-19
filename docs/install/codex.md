@@ -39,7 +39,17 @@ Ask for one of these flows:
 - use `ui-ux-governance` before or after frontend work
 - use `autonomous-delivery` once PRD and design are approved
 
+For stable structured invocation, use:
+
+- [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
+- [docs/commands/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/codex.md)
+
+Shortcut:
+
+```bash
+make show-command COMMAND=single-capability-router
+```
+
 ## Optional
 
 `superpowers` subagent flows work better with multi-agent enabled in your Codex config.
-

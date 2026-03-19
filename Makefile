@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n
+.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command
 
 update:
 	./scripts/update-upstreams.sh
@@ -27,3 +27,7 @@ check-copy:
 init-i18n:
 	@if [ -z "$(STACK)" ]; then echo "Usage: make init-i18n STACK=<flutter|android|web|ios|generic> [TARGET_DIR=.] [SOURCE_LOCALE=en] [TARGET_LOCALES='es,fr']"; exit 1; fi
 	./scripts/init-i18n-foundation.sh --stack "$(STACK)" --target-dir "$(if $(TARGET_DIR),$(TARGET_DIR),.)" --source-locale "$(if $(SOURCE_LOCALE),$(SOURCE_LOCALE),en)" $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",)
+
+show-command:
+	@if [ -z "$(COMMAND)" ]; then echo "Usage: make show-command COMMAND=<command-name>"; exit 1; fi
+	./scripts/show-command-template.sh "$(COMMAND)"
