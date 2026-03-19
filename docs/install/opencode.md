@@ -45,6 +45,12 @@ Manual path:
 make update
 ```
 
+If you only want upstream caches without touching the current `supernb` checkout:
+
+```bash
+make update-upstreams
+```
+
 ## 2. Install local project skills and the `impeccable` bundle
 
 ```bash

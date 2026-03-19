@@ -69,10 +69,16 @@ This stores the prompt in `artifacts/commands/` for reuse and auditability.
 
 ```bash
 make bootstrap
+make update
 make show-command COMMAND=full-product-delivery
 make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
 make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
 ```
+
+Update shortcuts:
+
+- `make update` updates `supernb` itself when safe, then updates upstreams
+- `make update-upstreams` updates only upstream caches
 
 ## Harness-Specific Notes
 

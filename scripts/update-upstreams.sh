@@ -38,9 +38,18 @@ update_repo() {
   local name="$1"
   local url="$2"
   local target="${UPSTREAM_DIR}/${name}"
+  local before_head=""
+  local after_head=""
 
   if [[ -d "${target}/.git" ]]; then
     echo "Updating ${name}..."
+
+    if [[ -n "$(git -C "${target}" status --porcelain)" ]]; then
+      echo "${name}: skipped because the upstream cache has local changes."
+      return 0
+    fi
+
+    before_head="$(git -C "${target}" rev-parse --short HEAD)"
     git -C "${target}" fetch --all --prune
 
     local default_branch
@@ -60,9 +69,18 @@ update_repo() {
 
     git -C "${target}" checkout "${default_branch}" >/dev/null 2>&1 || true
     git -C "${target}" pull --ff-only origin "${default_branch}"
+    after_head="$(git -C "${target}" rev-parse --short HEAD)"
+
+    if [[ "${before_head}" == "${after_head}" ]]; then
+      echo "${name}: already up to date (${after_head})."
+    else
+      echo "${name}: ${before_head} -> ${after_head}."
+    fi
   else
     echo "Cloning ${name}..."
     git clone "${url}" "${target}"
+    after_head="$(git -C "${target}" rev-parse --short HEAD)"
+    echo "${name}: installed at ${after_head}."
   fi
 }
 
@@ -73,4 +91,3 @@ update_repo "impeccable" "https://github.com/pbakaus/impeccable.git"
 if [[ "${BUILD_IMPECCABLE}" -eq 1 ]]; then
   "${ROOT_DIR}/scripts/build-impeccable-dist.sh"
 fi
-

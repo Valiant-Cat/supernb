@@ -119,6 +119,25 @@ What bootstrap now does:
 - auto-installs the default Claude Code `superpowers` plugin when needed
 - auto-ensures the OpenCode `superpowers` plugin entry in project config
 
+Unified update path:
+
+```bash
+make update
+```
+
+That command now:
+
+- updates `supernb` itself when the current repo is clean and on its default branch
+- safely skips self-update when your worktree is dirty or you are on a non-default branch
+- updates `superpowers`, `dotclaude`, and `impeccable`
+- rebuilds `impeccable` by default
+
+If you only want upstream caches:
+
+```bash
+make update-upstreams
+```
+
 If you already cloned this repo:
 
 ```bash
@@ -151,6 +170,7 @@ Detailed install guides:
 
 ```bash
 make update
+make update-upstreams
 make bootstrap
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
@@ -168,6 +188,7 @@ Or use the scripts directly:
 
 ```bash
 ./scripts/update-upstreams.sh
+./scripts/update-supernb.sh
 ./scripts/bootstrap-supernb.sh
 ./scripts/build-impeccable-dist.sh
 ./scripts/init-initiative.sh my-product "My Product"

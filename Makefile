@@ -1,8 +1,11 @@
 SHELL := /bin/bash
 
-.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
+	./scripts/update-supernb.sh
+
+update-upstreams:
 	./scripts/update-upstreams.sh
 
 bootstrap:

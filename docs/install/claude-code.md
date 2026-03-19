@@ -48,6 +48,12 @@ From this repo:
 make update
 ```
 
+If you only want upstream caches without touching the current `supernb` checkout:
+
+```bash
+make update-upstreams
+```
+
 ## 2. Default `superpowers` plugin
 
 `bootstrap` now attempts to install the default upstream plugin automatically.

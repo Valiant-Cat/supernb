@@ -42,6 +42,12 @@ Manual path if you want to run sync/build separately:
 make update
 ```
 
+If you only want upstream caches without touching the current `supernb` checkout:
+
+```bash
+make update-upstreams
+```
+
 ## 2. Install into Codex skill discovery
 
 ```bash
