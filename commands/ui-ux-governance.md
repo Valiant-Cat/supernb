@@ -10,7 +10,9 @@ Context:
 - initiative id: <existing initiative id if known>
 - constraints: <brand, accessibility, markets, or delivery constraints>
 Output:
-- define or critique the design system and page-level UX
+- define a product-level experience strategy, not just a visual style
+- cover user flows, page states, trust cues, responsive behavior, and component rules
+- make onboarding, repeat use, power-user efficiency, and localization support credible at 10M-DAU scale
 - check contrast, readability, and state coverage
 - save design audit notes locally
 ```

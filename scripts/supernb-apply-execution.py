@@ -7,7 +7,13 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+
+from lib.supernb_common import (
+    load_spec,
+    nested_get,
+    project_root as common_project_root,
+    resolve_spec_path as common_resolve_spec_path,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,109 +33,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def try_load_pyyaml(text: str) -> Any:
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return None
-    return yaml.safe_load(text)
-
-
-def parse_scalar(value: str) -> Any:
-    if value in {'""', "''"}:
-        return ""
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        inner = value[1:-1]
-        return bytes(inner, "utf-8").decode("unicode_escape")
-    lower = value.lower()
-    if lower in {"true", "yes"}:
-        return True
-    if lower in {"false", "no"}:
-        return False
-    return value
-
-
-def parse_simple_yaml(text: str) -> dict[str, Any]:
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- "):
-            raise ValueError(f"Unsupported YAML list syntax at line {lineno}: {raw_line}")
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ValueError(f"Unsupported indentation at line {lineno}: {raw_line}")
-        if ":" not in stripped:
-            raise ValueError(f"Expected key/value pair at line {lineno}: {raw_line}")
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while indent <= stack[-1][0]:
-            stack.pop()
-        container = stack[-1][1]
-
-        if value == "":
-            child: dict[str, Any] = {}
-            container[key] = child
-            stack.append((indent, child))
-        else:
-            container[key] = parse_scalar(value)
-
-    return root
-
-
-def load_spec(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    loaded = try_load_pyyaml(text)
-    if loaded is not None:
-        return loaded
-    return parse_simple_yaml(text)
-
-
-def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
-    current: Any = data
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    if current is None:
-        return default
-    if isinstance(current, bool):
-        return "yes" if current else "no"
-    return str(current).strip()
-
-
 def project_root(spec: dict[str, Any]) -> Path:
-    project_dir = nested_get(spec, "delivery", "project_dir")
-    if project_dir:
-        return Path(project_dir).expanduser().resolve()
-    return ROOT_DIR
+    return common_project_root(spec, ROOT_DIR)
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
-    if args.spec:
-        return Path(args.spec).expanduser().resolve()
-    if args.initiative_id:
-        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
-        if locator.is_file():
-            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
-            if target.is_file():
-                return target.resolve()
-        for base in [Path.cwd(), *Path.cwd().parents]:
-            for candidate in [
-                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
-                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
-            ]:
-                if candidate.is_file():
-                    return candidate.resolve()
-        return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
-    raise ValueError("Pass --initiative-id or --spec.")
+    return common_resolve_spec_path(args, ROOT_DIR)
 
 
 def read_json(path: Path) -> dict[str, Any]:

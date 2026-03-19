@@ -12,9 +12,30 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lib.supernb_common import (
+    PHASES,
+    artifact_path as common_artifact_path,
+    certification_passed,
+    certification_state_path as common_certification_state_path,
+    display_path as common_display_path,
+    load_certification_state,
+    load_spec,
+    nested_get,
+    phase_targets,
+    project_root as common_project_root,
+    resolve_spec_path as common_resolve_spec_path,
+)
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
-PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
+EXPECTED_GATE_STATUS = {
+    "research": "approved",
+    "prd": "approved",
+    "design": "approved",
+    "planning": "ready",
+    "delivery": "verified",
+    "release": "ready",
+}
 
 
 @dataclass
@@ -37,139 +58,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-next-command", action="store_true", help="Do not render next-command.md")
     return parser.parse_args()
 
-
-def try_load_pyyaml(text: str) -> Any:
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return None
-    return yaml.safe_load(text)
-
-
-def parse_scalar(value: str) -> Any:
-    if value in {'""', "''"}:
-        return ""
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        inner = value[1:-1]
-        return bytes(inner, "utf-8").decode("unicode_escape")
-    lower = value.lower()
-    if lower in {"true", "yes"}:
-        return True
-    if lower in {"false", "no"}:
-        return False
-    return value
-
-
-def parse_simple_yaml(text: str) -> dict[str, Any]:
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- "):
-            raise ValueError(f"Unsupported YAML list syntax at line {lineno}: {raw_line}")
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ValueError(f"Unsupported indentation at line {lineno}: {raw_line}")
-        if ":" not in stripped:
-            raise ValueError(f"Expected key/value pair at line {lineno}: {raw_line}")
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while indent <= stack[-1][0]:
-            stack.pop()
-        container = stack[-1][1]
-
-        if value == "":
-            child: dict[str, Any] = {}
-            container[key] = child
-            stack.append((indent, child))
-        else:
-            container[key] = parse_scalar(value)
-
-    return root
-
-
-def load_spec(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    loaded = try_load_pyyaml(text)
-    if loaded is not None:
-        return loaded
-    return parse_simple_yaml(text)
-
-
-def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
-    current: Any = data
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    if current is None:
-        return default
-    if isinstance(current, bool):
-        return "yes" if current else "no"
-    value = str(current).strip()
-    if re.fullmatch(r"\{\{[^}]+\}\}", value):
-        return default
-    return value
-
-
 def display_path(path: Path) -> str:
-    for root in DISPLAY_ROOTS:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            continue
-    return str(path)
+    return common_display_path(path, DISPLAY_ROOTS)
 
 
 def project_root(spec: dict[str, Any]) -> Path:
-    project_dir = nested_get(spec, "delivery", "project_dir")
-    if project_dir:
-        return Path(project_dir).expanduser().resolve()
-    return ROOT_DIR
+    return common_project_root(spec, ROOT_DIR)
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    value = nested_get(spec, "artifacts", key)
-    if not value:
-        raise KeyError(f"Missing artifact path: {key}")
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path.resolve()
-    return (project_root(spec) / path).resolve()
+    return common_artifact_path(spec, key, ROOT_DIR)
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
-    if args.spec:
-        return Path(args.spec).expanduser().resolve()
-    if not args.initiative_id:
-        raise ValueError("Pass --initiative-id or --spec.")
+    return common_resolve_spec_path(args, ROOT_DIR)
 
-    locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
-    if locator.is_file():
-        target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
-        if target.is_file():
-            return target.resolve()
 
-    for base in [Path.cwd(), *Path.cwd().parents]:
-        for candidate in [
-            base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
-            base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
-        ]:
-            if candidate.is_file():
-                return candidate.resolve()
-
-    legacy = ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
-    if legacy.is_file():
-        return legacy.resolve()
-
-    return legacy
+def certification_state_path(spec: dict[str, Any]) -> Path:
+    return common_certification_state_path(spec, ROOT_DIR)
 
 
 def read_markdown_field(path: Path, field_name: str) -> str:
@@ -215,13 +121,34 @@ def spec_missing(spec: dict[str, Any], field_map: list[tuple[tuple[str, ...], st
     return missing
 
 
+def certification_entry(spec: dict[str, Any], phase: str) -> dict[str, Any]:
+    state = load_certification_state(certification_state_path(spec))
+    phases = state.get("phases")
+    if not isinstance(phases, dict):
+        return {}
+    entry = phases.get(phase)
+    return entry if isinstance(entry, dict) else {}
+
+
+def certification_evidence(spec: dict[str, Any], phase: str) -> str:
+    entry = certification_entry(spec, phase)
+    if certification_passed(entry, EXPECTED_GATE_STATUS[phase]):
+        report_path = str(entry.get("report_path", "")).strip()
+        if report_path:
+            return f"certification: passed ({report_path})"
+        return "certification: passed"
+    if entry:
+        return f"certification: pending or failed (last checked {entry.get('checked_at', 'unknown')})"
+    return "certification: not recorded"
+
+
 def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str, PhaseResult], dict[str, str]]:
     artifacts = {
-        "research_dir": ROOT_DIR / nested_get(spec, "artifacts", "research_dir"),
-        "prd_dir": ROOT_DIR / nested_get(spec, "artifacts", "prd_dir"),
-        "design_dir": ROOT_DIR / nested_get(spec, "artifacts", "design_dir"),
-        "plan_dir": ROOT_DIR / nested_get(spec, "artifacts", "plan_dir"),
-        "release_dir": ROOT_DIR / nested_get(spec, "artifacts", "release_dir"),
+        "research_dir": artifact_path(spec, "research_dir"),
+        "prd_dir": artifact_path(spec, "prd_dir"),
+        "design_dir": artifact_path(spec, "design_dir"),
+        "plan_dir": artifact_path(spec, "plan_dir"),
+        "release_dir": artifact_path(spec, "release_dir"),
     }
 
     research_files = [
@@ -243,12 +170,19 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     delivery_status = read_markdown_field(plan_file, "Delivery status")
     release_status = read_markdown_field(release_file, "Release decision")
 
-    research_complete = all(is_complete_status(status) for status in research_doc_statuses if status) and all(status for status in research_doc_statuses)
-    prd_complete = is_complete_status(prd_status)
-    design_complete = is_complete_status(ui_status) and is_complete_status(i18n_status)
-    planning_complete = is_truthy_status(plan_ready)
-    delivery_complete = is_delivery_complete(delivery_status)
-    release_complete = is_release_ready(release_status)
+    research_status_complete = all(is_complete_status(status) for status in research_doc_statuses if status) and all(status for status in research_doc_statuses)
+    prd_status_complete = is_complete_status(prd_status)
+    design_status_complete = is_complete_status(ui_status) and is_complete_status(i18n_status)
+    planning_status_complete = is_truthy_status(plan_ready)
+    delivery_status_complete = is_delivery_complete(delivery_status)
+    release_status_complete = is_release_ready(release_status)
+
+    research_complete = research_status_complete and certification_passed(certification_entry(spec, "research"), EXPECTED_GATE_STATUS["research"])
+    prd_complete = prd_status_complete and certification_passed(certification_entry(spec, "prd"), EXPECTED_GATE_STATUS["prd"])
+    design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"])
+    planning_complete = planning_status_complete and certification_passed(certification_entry(spec, "planning"), EXPECTED_GATE_STATUS["planning"])
+    delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"])
+    release_complete = release_status_complete and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"])
 
     spec_fields = {
         "research": spec_missing(
@@ -289,6 +223,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
             f"competitor landscape status: {research_doc_statuses[0] or 'missing'}",
             f"review insights status: {research_doc_statuses[1] or 'missing'}",
             f"feature opportunities status: {research_doc_statuses[2] or 'missing'}",
+            certification_evidence(spec, "research"),
         ],
     )
 
@@ -299,7 +234,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="prd",
         status="complete" if research_complete and prd_complete else ("blocked" if prd_blockers else "ready"),
         blockers=prd_blockers,
-        evidence=[f"prd approval status: {prd_status or 'missing'}"],
+        evidence=[f"prd approval status: {prd_status or 'missing'}", certification_evidence(spec, "prd")],
     )
 
     design_blockers = []
@@ -313,6 +248,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         evidence=[
             f"ui ux spec approval status: {ui_status or 'missing'}",
             f"i18n strategy approval status: {i18n_status or 'missing'}",
+            certification_evidence(spec, "design"),
         ],
     )
 
@@ -324,7 +260,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="planning",
         status="complete" if design_complete and planning_complete else ("blocked" if planning_blockers else "ready"),
         blockers=planning_blockers,
-        evidence=[f"implementation plan ready for execution: {plan_ready or 'missing'}"],
+        evidence=[f"implementation plan ready for execution: {plan_ready or 'missing'}", certification_evidence(spec, "planning")],
     )
 
     delivery_blockers = []
@@ -334,7 +270,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="delivery",
         status="complete" if planning_complete and delivery_complete else ("blocked" if delivery_blockers else "ready"),
         blockers=delivery_blockers,
-        evidence=[f"delivery status: {delivery_status or 'missing'}"],
+        evidence=[f"delivery status: {delivery_status or 'missing'}", certification_evidence(spec, "delivery")],
     )
 
     release_blockers = []
@@ -344,7 +280,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="release",
         status="complete" if delivery_complete and release_complete else ("blocked" if release_blockers else "ready"),
         blockers=release_blockers,
-        evidence=[f"release decision: {release_status or 'missing'}"],
+        evidence=[f"release decision: {release_status or 'missing'}", certification_evidence(spec, "release")],
     )
 
     meta = {
@@ -366,12 +302,16 @@ def auto_phase(results: dict[str, PhaseResult]) -> str:
 
 
 def command_for_phase(phase: str) -> tuple[str, str, str]:
-    if phase in {"research", "prd"}:
-        return ("product-research-prd", "Produce approved research and a cited PRD", "")
+    if phase == "research":
+        return ("product-research", "Produce approved research evidence", "")
+    if phase == "prd":
+        return ("research-backed-prd", "Produce a cited PRD from approved research", "")
     if phase == "design":
         return ("ui-ux-governance", "Produce approved UI/UX and i18n design artifacts", "")
-    if phase in {"planning", "delivery"}:
-        return ("autonomous-delivery", "Deliver the approved scope in validated batches", "")
+    if phase == "planning":
+        return ("implementation-planning", "Produce a fine-grained implementation plan from approved artifacts", "")
+    if phase == "delivery":
+        return ("validated-delivery", "Deliver one validated batch from the approved plan", "")
     return ("supernb-orchestrator", "Run final verification and release readiness checks", "release-readiness + verification-before-completion + ui audit")
 
 
@@ -379,8 +319,10 @@ def build_command_args(spec: dict[str, Any], phase: str) -> tuple[str, list[str]
     command_name, default_goal, capability_hint = command_for_phase(phase)
     constraints = nested_get(spec, "delivery", "constraints")
     quality_bar = nested_get(spec, "delivery", "quality_bar")
+    scale_target = nested_get(spec, "delivery", "scale_target_dau") or "10000000"
     if quality_bar:
         constraints = f"{constraints}; quality bar: {quality_bar}" if constraints else f"quality bar: {quality_bar}"
+    constraints = f"{constraints}; scale target: {scale_target} dau" if constraints else f"scale target: {scale_target} dau"
 
     args = [
         "--command",
@@ -403,8 +345,11 @@ def build_command_args(spec: dict[str, Any], phase: str) -> tuple[str, list[str]
 
     artifact_root = artifact_path(spec, "run_status_md").parent
     project_dir = project_root(spec)
+    scale_context = f"scale ambition: ship toward a product that can plausibly support at least {scale_target} daily active users, not a demo or niche toy"
+    args.extend(["--context-line", scale_context])
+    args.extend(["--output-line", f"keep all decisions, artifacts, and delivery depth aligned to a >= {scale_target} DAU product ambition"])
 
-    if command_name in {"product-research-prd", "full-product-delivery"}:
+    if command_name in {"product-research", "research-backed-prd", "product-research-prd", "full-product-delivery"}:
         args.extend(
             [
                 "--product-category",
@@ -468,32 +413,37 @@ def phase_objectives(phase: str) -> list[str]:
     mapping = {
         "research": [
             "Fill the competitor landscape, review insights, and feature opportunities artifacts.",
-            "Keep evidence tied to markets, date window, and reviewed apps.",
+            "Keep evidence tied to markets, date window, reviewed apps, and global or regional review coverage.",
+            "Research should be rich enough to support product decisions, including competitor feature surfaces, monetization patterns, real user likes and dislikes, and market headroom for a 10M-DAU-class product.",
             "Set each research artifact status to approved when it is ready to gate PRD work.",
         ],
         "prd": [
             "Convert approved research into an evidence-backed PRD.",
             "Separate proven conclusions from open hypotheses.",
+            "Define a complete product system, not a demo feature list: core capabilities, growth, retention, monetization, launch sequencing, and trust, quality, and scale requirements.",
             "Set PRD approval status to approved when it is ready to gate design work.",
         ],
         "design": [
             "Produce approved UI/UX direction and i18n strategy artifacts.",
             "Use impeccable-driven audit criteria for contrast, readability, and state coverage.",
+            "Design should cover flows, states, responsive behavior, trust cues, growth surfaces, and localization impacts, not just static screens.",
             "Set both design approval fields to approved before planning starts.",
         ],
         "planning": [
             "Break delivery into validated batches with tests first.",
+            "The implementation plan should define technical strategy, dependency and risk controls, review cadence, rollout or recovery expectations, and scale or reliability workstreams.",
             "Populate loop candidates only for bounded tasks with explicit completion promises.",
             "Set Ready for execution to yes when the plan is safe to execute.",
         ],
         "delivery": [
             "Execute the approved plan in small verified batches.",
             "Commit each validated batch and keep localization externalized.",
+            "Each batch should move the product materially toward approved journeys, growth loops, and release readiness, not just produce thin proof-of-concept code.",
             "Set Delivery status to verified when implementation evidence is complete.",
         ],
         "release": [
             "Complete release verification and final UX audit.",
-            "Document residual risks and release notes.",
+            "Document residual risks, rollout or rollback expectations, capacity assumptions, and release notes.",
             "Set Release decision to ready only when ship criteria are satisfied.",
         ],
     }
@@ -771,6 +721,7 @@ def main() -> int:
         "selected_phase": selected_phase,
         "generated_at": utc_now(),
         "spec_path": display_path(spec_path),
+        "certification_state_path": display_path(certification_state_path(spec)),
         "phase_packet": display_path(phase_packet_md),
         "run_log": display_path(run_log_md),
         "phases": {
@@ -778,6 +729,7 @@ def main() -> int:
                 "status": results[phase].status,
                 "blockers": results[phase].blockers,
                 "evidence": results[phase].evidence,
+                "certification": certification_entry(spec, phase),
             }
             for phase in PHASES
         },

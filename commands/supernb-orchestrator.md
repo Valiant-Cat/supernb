@@ -13,5 +13,7 @@ Context:
 Output:
 - route to the correct supernb workflow
 - preserve required phase gates
+- keep output depth at commercial-product quality rather than demo quality
+- default to a 10M-DAU-class product ambition unless the user explicitly narrows scope
 - save artifacts locally when needed
 ```

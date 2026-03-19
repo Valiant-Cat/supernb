@@ -13,9 +13,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lib.supernb_common import (
+    PHASES,
+    artifact_path as common_artifact_path,
+    display_path as common_display_path,
+    load_spec,
+    nested_get,
+    phase_targets as common_phase_targets,
+    project_root as common_project_root,
+    resolve_spec_path as common_resolve_spec_path,
+)
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
-PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
@@ -38,7 +48,11 @@ SECTION_EXPECTATIONS = {
         "01-competitor-landscape.md": [
             "Research Window",
             "Competitor Shortlist",
+            "Feature Surface Comparison",
             "Metadata Snapshot",
+            "Monetization And Packaging",
+            "Regional And Segment Signals",
+            "Scale Signals And Market Headroom",
             "Observed Strategic Patterns",
             "Gaps To Investigate",
             "Raw Data References",
@@ -47,17 +61,22 @@ SECTION_EXPECTATIONS = {
             "Query Context",
             "Top Complaint Clusters",
             "Top Delight Clusters",
+            "Jobs Users Are Hiring The Product To Do",
             "Explicit Feature Requests",
             "Anti-Features",
             "Version Or Country Hotspots",
+            "Persona Or Segment Breakdowns",
             "Raw Data References",
         ],
         "03-feature-opportunities.md": [
             "Must-Have Features",
+            "Prioritized Capability Map",
             "Differentiators",
             "Avoidances",
             "Open Hypotheses",
+            "Scope Recommendation",
             "Recommendation",
+            "Growth And Scale Recommendation",
         ],
     },
     "prd": {
@@ -65,32 +84,47 @@ SECTION_EXPECTATIONS = {
             "Product Summary",
             "Problem Statement",
             "Target Users",
+            "Market And Research Synthesis",
             "Product Goals",
             "Non-Goals",
             "Core User Journeys",
+            "Feature System",
             "Functional Requirements",
+            "Experience Principles",
             "Localization Requirements",
             "Business Model",
+            "Growth System",
             "Success Metrics",
+            "Launch Scope And Sequencing",
             "Risks",
+            "Operational And Trust Requirements",
+            "Scale Readiness Requirements",
             "Evidence Appendix",
         ],
     },
     "design": {
         "ui-ux-spec.md": [
             "Design Context",
+            "Product Experience Strategy",
             "Visual Direction",
             "Accessibility And Readability Rules",
             "Localization And Copy Rules",
             "Information Architecture",
+            "User Flow Coverage",
             "Page Specs",
+            "State Matrix",
             "Component Rules",
+            "Responsive And Platform Behavior",
+            "Trust And Feedback Cues",
+            "Scale UX Requirements",
             "Impeccable Review Notes",
         ],
         "i18n-strategy.md": [
             "Localization Scope",
+            "Locale Prioritization",
             "Stack And Resource Model",
             "Source Of Truth",
+            "Copy Governance",
             "Delivery Rules",
             "Layout And UX Considerations",
             "Validation",
@@ -99,22 +133,32 @@ SECTION_EXPECTATIONS = {
     "planning": {
         "implementation-plan.md": [
             "Scope For This Plan",
+            "Architecture And Technical Strategy",
             "Milestones",
+            "Dependency And Risk Map",
             "Task Batches",
             "Localization Work",
+            "Review And Verification Cadence",
             "Loop Candidates",
             "Verification Commands",
             "Commit Strategy",
+            "Rollout And Recovery Plan",
+            "Scale And Reliability Workstreams",
         ],
     },
     "delivery": {
         "implementation-plan.md": [
             "Scope For This Plan",
+            "Architecture And Technical Strategy",
             "Milestones",
+            "Dependency And Risk Map",
             "Task Batches",
             "Localization Work",
+            "Review And Verification Cadence",
             "Verification Commands",
             "Commit Strategy",
+            "Rollout And Recovery Plan",
+            "Scale And Reliability Workstreams",
         ],
     },
     "release": {
@@ -122,9 +166,14 @@ SECTION_EXPECTATIONS = {
             "Verification Summary",
             "UX Audit Summary",
             "Localization Summary",
+            "Operational Readiness",
             "Release Checklist",
             "Known Issues",
+            "Rollout And Rollback Plan",
+            "Scale Launch Controls",
+            "Post-Launch Watchlist",
             "Release Notes Draft",
+            "Go Or No-Go Rationale",
         ],
     },
 }
@@ -159,153 +208,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def try_load_pyyaml(text: str) -> Any:
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return None
-    return yaml.safe_load(text)
-
-
-def parse_scalar(value: str) -> Any:
-    if value in {'""', "''"}:
-        return ""
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        inner = value[1:-1]
-        return bytes(inner, "utf-8").decode("unicode_escape")
-    lower = value.lower()
-    if lower in {"true", "yes"}:
-        return True
-    if lower in {"false", "no"}:
-        return False
-    return value
-
-
-def parse_simple_yaml(text: str) -> dict[str, Any]:
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- "):
-            raise ValueError(f"Unsupported YAML list syntax at line {lineno}: {raw_line}")
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ValueError(f"Unsupported indentation at line {lineno}: {raw_line}")
-        if ":" not in stripped:
-            raise ValueError(f"Expected key/value pair at line {lineno}: {raw_line}")
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while indent <= stack[-1][0]:
-            stack.pop()
-        container = stack[-1][1]
-
-        if value == "":
-            child: dict[str, Any] = {}
-            container[key] = child
-            stack.append((indent, child))
-        else:
-            container[key] = parse_scalar(value)
-
-    return root
-
-
-def load_spec(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    loaded = try_load_pyyaml(text)
-    if loaded is not None:
-        return loaded
-    return parse_simple_yaml(text)
-
-
-def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
-    current: Any = data
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    if current is None:
-        return default
-    if isinstance(current, bool):
-        return "yes" if current else "no"
-    value = str(current).strip()
-    if re.fullmatch(r"\{\{[^}]+\}\}", value):
-        return default
-    return value
-
-
 def display_path(path: Path) -> str:
-    for root in DISPLAY_ROOTS:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            continue
-    return str(path)
+    return common_display_path(path, DISPLAY_ROOTS)
 
 
 def project_root(spec: dict[str, Any]) -> Path:
-    project_dir = nested_get(spec, "delivery", "project_dir")
-    if project_dir:
-        return Path(project_dir).expanduser().resolve()
-    return ROOT_DIR
+    return common_project_root(spec, ROOT_DIR)
 
 
 def artifact_path(spec: dict[str, Any], key: str, default: Path | None = None) -> Path:
-    value = nested_get(spec, "artifacts", key)
-    if value:
-        path = Path(value).expanduser()
-        if path.is_absolute():
-            return path.resolve()
-        return (project_root(spec) / path).resolve()
-    if default is not None:
-        return default
-    raise KeyError(f"Missing artifact path: {key}")
+    return common_artifact_path(spec, key, ROOT_DIR, default=default)
 
 
 def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
-    if phase == "research":
-        root = artifact_path(spec, "research_dir")
-        return [
-            root / "01-competitor-landscape.md",
-            root / "02-review-insights.md",
-            root / "03-feature-opportunities.md",
-        ]
-    if phase == "prd":
-        return [artifact_path(spec, "prd_dir") / "product-requirements.md"]
-    if phase == "design":
-        root = artifact_path(spec, "design_dir")
-        return [root / "ui-ux-spec.md", root / "i18n-strategy.md"]
-    if phase in {"planning", "delivery"}:
-        return [artifact_path(spec, "plan_dir") / "implementation-plan.md"]
-    return [artifact_path(spec, "release_dir") / "release-readiness.md"]
+    return common_phase_targets(spec, phase, ROOT_DIR)
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
-    if args.spec:
-        return Path(args.spec).expanduser().resolve()
-    if args.initiative_id:
-        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
-        if locator.is_file():
-            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
-            if target.is_file():
-                return target.resolve()
-
-        for base in [Path.cwd(), *Path.cwd().parents]:
-            for candidate in [
-                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
-                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
-            ]:
-                if candidate.is_file():
-                    return candidate.resolve()
-
-        return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
-    raise ValueError("Pass --initiative-id or --spec.")
+    return common_resolve_spec_path(args, ROOT_DIR)
 
 
 def resolve_run_payload(spec: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
@@ -859,106 +779,251 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
 
     if phase == "research" and name == "01-competitor-landscape.md":
         research_window = bullet_field_map(sections.get("Research Window", []))
-        metrics["research_window_fields"] = count_filled_fields(research_window, ["Stores", "Countries", "Start date", "End date"])
+        metrics["research_window_fields"] = count_filled_fields(research_window, ["Stores", "Countries", "Languages sampled", "Start date", "End date"])
         metrics["competitor_rows"] = len(table_data_rows(sections.get("Competitor Shortlist", []), phase))
+        metrics["feature_surface_rows"] = len(table_data_rows(sections.get("Feature Surface Comparison", []), phase))
         metrics["metadata_rows"] = len(table_data_rows(sections.get("Metadata Snapshot", []), phase))
-        metrics["strategic_patterns_filled"] = count_filled_fields(bullet_field_map(sections.get("Observed Strategic Patterns", [])), ["Pattern 1", "Pattern 2", "Pattern 3"])
-        metrics["gaps_filled"] = count_filled_fields(bullet_field_map(sections.get("Gaps To Investigate", [])), ["Gap 1", "Gap 2"])
-        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Sensor Tower export", "Notes"])
-        if metrics["research_window_fields"] < 4:
-            issues.append("Research Window still lacks filled stores/countries/date bounds.")
-        if metrics["competitor_rows"] < 1:
-            issues.append("Competitor Shortlist needs at least one populated competitor row.")
-        if metrics["metadata_rows"] < 1:
-            issues.append("Metadata Snapshot needs at least one populated metadata row.")
-        if metrics["strategic_patterns_filled"] < 2:
-            issues.append("Observed Strategic Patterns should capture at least two concrete patterns.")
-        if metrics["raw_refs_filled"] < 1:
-            issues.append("Raw Data References should include at least one concrete source path or note.")
+        metrics["monetization_rows"] = len(table_data_rows(sections.get("Monetization And Packaging", []), phase))
+        metrics["regional_rows"] = len(table_data_rows(sections.get("Regional And Segment Signals", []), phase))
+        metrics["scale_headroom_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale Signals And Market Headroom", [])),
+            ["Total demand or category headroom signal", "Evidence of cross-market repeatability", "Evidence of high-frequency usage", "Distribution or acquisition pattern", "Operational complexity signal"],
+        )
+        metrics["strategic_patterns_filled"] = count_filled_fields(bullet_field_map(sections.get("Observed Strategic Patterns", [])), ["Pattern 1", "Pattern 2", "Pattern 3", "Pattern 4", "Pattern 5"])
+        metrics["gaps_filled"] = count_filled_fields(bullet_field_map(sections.get("Gaps To Investigate", [])), ["Gap 1", "Gap 2", "Gap 3"])
+        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Sensor Tower export", "Notes", "Additional links or screenshots"])
+        if metrics["research_window_fields"] < 5:
+            issues.append("Research Window should fully cover stores, countries, languages sampled, and date bounds.")
+        if metrics["competitor_rows"] < 3:
+            issues.append("Competitor Shortlist should include at least three meaningful competitors.")
+        if metrics["feature_surface_rows"] < 3:
+            issues.append("Feature Surface Comparison should compare at least three competitors.")
+        if metrics["metadata_rows"] < 3:
+            issues.append("Metadata Snapshot should include at least three populated metadata rows.")
+        if metrics["monetization_rows"] < 2:
+            issues.append("Monetization And Packaging should compare at least two competitors.")
+        if metrics["regional_rows"] < 2:
+            issues.append("Regional And Segment Signals should capture at least two market or segment observations.")
+        if metrics["scale_headroom_fields"] < 4:
+            issues.append("Scale Signals And Market Headroom should explain category headroom, repeatability, frequency, distribution, and operational complexity.")
+        if metrics["strategic_patterns_filled"] < 4:
+            issues.append("Observed Strategic Patterns should capture at least four concrete patterns.")
+        if metrics["gaps_filled"] < 3:
+            issues.append("Gaps To Investigate should capture at least three meaningful gaps.")
+        if metrics["raw_refs_filled"] < 2:
+            issues.append("Raw Data References should include exported evidence plus additional supporting notes or links.")
 
     if phase == "research" and name == "02-review-insights.md":
         query_context = bullet_field_map(sections.get("Query Context", []))
-        metrics["query_context_fields"] = count_filled_fields(query_context, ["Apps reviewed", "Countries", "Date window", "Total reviews"])
+        metrics["query_context_fields"] = count_filled_fields(query_context, ["Apps reviewed", "Countries", "Languages reviewed", "Date window", "Total reviews", "Regional coverage rationale"])
         metrics["complaint_rows"] = len(table_data_rows(sections.get("Top Complaint Clusters", []), phase))
         metrics["delight_rows"] = len(table_data_rows(sections.get("Top Delight Clusters", []), phase))
+        metrics["job_rows"] = len(table_data_rows(sections.get("Jobs Users Are Hiring The Product To Do", []), phase))
         metrics["request_rows"] = len(table_data_rows(sections.get("Explicit Feature Requests", []), phase))
         metrics["anti_feature_rows"] = len(table_data_rows(sections.get("Anti-Features", []), phase))
-        metrics["hotspots_filled"] = count_filled_fields(bullet_field_map(sections.get("Version Or Country Hotspots", [])), ["Hotspot 1", "Hotspot 2"])
-        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Review export", "Review insight report"])
-        if metrics["query_context_fields"] < 4:
-            issues.append("Query Context should identify reviewed apps, countries, date window, and review volume.")
-        if metrics["complaint_rows"] < 1 or metrics["delight_rows"] < 1:
-            issues.append("Review insights need at least one complaint cluster and one delight cluster.")
-        if metrics["request_rows"] < 1 or metrics["anti_feature_rows"] < 1:
-            issues.append("Review insights need explicit feature requests and anti-features captured.")
-        if metrics["raw_refs_filled"] < 1:
-            issues.append("Review insights should reference raw review exports or a derived report.")
+        metrics["persona_rows"] = len(table_data_rows(sections.get("Persona Or Segment Breakdowns", []), phase))
+        metrics["hotspots_filled"] = count_filled_fields(bullet_field_map(sections.get("Version Or Country Hotspots", [])), ["Hotspot 1", "Hotspot 2", "Hotspot 3"])
+        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Review export", "Review insight report", "Sample review evidence file"])
+        if metrics["query_context_fields"] < 6:
+            issues.append("Query Context should identify apps, countries, languages, date window, review volume, and global coverage rationale.")
+        if metrics["complaint_rows"] < 3 or metrics["delight_rows"] < 2:
+            issues.append("Review insights should include multiple complaint clusters and multiple delight clusters.")
+        if metrics["job_rows"] < 2:
+            issues.append("Review insights should identify at least two jobs users are hiring the product to do.")
+        if metrics["request_rows"] < 3 or metrics["anti_feature_rows"] < 2:
+            issues.append("Review insights should capture multiple explicit feature requests and anti-features.")
+        if metrics["persona_rows"] < 2:
+            issues.append("Persona Or Segment Breakdowns should cover at least two user segments.")
+        if metrics["hotspots_filled"] < 2:
+            issues.append("Version Or Country Hotspots should capture at least two concrete hotspots.")
+        if metrics["raw_refs_filled"] < 2:
+            issues.append("Review insights should reference raw review exports plus a derived report or sample evidence file.")
 
     if phase == "research" and name == "03-feature-opportunities.md":
         metrics["must_have_rows"] = len(table_data_rows(sections.get("Must-Have Features", []), phase))
+        metrics["capability_map_rows"] = len(table_data_rows(sections.get("Prioritized Capability Map", []), phase))
         metrics["differentiator_rows"] = len(table_data_rows(sections.get("Differentiators", []), phase))
         metrics["avoidance_rows"] = len(table_data_rows(sections.get("Avoidances", []), phase))
         metrics["hypothesis_rows"] = len(table_data_rows(sections.get("Open Hypotheses", []), phase))
+        scope_lines = sections.get("Scope Recommendation", [])
+        metrics["scope_recommendation_fields"] = count_filled_fields(
+            bullet_field_map(scope_lines),
+            ["Core outcomes", "Why now", "Expansion outcomes", "Why later", "Strategic bets", "Validation dependency"],
+        )
         metrics["recommendation_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Recommendation", [])),
-            ["Core feature set", "First premium lever", "Biggest UX risk", "Biggest market risk"],
+            ["Core feature set", "First premium lever", "Biggest UX risk", "Biggest market risk", "Biggest retention lever", "Biggest trust or quality requirement"],
         )
-        if min(metrics["must_have_rows"], metrics["differentiator_rows"], metrics["avoidance_rows"], metrics["hypothesis_rows"]) < 1:
-            issues.append("Feature opportunities should cover must-haves, differentiators, avoidances, and open hypotheses.")
-        if metrics["recommendation_fields"] < 4:
-            issues.append("Recommendation should summarize feature set, premium lever, UX risk, and market risk.")
+        metrics["growth_scale_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Growth And Scale Recommendation", [])),
+            ["Primary growth loop", "Primary retention loop", "Main global expansion lever", "Main operational constraint at scale", "Why this can plausibly reach 10M DAU"],
+        )
+        if metrics["must_have_rows"] < 4:
+            issues.append("Must-Have Features should include at least four evidence-backed rows.")
+        if metrics["capability_map_rows"] < 5:
+            issues.append("Prioritized Capability Map should contain at least five capabilities.")
+        if min(metrics["differentiator_rows"], metrics["avoidance_rows"], metrics["hypothesis_rows"]) < 2:
+            issues.append("Feature opportunities should cover multiple differentiators, avoidances, and open hypotheses.")
+        if metrics["scope_recommendation_fields"] < 6:
+            issues.append("Scope Recommendation should describe V1, V1.5, and V2 with concrete staged rationale.")
+        if metrics["recommendation_fields"] < 6:
+            issues.append("Recommendation should summarize feature set, monetization, retention, and trust or quality implications.")
+        if metrics["growth_scale_fields"] < 4:
+            issues.append("Growth And Scale Recommendation should define growth, retention, expansion, and scale viability rather than stopping at feature scope.")
 
     if phase == "prd" and name == "product-requirements.md":
         metrics["journey_count"] = len(numbered_item_values(sections.get("Core User Journeys", [])))
+        metrics["core_capability_rows"] = len(table_data_rows(sections.get("Feature System", []), phase))
         metrics["functional_requirement_rows"] = len(table_data_rows(sections.get("Functional Requirements", []), phase))
         metrics["risk_rows"] = len(table_data_rows(sections.get("Risks", []), phase))
-        metrics["goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Product Goals", [])), ["Goal 1", "Goal 2", "Goal 3"])
-        metrics["non_goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Non-Goals", [])), ["Non-goal 1", "Non-goal 2"])
+        metrics["goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Product Goals", [])), ["Goal 1", "Goal 2", "Goal 3", "Goal 4"])
+        metrics["non_goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Non-Goals", [])), ["Non-goal 1", "Non-goal 2", "Non-goal 3"])
+        metrics["summary_fields"] = count_filled_fields(bullet_field_map(sections.get("Product Summary", [])), ["One-line concept", "Product category", "Target market", "Why this product wins now"])
+        metrics["problem_fields"] = count_filled_fields(bullet_field_map(sections.get("Problem Statement", [])), ["Primary user problem", "Why current solutions fall short", "Most common user complaints from research"])
+        metrics["market_synthesis_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Market And Research Synthesis", [])),
+            ["Competitors covered", "Review volume covered", "Key global patterns", "Key regional differences", "What users consistently love", "What users consistently hate", "Evidence confidence"],
+        )
+        metrics["experience_principles_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Experience Principles", [])),
+            ["Principle 1", "Principle 2", "Principle 3", "Principle 4"],
+        )
         metrics["localization_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Localization Requirements", [])),
             ["Source language", "Target locales", "Localization system", "Translation workflow"],
         )
+        metrics["business_model_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Business Model", [])),
+            ["Monetization approach", "Pricing assumptions", "Paywall or upgrade moments", "Revenue risks"],
+        )
+        metrics["growth_system_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Growth System", [])),
+            ["Primary acquisition loops", "Activation strategy", "Retention loops", "Referral / network / distribution hooks", "Experimentation surfaces"],
+        )
+        metrics["launch_scope_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Launch Scope And Sequencing", [])),
+            ["In scope", "Out of scope", "Success bar", "Dependency", "Strategic expansion", "Validation required first"],
+        )
+        metrics["trust_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Operational And Trust Requirements", [])),
+            ["Privacy or compliance constraints", "Moderation / abuse / fraud concerns", "Reliability expectations", "Customer support or feedback loop"],
+        )
+        metrics["scale_readiness_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale Readiness Requirements", [])),
+            ["Target scale assumption", "Performance and latency expectations", "Abuse / fraud / moderation model", "Analytics and experimentation instrumentation", "Operational ownership and on-call expectation"],
+        )
         metrics["evidence_appendix_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Evidence Appendix", [])),
-            ["Competitor landscape", "Review insights", "Feature opportunities"],
+            ["Competitor landscape", "Review insights", "Feature opportunities", "Key review quotes or themes file", "Additional market notes"],
         )
-        if metrics["journey_count"] < 2:
-            issues.append("PRD should describe at least two concrete user journeys.")
-        if metrics["functional_requirement_rows"] < 1:
-            issues.append("Functional Requirements needs at least one populated requirement row.")
-        if metrics["risk_rows"] < 1:
-            issues.append("Risks needs at least one populated risk row.")
-        if metrics["goal_fields"] < 2:
-            issues.append("Product Goals should include at least two concrete goals.")
+        if metrics["summary_fields"] < 4:
+            issues.append("Product Summary should define concept, category, market, and why the product wins now.")
+        if metrics["problem_fields"] < 3:
+            issues.append("Problem Statement should connect the user problem to concrete research-backed complaints.")
+        if metrics["market_synthesis_fields"] < 6:
+            issues.append("Market And Research Synthesis should summarize competitor coverage, review coverage, global patterns, and global user likes and dislikes.")
+        if metrics["journey_count"] < 4:
+            issues.append("PRD should describe at least four concrete user journeys.")
+        if metrics["core_capability_rows"] < 6:
+            issues.append("Feature System should capture a sufficiently rich product capability set.")
+        if metrics["functional_requirement_rows"] < 8:
+            issues.append("Functional Requirements needs a materially richer requirement set than a demo PRD.")
+        if metrics["risk_rows"] < 3:
+            issues.append("Risks should cover at least three meaningful product or delivery risks.")
+        if metrics["goal_fields"] < 3:
+            issues.append("Product Goals should include at least three concrete goals.")
+        if metrics["experience_principles_fields"] < 3:
+            issues.append("Experience Principles should define at least three concrete product principles.")
         if metrics["localization_fields"] < 4:
             issues.append("Localization Requirements should fill source language, target locales, system, and workflow.")
-        if metrics["evidence_appendix_fields"] < 3:
-            issues.append("Evidence Appendix should point back to all three research artifacts.")
+        if metrics["business_model_fields"] < 3:
+            issues.append("Business Model should define monetization, pricing assumptions, and upgrade logic.")
+        if metrics["growth_system_fields"] < 4:
+            issues.append("Growth System should define acquisition, activation, retention, and experimentation surfaces for a scaled product.")
+        if metrics["launch_scope_fields"] < 4:
+            issues.append("Launch Scope And Sequencing should define a staged release plan beyond a single demo release.")
+        if metrics["trust_fields"] < 3:
+            issues.append("Operational And Trust Requirements should cover reliability, trust, and support expectations.")
+        if metrics["scale_readiness_fields"] < 4:
+            issues.append("Scale Readiness Requirements should define target scale, performance, abuse controls, instrumentation, and operational ownership.")
+        if metrics["evidence_appendix_fields"] < 4:
+            issues.append("Evidence Appendix should point back to research artifacts and richer supporting evidence.")
 
     if phase == "design" and name == "ui-ux-spec.md":
+        metrics["design_context_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Design Context", [])),
+            ["Target audience", "Use cases", "Brand tone", "Differentiation goal", "Product maturity target"],
+        )
+        metrics["experience_strategy_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Product Experience Strategy", [])),
+            ["Primary promise to the user", "Emotional tone", "Trust-building strategy", "Key moments that must feel premium"],
+        )
+        metrics["visual_direction_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Visual Direction", [])),
+            ["Aesthetic direction", "Typography system", "Color system", "Motion principles", "Density and spacing strategy"],
+        )
         metrics["readability_rule_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Accessibility And Readability Rules", [])),
-            ["Minimum contrast expectations", "CTA readability rules", "Disabled/loading state rules", "Focus state rules"],
+            ["Minimum contrast expectations", "CTA readability rules", "Disabled/loading state rules", "Focus state rules", "Touch target and mobile ergonomics rules"],
         )
         metrics["localization_rule_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Localization And Copy Rules", [])),
-            ["Source locale", "Target locales", "Long-text expansion and multi-locale layout considerations"],
+            ["Source locale", "Target locales", "Long-text expansion and multi-locale layout considerations", "Tone and terminology rules"],
+        )
+        metrics["ia_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Information Architecture", [])),
+            ["Primary navigation", "Secondary navigation", "Key page groups", "Entry points and conversion paths"],
+        )
+        metrics["flow_coverage_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("User Flow Coverage", [])),
+            ["Acquisition or entry flow", "Activation flow", "Core repeat-use flow", "Upgrade / conversion flow", "Recovery or support flow"],
         )
         metrics["component_rule_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Component Rules", [])),
-            ["Buttons", "Forms", "Cards", "Lists", "Modals"],
+            ["Buttons", "Forms", "Cards", "Lists", "Modals", "Navigation", "Data visualization or rich content"],
         )
         metrics["page_blocks_completed"] = complete_page_blocks(sections.get("Page Specs", []))
+        metrics["state_matrix_rows"] = len(table_data_rows(sections.get("State Matrix", []), phase))
+        metrics["responsive_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Responsive And Platform Behavior", [])),
+            ["Mobile adaptation rules", "Tablet / desktop rules", "Input mode differences", "Performance or motion constraints"],
+        )
+        metrics["trust_feedback_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Trust And Feedback Cues", [])),
+            ["Security / privacy cues", "Progress feedback", "Error recovery guidance", "Empty-state education"],
+        )
+        metrics["scale_ux_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale UX Requirements", [])),
+            ["Onboarding for broad-market conversion", "Habit / repeat-use surfaces", "Power-user efficiency surfaces", "Localization and market adaptation surfaces", "Support / trust / abuse-reporting entry points"],
+        )
         metrics["impeccable_review_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Impeccable Review Notes", [])),
-            ["Audit findings", "Critique findings", "Polish actions"],
+            ["Audit findings", "Critique findings", "Polish actions", "Anti-patterns explicitly avoided"],
         )
+        if metrics["design_context_fields"] < 4:
+            issues.append("UI UX spec should define audience, use cases, brand tone, and product maturity target.")
+        if metrics["experience_strategy_fields"] < 4:
+            issues.append("UI UX spec should define the product experience strategy, including premium and trust moments.")
+        if metrics["visual_direction_fields"] < 5:
+            issues.append("UI UX spec should fully define aesthetic, typography, color, motion, and spacing strategy.")
         if metrics["readability_rule_fields"] < 4:
             issues.append("UI UX spec should define all readability and accessibility rules.")
-        if metrics["page_blocks_completed"] < 2:
-            issues.append("UI UX spec should contain at least two fully filled page specs.")
-        if metrics["component_rule_fields"] < 4:
-            issues.append("Component Rules should cover most core component families.")
+        if metrics["ia_fields"] < 4:
+            issues.append("Information Architecture should cover navigation, page groups, and conversion paths.")
+        if metrics["flow_coverage_fields"] < 4:
+            issues.append("User Flow Coverage should cover acquisition, activation, repeat use, and recovery.")
+        if metrics["page_blocks_completed"] < 3:
+            issues.append("UI UX spec should contain at least three fully filled page specs.")
+        if metrics["state_matrix_rows"] < 3:
+            issues.append("State Matrix should cover at least three key surfaces with edge states.")
+        if metrics["component_rule_fields"] < 5:
+            issues.append("Component Rules should cover most core component families and richer content surfaces.")
+        if metrics["responsive_fields"] < 4:
+            issues.append("Responsive And Platform Behavior should define mobile, larger-screen, and input-mode adaptations.")
+        if metrics["trust_feedback_fields"] < 3:
+            issues.append("Trust And Feedback Cues should cover trust, progress, and recovery guidance.")
+        if metrics["scale_ux_fields"] < 4:
+            issues.append("Scale UX Requirements should cover onboarding, repeat use, power-user efficiency, localization adaptation, and trust or abuse entry points.")
         if metrics["impeccable_review_fields"] < 3:
             issues.append("Impeccable Review Notes should capture audit, critique, and polish actions.")
 
@@ -967,33 +1032,57 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Localization Scope", [])),
             ["Product surfaces in scope", "Source locale", "Required target locales"],
         )
+        metrics["locale_priority_rows"] = len(table_data_rows(sections.get("Locale Prioritization", []), phase))
         metrics["stack_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Stack And Resource Model", [])),
-            ["Primary stack", "Localization resource location", "Translation helper or accessor"],
+            ["Primary stack", "Localization resource location", "Translation helper or accessor", "Stack-specific notes"],
         )
         metrics["source_of_truth_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Source Of Truth", [])),
             ["Who owns source copy", "Key naming convention", "Placeholder and formatting rules", "Brand terms that must not be translated"],
         )
+        metrics["copy_governance_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Copy Governance", [])),
+            ["Source copy review owner", "Terminology review rule", "Fallback copy policy", "Release-time copy freeze rule"],
+        )
         metrics["delivery_rule_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Delivery Rules", [])),
-            ["Locale sync workflow", "Translation completion workflow", "Hardcoded copy check command"],
+            ["Locale sync workflow", "Translation completion workflow", "Hardcoded copy check command", "Escalation rule for missing translations"],
+        )
+        metrics["layout_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Layout And UX Considerations", [])),
+            ["Long text expansion risk", "RTL requirements", "Locale-specific formatting", "Accessibility considerations", "Screenshot or visual QA expectations"],
         )
         metrics["validation_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Validation", [])),
-            ["Required locale coverage before release", "Manual QA locales", "Automated checks"],
+            ["Required locale coverage before release", "Manual QA locales", "Automated checks", "High-risk flows that must be tested in every required locale"],
         )
         if metrics["scope_fields"] < 3:
             issues.append("I18n Strategy should define scope, source locale, and required target locales.")
-        if metrics["stack_fields"] < 3:
+        if metrics["locale_priority_rows"] < 2:
+            issues.append("Locale Prioritization should cover at least two locales or locale groups.")
+        if metrics["stack_fields"] < 4:
             issues.append("I18n Strategy should define the stack resource location and translation accessor.")
+        if metrics["copy_governance_fields"] < 3:
+            issues.append("Copy Governance should define ownership, fallback policy, and release-time controls.")
         if metrics["delivery_rule_fields"] < 3:
             issues.append("I18n Strategy should define locale sync, translation workflow, and hardcoded copy checks.")
-        if metrics["validation_fields"] < 3:
+        if metrics["layout_fields"] < 4:
+            issues.append("Layout And UX Considerations should cover expansion, RTL, formatting, and visual QA.")
+        if metrics["validation_fields"] < 4:
             issues.append("I18n Strategy should define locale coverage, manual QA, and automated checks.")
 
     if phase in {"planning", "delivery"} and name == "implementation-plan.md":
+        metrics["scope_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scope For This Plan", [])),
+            ["Included", "Excluded"],
+        )
+        metrics["architecture_strategy_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Architecture And Technical Strategy", [])),
+            ["Core implementation approach", "Key modules or services involved", "Data model or contract impact", "Technical risks to control early"],
+        )
         metrics["milestone_rows"] = len(table_data_rows(sections.get("Milestones", []), phase))
+        metrics["dependency_risk_rows"] = len(table_data_rows(sections.get("Dependency And Risk Map", []), phase))
         metrics["completed_batches"] = 0
         batch_lines = sections.get("Task Batches", [])
         batch_blocks: list[list[str]] = []
@@ -1016,6 +1105,10 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Localization Work", [])),
             ["Hardcoded string extraction tasks", "Source locale key creation", "Target locale sync", "Translation completion workflow"],
         )
+        metrics["review_cadence_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Review And Verification Cadence", [])),
+            ["When code review runs", "Required verification before each commit", "Batch completion evidence format", "When to update initiative artifacts"],
+        )
         verification_commands = code_block_commands(sections.get("Verification Commands", []))
         metrics["verification_command_count"] = len(verification_commands)
         metrics["custom_verification_command_count"] = len([cmd for cmd in verification_commands if cmd != "./scripts/check-no-hardcoded-copy.sh"])
@@ -1023,16 +1116,36 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Commit Strategy", [])),
             ["Commit frequency", "Branch strategy", "PR strategy"],
         )
+        metrics["rollout_recovery_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Rollout And Recovery Plan", [])),
+            ["Release unit for this work", "Rollback or recovery strategy", "Observability or monitoring checks", "Post-merge validation"],
+        )
+        metrics["scale_reliability_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale And Reliability Workstreams", [])),
+            ["Performance and capacity work", "Analytics and experimentation work", "Abuse / fraud / trust safeguards", "Observability and incident readiness", "Growth surface instrumentation"],
+        )
+        if metrics["scope_fields"] < 2:
+            issues.append("Implementation plan should define what is included and excluded.")
+        if metrics["architecture_strategy_fields"] < 4:
+            issues.append("Implementation plan should define the technical strategy, touched systems, and early risks.")
         if metrics["milestone_rows"] < 1:
             issues.append("Implementation plan needs at least one milestone row.")
-        if metrics["completed_batches"] < 1:
-            issues.append("Implementation plan should contain at least one fully filled task batch.")
+        if metrics["dependency_risk_rows"] < 2:
+            issues.append("Dependency And Risk Map should capture at least two concrete dependencies or risks.")
+        if metrics["completed_batches"] < 2:
+            issues.append("Implementation plan should contain at least two fully filled task batches.")
         if metrics["localization_work_fields"] < 4:
             issues.append("Implementation plan should define all localization work lanes.")
-        if metrics["custom_verification_command_count"] < 1:
-            issues.append("Verification Commands should include at least one project-specific command beyond the default copy check.")
+        if metrics["review_cadence_fields"] < 4:
+            issues.append("Review And Verification Cadence should define review timing, verification rules, and artifact update timing.")
+        if metrics["custom_verification_command_count"] < 2:
+            issues.append("Verification Commands should include multiple project-specific commands beyond the default copy check.")
         if metrics["commit_strategy_fields"] < 3:
             issues.append("Commit Strategy should define commit frequency, branch strategy, and PR strategy.")
+        if metrics["rollout_recovery_fields"] < 3:
+            issues.append("Rollout And Recovery Plan should define release unit, rollback strategy, and post-merge checks.")
+        if metrics["scale_reliability_fields"] < 4:
+            issues.append("Scale And Reliability Workstreams should define performance, observability, trust, analytics, and growth instrumentation work.")
 
     if phase == "release" and name == "release-readiness.md":
         metrics["verification_summary_fields"] = count_filled_fields(
@@ -1047,12 +1160,33 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             bullet_field_map(sections.get("Localization Summary", [])),
             ["Hardcoded copy audit", "Locale coverage", "Translation validation", "Hardcoded copy check command/result"],
         )
+        metrics["operational_readiness_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Operational Readiness", [])),
+            ["Logging / monitoring readiness", "Support readiness", "Incident owner or escalation path", "Data / analytics readiness"],
+        )
         checked, total = checkbox_counts(sections.get("Release Checklist", []))
         metrics["release_checklist_checked"] = checked
         metrics["release_checklist_total"] = total
+        metrics["known_issue_rows"] = len(table_data_rows(sections.get("Known Issues", []), phase))
+        metrics["rollback_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Rollout And Rollback Plan", [])),
+            ["Rollout strategy", "Rollback trigger", "Rollback owner", "Kill switch or mitigation notes"],
+        )
+        metrics["scale_launch_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Scale Launch Controls", [])),
+            ["Capacity / traffic assumption", "Feature flag or staged rollout controls", "Incident drill or rollback rehearsal", "Support / moderation readiness", "Analytics dashboard owner"],
+        )
+        metrics["watchlist_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Post-Launch Watchlist", [])),
+            ["Activation signal to watch", "Retention signal to watch", "Revenue or conversion signal to watch", "Quality or support signal to watch"],
+        )
         metrics["release_notes_fields"] = count_filled_fields(
             bullet_field_map(sections.get("Release Notes Draft", [])),
             ["Added", "Improved", "Fixed"],
+        )
+        metrics["go_no_go_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Go Or No-Go Rationale", [])),
+            ["Reasons to ship", "Remaining risks", "Final recommendation"],
         )
         if metrics["verification_summary_fields"] < 4:
             issues.append("Release readiness should fill test/build/lint/manual QA status.")
@@ -1060,10 +1194,22 @@ def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, lis
             issues.append("Release readiness should summarize final UX audit results.")
         if metrics["localization_summary_fields"] < 4:
             issues.append("Release readiness should summarize locale coverage and hardcoded-copy validation.")
+        if metrics["operational_readiness_fields"] < 4:
+            issues.append("Release readiness should define monitoring, support, escalation, and analytics readiness.")
         if total > 0 and checked < total:
             issues.append("Release checklist is not fully checked yet.")
-        if metrics["release_notes_fields"] < 1:
-            issues.append("Release notes draft should contain at least one concrete added/improved/fixed item.")
+        if metrics["known_issue_rows"] < 1:
+            issues.append("Known Issues should record at least one concrete issue or explicitly track a no-blocker state.")
+        if metrics["rollback_fields"] < 3:
+            issues.append("Rollout And Rollback Plan should define rollout, rollback trigger, and ownership.")
+        if metrics["scale_launch_fields"] < 4:
+            issues.append("Scale Launch Controls should define traffic assumptions, staged rollout controls, incident rehearsal, support readiness, and analytics ownership.")
+        if metrics["watchlist_fields"] < 4:
+            issues.append("Post-Launch Watchlist should define activation, retention, revenue, and quality watch signals.")
+        if metrics["release_notes_fields"] < 2:
+            issues.append("Release notes draft should contain more than a token-level summary.")
+        if metrics["go_no_go_fields"] < 3:
+            issues.append("Go Or No-Go Rationale should explain why to ship, what risks remain, and the final recommendation.")
 
     return issues, metrics
 
@@ -1313,6 +1459,25 @@ def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: li
     return issues
 
 
+def evidence_artifact_findings(project_dir: Path, packet_dir: Path, report: dict[str, Any], response_text: str, stderr_text: str) -> list[str]:
+    issues: list[str] = []
+    combined_output = "\n".join([response_text, stderr_text])
+
+    for command in ensure_list(report.get("tests_run")):
+        if command not in combined_output and command not in response_text:
+            issues.append(f"tests_run entry is not reflected in captured output: {command}")
+
+    for artifact in ensure_list(report.get("evidence_artifacts")):
+        artifact_path = Path(artifact).expanduser()
+        candidates = [artifact_path]
+        if not artifact_path.is_absolute():
+            candidates.extend([(project_dir / artifact_path).resolve(), (packet_dir / artifact_path).resolve()])
+        if not any(candidate.exists() for candidate in candidates):
+            issues.append(f"evidence_artifact does not exist in project or packet scope: {artifact}")
+
+    return issues
+
+
 def short_text_excerpt(text: str) -> str:
     for line in text.splitlines():
         stripped = line.strip()
@@ -1337,6 +1502,7 @@ def build_result_suggestion(
     response_text: str,
     stderr_text: str,
     packet_dir: Path,
+    project_dir: Path,
     phase_readiness: dict[str, Any],
     git_before: dict[str, Any],
     git_after: dict[str, Any],
@@ -1354,6 +1520,7 @@ def build_result_suggestion(
         structured_report["batch_commits"] = created_commits
 
     workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
+    workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
     commit_issue = ""
     if phase == "delivery" and git_after.get("is_repo") and not created_commits:
         commit_issue = "No new git commit was detected for this delivery batch."
@@ -1791,12 +1958,18 @@ def main() -> int:
             encoding="utf-8",
         )
     elif status == "unsupported":
+        manual_note = "- Use the prepared prompt manually in the target harness.\n"
+        if harness == "opencode":
+            manual_note = (
+                "- Open the prepared `prompt-with-report.md` in your OpenCode project session.\n"
+                "- Run that prompt manually in OpenCode, then return to `./scripts/supernb apply-execution` with this packet.\n"
+            )
         stdout_path.write_text("", encoding="utf-8")
         stderr_path.write_text(error_message + "\n", encoding="utf-8")
         response_path.write_text(
             "# Direct Execution Unavailable\n\n"
             f"- {error_message}\n"
-            "- Use the prepared prompt manually in the target harness.\n",
+            f"{manual_note}",
             encoding="utf-8",
         )
     else:
@@ -1854,6 +2027,7 @@ def main() -> int:
         response_text,
         stderr_text,
         packet_dir,
+        project_dir,
         phase_readiness,
         git_before,
         git_after,

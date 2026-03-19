@@ -1,6 +1,6 @@
 ---
 name: full-product-delivery
-description: Use when the user wants supernb to take a product from idea to a commercial-grade release-ready implementation, including research, PRD, UI/UX, coding, verification, and continuous commits rather than a thin MVP, regardless of framework or stack.
+description: Use when the user wants supernb to take a product from idea to a 10M-DAU-grade commercial release-ready implementation, including research, PRD, UI/UX, coding, verification, and continuous commits rather than a thin MVP, regardless of framework or stack.
 ---
 
 # Full Product Delivery
@@ -19,6 +19,9 @@ The target is not a demo or placeholder implementation. The target is a release-
 - verification evidence
 - commit history
 
+Every phase artifact should be rich enough to support real product decisions. Do not collapse research, PRD, design, or release documentation into thin demo-level summaries.
+Default to a product ambition that could plausibly support at least 10 million daily active users unless the user explicitly narrows the ambition.
+
 ## Required Inputs
 
 - product idea
@@ -36,6 +39,11 @@ The target is not a demo or placeholder implementation. The target is a release-
 5. Use the Frad loop only as an optional bounded persistence layer.
 6. Keep shipping in validated batches with commits.
 7. Push `superpowers` to decompose work as finely as possible instead of hiding large unreviewed batches behind one final response.
+8. Carry depth through all phases:
+   - research should be globally and regionally informed
+   - PRD should define a product system, not a short feature list
+   - design should cover flows, states, trust, and responsive behavior
+   - implementation and release artifacts should be concrete enough to certify
 
 ## Localization Rule
 

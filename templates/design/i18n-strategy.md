@@ -14,6 +14,12 @@
 - Required target locales:
 - Optional target locales:
 
+## Locale Prioritization
+
+| Locale | Why it matters | Release wave | UX risk or note |
+| --- | --- | --- | --- |
+|  |  |  |  |
+
 ## Stack And Resource Model
 
 - Primary stack:
@@ -28,6 +34,13 @@
 - Placeholder and formatting rules:
 - Brand terms that must not be translated:
 
+## Copy Governance
+
+- Source copy review owner:
+- Terminology review rule:
+- Fallback copy policy:
+- Release-time copy freeze rule:
+
 ## Delivery Rules
 
 - User-facing copy must not be hardcoded in code.
@@ -35,6 +48,7 @@
 - Locale sync workflow:
 - Translation completion workflow:
 - Hardcoded copy check command:
+- Escalation rule for missing translations:
 
 ## Layout And UX Considerations
 
@@ -42,9 +56,11 @@
 - RTL requirements:
 - Locale-specific formatting:
 - Accessibility considerations:
+- Screenshot or visual QA expectations:
 
 ## Validation
 
 - Required locale coverage before release:
 - Manual QA locales:
 - Automated checks:
+- High-risk flows that must be tested in every required locale:

@@ -2,7 +2,7 @@
 
 ```text
 Use supernb command: full-product-delivery
-Goal: <build a complete product to commercial-grade quality>
+Goal: <build a complete product to 10M-DAU-grade commercial quality>
 Context:
 - repository: <url or local path>
 - platform: <web|ios|android|flutter|backend|mixed>
@@ -12,10 +12,11 @@ Context:
 - markets: <target countries or regions>
 - research window: <date range or recency window>
 - locales: <required languages>
-- quality bar: <commercial quality expectations>
+- quality bar: <10M-DAU-grade commercial quality expectations>
 - constraints: <timeline, integrations, quality requirements>
 Output:
 - create initiative artifacts
-- produce research, PRD, design, plan, implementation, and release evidence
+- produce research, PRD, design, plan, implementation, and release evidence at commercial-product depth
+- make every phase defensible for a product that could plausibly reach 10M DAU
 - commit validated changes
 ```

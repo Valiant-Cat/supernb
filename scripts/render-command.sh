@@ -61,14 +61,34 @@ default_output_lines() {
       printf '%s\n' \
         "route to the correct supernb workflow" \
         "preserve required phase gates" \
+        "keep output depth at commercial-product quality rather than demo quality" \
+        "treat the product ambition as 10M-DAU-class by default, including growth, reliability, and operational depth" \
         "save artifacts locally when needed"
       ;;
     full-product-delivery)
       printf '%s\n' \
         "create initiative artifacts" \
         "produce and save research, PRD, design, plan, implementation, and release evidence before claiming completion" \
+        "keep every artifact at commercial-product depth rather than demo-app depth" \
+        "plan for a product that can plausibly support 10M daily active users across growth, operations, trust, and global scale" \
         "use superpowers aggressively for brainstorming, writing-plans, fine-grained execution, TDD, and code review" \
         "commit each validated delivery batch instead of waiting until the end"
+      ;;
+    product-research)
+      printf '%s\n' \
+        "collect a rich enough evidence set to support product decisions, not a shallow memo" \
+        "compare competitor feature surfaces, monetization, and regional positioning" \
+        "synthesize global user complaints, delights, feature requests, and jobs-to-be-done from reviews" \
+        "establish market headroom and scale signals that justify a 10M-DAU-class ambition" \
+        "save competitor landscape, review insights, and feature opportunities artifacts" \
+        "prepare the research artifact set for certification"
+      ;;
+    research-backed-prd)
+      printf '%s\n' \
+        "synthesize approved research into a product-system-level PRD" \
+        "translate research into core, growth, retention, monetization, and scale-readiness capabilities plus release sequencing" \
+        "separate global evidence, segment-specific evidence, and open hypotheses" \
+        "prepare the PRD artifact for certification"
       ;;
     product-research-prd)
       printf '%s\n' \
@@ -87,7 +107,8 @@ default_output_lines() {
       ;;
     ui-ux-governance)
       printf '%s\n' \
-        "define or critique the design system and page-level UX" \
+        "define a product-level experience strategy, not just a visual style" \
+        "cover user flows, page states, trust cues, responsive behavior, scale UX requirements, and component rules" \
         "check contrast, readability, and state coverage" \
         "save design audit notes locally"
       ;;
@@ -96,6 +117,20 @@ default_output_lines() {
         "define the upgrade direction" \
         "implement the changes" \
         "run a final design audit"
+      ;;
+    implementation-planning)
+      printf '%s\n' \
+        "refine and save the implementation plan" \
+        "include technical strategy, dependency and risk mapping, review cadence, rollout or recovery planning, and scale or reliability workstreams" \
+        "break work into the smallest safe batches with exact verification steps" \
+        "prepare the plan artifact for certification without starting delivery"
+      ;;
+    validated-delivery)
+      printf '%s\n' \
+        "execute exactly one validated batch with tests first" \
+        "update affected initiative artifacts, verification evidence, and release-readiness inputs" \
+        "keep the batch aligned with a 10M-DAU-grade product bar rather than a narrow proof of concept" \
+        "commit the verified batch and return evidence for certification"
       ;;
     autonomous-delivery)
       printf '%s\n' \
@@ -139,7 +174,7 @@ has_missing_required_fields() {
   local missing=1
 
   case "${COMMAND}" in
-    full-product-delivery|product-research-prd)
+    full-product-delivery|product-research|research-backed-prd|product-research-prd)
       [[ -n "${PRODUCT_CATEGORY}" || -n "${SEED_COMPETITORS}" ]] || missing=0
       [[ -n "${MARKETS}" ]] || missing=0
       [[ -n "${RESEARCH_WINDOW}" ]] || missing=0
@@ -147,7 +182,7 @@ has_missing_required_fields() {
     single-capability-router)
       [[ -n "${CAPABILITY_HINT}" ]] || missing=0
       ;;
-    autonomous-delivery|implementation-execution|ui-ux-governance|ui-ux-upgrade)
+    implementation-planning|validated-delivery|autonomous-delivery|implementation-execution|ui-ux-governance|ui-ux-upgrade)
       [[ -n "${REPOSITORY}" ]] || missing=0
       ;;
   esac
@@ -222,11 +257,12 @@ render() {
       emit_context_line "markets" "${MARKETS}" "<fill target markets or countries>"
       emit_context_line "research window" "${RESEARCH_WINDOW}" "<fill research date window>"
       emit_context_line "locales" "${LOCALES}" "<fill required locales if relevant>"
-      emit_context_line "quality bar" "${QUALITY_BAR}" "<fill commercial quality bar>"
+      emit_context_line "quality bar" "${QUALITY_BAR}" "<fill 10M-DAU-grade quality bar>"
       emit_context_line "constraints" "${CONSTRAINTS}" "<fill constraints>"
       ;;
-    product-research-prd)
+    product-research|research-backed-prd|product-research-prd)
       emit_context_line "repository" "${REPOSITORY}" "<optional repository url or local path>"
+      emit_context_line "initiative id" "${INITIATIVE_ID}" "<fill initiative id if it already exists>"
       emit_context_line "product category" "${PRODUCT_CATEGORY}" "<fill product category>"
       emit_context_line "seed competitors" "${SEED_COMPETITORS}" "<fill seed competitors if known>"
       emit_context_line "markets" "${MARKETS}" "<fill target markets or countries>"
@@ -252,7 +288,7 @@ render() {
       emit_context_line "initiative id" "${INITIATIVE_ID}" "<fill initiative id if the brainstorm belongs to one>"
       emit_context_line "constraints" "${CONSTRAINTS}" "<fill constraints>"
       ;;
-    ui-ux-governance|ui-ux-upgrade|autonomous-delivery|implementation-execution)
+    implementation-planning|validated-delivery|ui-ux-governance|ui-ux-upgrade|autonomous-delivery|implementation-execution)
       emit_context_line "repository" "${REPOSITORY}" "<fill repository url or local path>"
       emit_context_line "platform" "${PLATFORM}" "<fill target platform if relevant>"
       emit_context_line "stack" "${STACK}" "<fill frameworks or languages>"

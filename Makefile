@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase upgrade-artifacts check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -58,6 +58,10 @@ advance-phase:
 certify-phase:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make certify-phase INITIATIVE_ID=<id> [PHASE=<phase>] [APPLY=1] [ACTOR=name]"; exit 1; fi
 	./scripts/supernb certify-phase $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(APPLY),--apply,) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(DATE),--date "$(DATE)",)
+
+upgrade-artifacts:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make upgrade-artifacts INITIATIVE_ID=<id> or make upgrade-artifacts SPEC=/path/to/initiative.yaml"; exit 1; fi
+	./scripts/supernb upgrade-artifacts $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",)
 
 check-copy:
 	./scripts/check-no-hardcoded-copy.sh

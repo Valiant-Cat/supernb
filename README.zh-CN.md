@@ -10,7 +10,7 @@
 - 内置 `sensortower-research` 用于竞品调研、评论挖掘和有证据支撑的 PRD 产出
 - 内置翻译 skills 用于本地化提取、key 同步和多语言补全
 
-`supernb` 的目标不是生成一个 MVP，而是把“产品想法 -> 调研 -> PRD -> 设计 -> 实现 -> 验证 -> 商业化交付”变成可重复执行的流程。
+`supernb` 的目标不是生成一个 MVP，而是把“产品想法 -> 调研 -> PRD -> 设计 -> 实现 -> 验证 -> 商业化交付”变成可重复执行的流程，并默认以千万 DAU 级产品标准来要求各个环节，而不是按 demo 水平交付。
 
 `supernb` 本身与框架无关。平台、技术栈、语言、仓库形式都来自用户需求和项目上下文，而不是系统内部写死的前提。
 
@@ -54,7 +54,7 @@
 基于 2026-03-19 本地检查结果：
 
 - `obra/superpowers`
-  - 包版本：`5.0.5`
+  - 包版本：`5.0.4`
   - 提供成熟的 skills 驱动软件交付流程
   - 关键能力：brainstorming、plans、TDD、subagent-driven development、review、worktrees
 - `FradSer/dotclaude`
@@ -224,6 +224,7 @@ make bootstrap HARNESS=codex
 
 - 所有支持 harness 的默认基线：最新 `obra/superpowers`
 - Claude Code 下的可选增强层：`superpowers@frad-dotclaude`
+- `execute-next` 目前只对 Codex 和 Claude Code 提供 direct bridge。OpenCode 仍然是“准备 prompt + 手动执行”的路径。
 - 不要在同一个 Claude Code 环境里并列安装两个同名 `superpowers` plugin
 - 在 `supernb` 里，`dotclaude` 被视为执行增强层，而不是主工作流底座
 
@@ -240,6 +241,7 @@ make bootstrap HARNESS=codex
 
 - 默认在产品项目里创建 `.supernb/initiatives/<initiative-id>/initiative.yaml`
 - 创建 initiative 局部的 `run-status.md` 和 `next-command.md`
+- 创建 initiative 局部的 `certification-state.json`，作为 phase certification 的真相源
 - 创建 initiative 局部的 `phase-packet.md`、`run-log.md` 和归档 `command-briefs/`
 - 创建 initiative 局部的 `phase-results/`
 - 创建 initiative 局部的 `executions/`
@@ -253,10 +255,17 @@ make bootstrap HARNESS=codex
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
+   如果是 OpenCode，这一步会先准备 execution packet 和 prompt，再由你在 OpenCode 里手动执行。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。
 6. 如果你需要单独认证某个阶段，运行 `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>`。
 7. 只有在你想覆盖 packet 建议时，才手动运行 `./scripts/supernb record-result ...`。
 8. 只有在你想绕过认证助手时，才手动运行 `./scripts/supernb advance-phase ...`。
+
+如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：
+
+1. 运行 `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`。
+2. 补齐现有 research、PRD、design、plan、release 文档中新增的章节。
+3. 再次运行 `./scripts/supernb run --initiative-id <initiative-id>`，并重新做对应 phase 的 certification。
 
 ## 常用命令
 
@@ -272,6 +281,7 @@ make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
 make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
+make upgrade-artifacts INITIATIVE_ID=2026-03-19-my-product
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
@@ -298,6 +308,7 @@ make install-opencode
 ./scripts/supernb execute-next --initiative-id 2026-03-19-my-product --harness codex --project-dir /path/to/repo --dry-run
 ./scripts/supernb apply-execution --initiative-id 2026-03-19-my-product --packet /path/to/packet --certify
 ./scripts/supernb certify-phase --initiative-id 2026-03-19-my-product --phase research
+./scripts/supernb upgrade-artifacts --initiative-id 2026-03-19-my-product
 ./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy

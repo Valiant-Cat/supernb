@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -12,9 +13,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lib.supernb_common import (
+    PHASES,
+    artifact_path as common_artifact_path,
+    certification_state_path as common_certification_state_path,
+    display_path as common_display_path,
+    load_certification_state,
+    load_spec,
+    nested_get,
+    phase_targets as common_phase_targets,
+    project_root as common_project_root,
+    resolve_spec_path as common_resolve_spec_path,
+)
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
-PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 
 METADATA_FIELDS = {
     "Initiative ID",
@@ -64,129 +77,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def try_load_pyyaml(text: str) -> Any:
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return None
-    return yaml.safe_load(text)
-
-
-def parse_scalar(value: str) -> Any:
-    if value in {'""', "''"}:
-        return ""
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        inner = value[1:-1]
-        return bytes(inner, "utf-8").decode("unicode_escape")
-    lower = value.lower()
-    if lower in {"true", "yes"}:
-        return True
-    if lower in {"false", "no"}:
-        return False
-    return value
-
-
-def parse_simple_yaml(text: str) -> dict[str, Any]:
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- "):
-            raise ValueError(f"Unsupported YAML list syntax at line {lineno}: {raw_line}")
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ValueError(f"Unsupported indentation at line {lineno}: {raw_line}")
-        if ":" not in stripped:
-            raise ValueError(f"Expected key/value pair at line {lineno}: {raw_line}")
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while indent <= stack[-1][0]:
-            stack.pop()
-        container = stack[-1][1]
-
-        if value == "":
-            child: dict[str, Any] = {}
-            container[key] = child
-            stack.append((indent, child))
-        else:
-            container[key] = parse_scalar(value)
-
-    return root
-
-
-def load_spec(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    loaded = try_load_pyyaml(text)
-    if loaded is not None:
-        return loaded
-    return parse_simple_yaml(text)
-
-
-def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
-    current: Any = data
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    if current is None:
-        return default
-    if isinstance(current, bool):
-        return "yes" if current else "no"
-    value = str(current).strip()
-    if re.fullmatch(r"\{\{[^}]+\}\}", value):
-        return default
-    return value
-
-
 def display_path(path: Path) -> str:
-    for root in DISPLAY_ROOTS:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            continue
-    return str(path)
+    return common_display_path(path, DISPLAY_ROOTS)
 
 
 def project_root(spec: dict[str, Any]) -> Path:
-    project_dir = nested_get(spec, "delivery", "project_dir")
-    if project_dir:
-        return Path(project_dir).expanduser().resolve()
-    return ROOT_DIR
+    return common_project_root(spec, ROOT_DIR)
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    value = nested_get(spec, "artifacts", key)
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path.resolve()
-    return (project_root(spec) / path).resolve()
+    return common_artifact_path(spec, key, ROOT_DIR)
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
-    if args.spec:
-        return Path(args.spec).expanduser().resolve()
-    if args.initiative_id:
-        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
-        if locator.is_file():
-            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
-            if target.is_file():
-                return target.resolve()
-        for base in [Path.cwd(), *Path.cwd().parents]:
-            for candidate in [
-                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
-                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
-            ]:
-                if candidate.is_file():
-                    return candidate.resolve()
-        return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
-    raise ValueError("Pass --initiative-id or --spec.")
+    return common_resolve_spec_path(args, ROOT_DIR)
+
+
+def certification_state_path(spec: dict[str, Any]) -> Path:
+    return common_certification_state_path(spec, ROOT_DIR)
 
 
 def load_execute_next_module() -> Any:
@@ -223,21 +131,7 @@ def current_phase_from_run_status(spec: dict[str, Any]) -> str:
 
 
 def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
-    if phase == "research":
-        root = artifact_path(spec, "research_dir")
-        return [
-            root / "01-competitor-landscape.md",
-            root / "02-review-insights.md",
-            root / "03-feature-opportunities.md",
-        ]
-    if phase == "prd":
-        return [artifact_path(spec, "prd_dir") / "product-requirements.md"]
-    if phase == "design":
-        root = artifact_path(spec, "design_dir")
-        return [root / "ui-ux-spec.md", root / "i18n-strategy.md"]
-    if phase in {"planning", "delivery"}:
-        return [artifact_path(spec, "plan_dir") / "implementation-plan.md"]
-    return [artifact_path(spec, "release_dir") / "release-readiness.md"]
+    return common_phase_targets(spec, phase, ROOT_DIR)
 
 
 def latest_execution_packet(spec: dict[str, Any], phase: str) -> Path | None:
@@ -438,6 +332,38 @@ def write_report(
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_certification_state(
+    spec: dict[str, Any],
+    phase: str,
+    passed: bool,
+    recommendation: str,
+    readiness: dict[str, Any],
+    report_path: Path,
+) -> None:
+    state_path = certification_state_path(spec)
+    state = load_certification_state(state_path)
+    phases = state.setdefault("phases", {})
+    if not isinstance(phases, dict):
+        phases = {}
+        state["phases"] = phases
+    phases[phase] = {
+        "checked_at": utc_now(),
+        "passed": passed,
+        "recommended_gate_status": recommendation,
+        "report_path": display_path(report_path),
+        "summary": readiness.get("summary", ""),
+        "ready_for_certification": bool(readiness.get("ready_for_certification")),
+        "total_missing_sections": int(readiness.get("total_missing_sections", 0)),
+        "total_thin_sections": int(readiness.get("total_thin_sections", 0)),
+        "total_placeholders": int(readiness.get("total_placeholders", 0)),
+        "total_semantic_issues": int(readiness.get("total_semantic_issues", 0)),
+    }
+    state["initiative_id"] = nested_get(spec, "initiative", "id")
+    state["updated_at"] = utc_now()
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -496,6 +422,7 @@ def main() -> int:
         applied = True
 
     write_report(spec, phase, issues, execution_findings, readiness, report_path, applied)
+    write_certification_state(spec, phase, passed, recommended_gate_status(phase), readiness, report_path)
     append_run_log(run_log_path, phase, recommended_gate_status(phase), passed, applied, report_path)
 
     print(f"Phase certification report: {report_path}")

@@ -11,8 +11,10 @@
 
 - Apps reviewed:
 - Countries:
+- Languages reviewed:
 - Date window:
 - Total reviews:
+- Regional coverage rationale:
 
 ## Top Complaint Clusters
 
@@ -25,6 +27,12 @@
 | Theme | Example evidence | Why users value it |
 | --- | --- | --- |
 |  |  |  |
+
+## Jobs Users Are Hiring The Product To Do
+
+| Job | Trigger or context | Current winning competitor behaviors | Evidence |
+| --- | --- | --- | --- |
+|  |  |  |  |
 
 ## Explicit Feature Requests
 
@@ -42,8 +50,16 @@
 
 - Hotspot 1:
 - Hotspot 2:
+- Hotspot 3:
+
+## Persona Or Segment Breakdowns
+
+| Segment | What they love | What they hate | Product implication |
+| --- | --- | --- | --- |
+|  |  |  |  |
 
 ## Raw Data References
 
 - Review export:
 - Review insight report:
+- Sample review evidence file:

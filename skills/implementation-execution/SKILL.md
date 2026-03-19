@@ -14,6 +14,7 @@ This mode is for focused build work inside an existing project.
 3. Plan the implementation in bounded batches.
 4. Code with tests and verification.
 5. Commit validated work.
+6. Keep the implementation artifact trail deep enough to support certification and release readiness, not just code generation.
 
 ## Hardcoded Copy Rule
 
@@ -29,3 +30,8 @@ Do not use this mode when the request is actually product discovery, competitor 
 
 Use loop-based persistence only when the environment supports it and the task is bounded enough to verify honestly.
 
+## Quality Bar
+
+- Do not stop at a thin implementation that only proves a concept.
+- Edge states, validation, reliability, and user-facing quality should be handled to the depth appropriate for the requested quality bar.
+- Unless the user explicitly narrows scope, assume the product ambition is 10M-DAU-class and keep instrumentation, trust, and operational depth aligned with that bar.

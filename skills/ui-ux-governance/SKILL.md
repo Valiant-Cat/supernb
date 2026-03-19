@@ -32,6 +32,10 @@ Use `impeccable`:
 - empty, loading, error, and success states must be designed
 - page hierarchy must be obvious without relying on generic cards everywhere
 - mobile layouts must adapt, not just shrink
+- key user flows must be covered, not just isolated screens
+- trust, guidance, and recovery cues must be designed deliberately
+- the output should feel like a product system, not a style pass on a demo layout
+- onboarding, repeat-use surfaces, localization adaptation, and support paths should feel credible for a 10M-DAU-class product
 
 ## Release Rule
 

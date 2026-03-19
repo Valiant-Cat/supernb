@@ -17,7 +17,8 @@ RESEARCH_WINDOW="${RESEARCH_WINDOW:-}"
 SEED_COMPETITORS="${SEED_COMPETITORS:-}"
 SOURCE_LOCALE="${SOURCE_LOCALE:-en}"
 TARGET_LOCALES="${TARGET_LOCALES:-}"
-QUALITY_BAR="${QUALITY_BAR:-commercial-grade}"
+SCALE_TARGET_DAU="${SCALE_TARGET_DAU:-10000000}"
+QUALITY_BAR="${QUALITY_BAR:-10m-dau-grade}"
 CONSTRAINTS="${CONSTRAINTS:-}"
 
 resolve_dir() {
@@ -66,6 +67,7 @@ INITIATIVE_DIR="${INDEX_DIR}/${INIT_ID}"
 INDEX_FILE="${INDEX_DIR}/${INIT_ID}.md"
 SPEC_FILE="${INITIATIVE_DIR}/initiative.yaml"
 RUN_STATUS_FILE="${INITIATIVE_DIR}/run-status.md"
+CERTIFICATION_STATE_FILE="${INITIATIVE_DIR}/certification-state.json"
 NEXT_COMMAND_FILE="${INITIATIVE_DIR}/next-command.md"
 PHASE_PACKET_FILE="${INITIATIVE_DIR}/phase-packet.md"
 RUN_LOG_FILE="${INITIATIVE_DIR}/run-log.md"
@@ -103,6 +105,7 @@ render_template() {
     s/\{\{SEED_COMPETITORS_YAML\}\}/$ENV{SEED_COMPETITORS_YAML}/g;
     s/\{\{SOURCE_LOCALE_YAML\}\}/$ENV{SOURCE_LOCALE_YAML}/g;
     s/\{\{TARGET_LOCALES_YAML\}\}/$ENV{TARGET_LOCALES_YAML}/g;
+    s/\{\{SCALE_TARGET_DAU_YAML\}\}/$ENV{SCALE_TARGET_DAU_YAML}/g;
     s/\{\{QUALITY_BAR_YAML\}\}/$ENV{QUALITY_BAR_YAML}/g;
     s/\{\{CONSTRAINTS_YAML\}\}/$ENV{CONSTRAINTS_YAML}/g;
   ' "${template_path}" > "${output_path}"
@@ -121,6 +124,7 @@ export RESEARCH_WINDOW_YAML="$(yaml_escape "${RESEARCH_WINDOW}")"
 export SEED_COMPETITORS_YAML="$(yaml_escape "${SEED_COMPETITORS}")"
 export SOURCE_LOCALE_YAML="$(yaml_escape "${SOURCE_LOCALE}")"
 export TARGET_LOCALES_YAML="$(yaml_escape "${TARGET_LOCALES}")"
+export SCALE_TARGET_DAU_YAML="$(yaml_escape "${SCALE_TARGET_DAU}")"
 export QUALITY_BAR_YAML="$(yaml_escape "${QUALITY_BAR}")"
 export CONSTRAINTS_YAML="$(yaml_escape "${CONSTRAINTS}")"
 
@@ -146,6 +150,13 @@ Run:
 \`\`\`bash
 ./scripts/supernb run --initiative-id ${INIT_ID}
 \`\`\`
+EOF
+
+cat > "${CERTIFICATION_STATE_FILE}" <<EOF
+{
+  "initiative_id": "${INIT_ID}",
+  "phases": {}
+}
 EOF
 
 cat > "${NEXT_COMMAND_FILE}" <<EOF
@@ -175,6 +186,7 @@ Created:
   ${INDEX_FILE}
   ${SPEC_FILE}
   ${RUN_STATUS_FILE}
+  ${CERTIFICATION_STATE_FILE}
   ${NEXT_COMMAND_FILE}
   ${PHASE_PACKET_FILE}
   ${RUN_LOG_FILE}

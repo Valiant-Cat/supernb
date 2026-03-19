@@ -8,6 +8,13 @@ The `supernb` artifact templates are optional scaffolding. They provide a stable
 
 `supernb` now also uses an initiative control file at `.supernb/initiatives/<initiative-id>/initiative.yaml` inside the active product workspace. That file is the machine-readable source of truth for phase routing, gate evaluation, and next-command generation.
 
+Phase gate truth is split across two layers:
+
+- phase artifacts still carry human-readable status fields
+- initiative-local certification state records whether a phase actually passed structural and semantic certification
+
+Completion should require both, not just a flipped markdown field.
+
 ## Phases
 
 ### 1. Research

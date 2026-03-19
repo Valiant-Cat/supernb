@@ -10,9 +10,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from lib.supernb_common import (
+    PHASES,
+    artifact_path as common_artifact_path,
+    certification_passed,
+    certification_state_path as common_certification_state_path,
+    display_path as common_display_path,
+    load_certification_state,
+    load_spec,
+    nested_get,
+    phase_targets as common_phase_targets,
+    project_root as common_project_root,
+    resolve_spec_path as common_resolve_spec_path,
+)
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
-PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 
 
 def utc_now() -> str:
@@ -40,129 +53,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def try_load_pyyaml(text: str) -> Any:
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return None
-    return yaml.safe_load(text)
-
-
-def parse_scalar(value: str) -> Any:
-    if value in {'""', "''"}:
-        return ""
-    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-        inner = value[1:-1]
-        return bytes(inner, "utf-8").decode("unicode_escape")
-    lower = value.lower()
-    if lower in {"true", "yes"}:
-        return True
-    if lower in {"false", "no"}:
-        return False
-    return value
-
-
-def parse_simple_yaml(text: str) -> dict[str, Any]:
-    root: dict[str, Any] = {}
-    stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("- "):
-            raise ValueError(f"Unsupported YAML list syntax at line {lineno}: {raw_line}")
-        indent = len(line) - len(line.lstrip(" "))
-        if indent % 2 != 0:
-            raise ValueError(f"Unsupported indentation at line {lineno}: {raw_line}")
-        if ":" not in stripped:
-            raise ValueError(f"Expected key/value pair at line {lineno}: {raw_line}")
-
-        key, value = stripped.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-
-        while indent <= stack[-1][0]:
-            stack.pop()
-        container = stack[-1][1]
-
-        if value == "":
-            child: dict[str, Any] = {}
-            container[key] = child
-            stack.append((indent, child))
-        else:
-            container[key] = parse_scalar(value)
-
-    return root
-
-
-def load_spec(path: Path) -> dict[str, Any]:
-    text = path.read_text(encoding="utf-8")
-    loaded = try_load_pyyaml(text)
-    if loaded is not None:
-        return loaded
-    return parse_simple_yaml(text)
-
-
-def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
-    current: Any = data
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    if current is None:
-        return default
-    if isinstance(current, bool):
-        return "yes" if current else "no"
-    value = str(current).strip()
-    if re.fullmatch(r"\{\{[^}]+\}\}", value):
-        return default
-    return value
-
-
 def display_path(path: Path) -> str:
-    for root in DISPLAY_ROOTS:
-        try:
-            return str(path.relative_to(root))
-        except ValueError:
-            continue
-    return str(path)
+    return common_display_path(path, DISPLAY_ROOTS)
 
 
 def project_root(spec: dict[str, Any]) -> Path:
-    project_dir = nested_get(spec, "delivery", "project_dir")
-    if project_dir:
-        return Path(project_dir).expanduser().resolve()
-    return ROOT_DIR
+    return common_project_root(spec, ROOT_DIR)
 
 
 def artifact_path(spec: dict[str, Any], key: str) -> Path:
-    value = nested_get(spec, "artifacts", key)
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path.resolve()
-    return (project_root(spec) / path).resolve()
+    return common_artifact_path(spec, key, ROOT_DIR)
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
-    if args.spec:
-        return Path(args.spec).expanduser().resolve()
-    if args.initiative_id:
-        locator = ROOT_DIR / "artifacts" / "initiative-locations" / f"{args.initiative_id}.txt"
-        if locator.is_file():
-            target = Path(locator.read_text(encoding="utf-8").strip()).expanduser()
-            if target.is_file():
-                return target.resolve()
-        for base in [Path.cwd(), *Path.cwd().parents]:
-            for candidate in [
-                base / ".supernb" / "initiatives" / args.initiative_id / "initiative.yaml",
-                base / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml",
-            ]:
-                if candidate.is_file():
-                    return candidate.resolve()
-        return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
-    raise ValueError("Pass --initiative-id or --spec.")
+    return common_resolve_spec_path(args, ROOT_DIR)
+
+
+def certification_state_path(spec: dict[str, Any]) -> Path:
+    return common_certification_state_path(spec, ROOT_DIR)
 
 
 def replace_field(path: Path, field: str, value: str) -> None:
@@ -175,21 +83,26 @@ def replace_field(path: Path, field: str, value: str) -> None:
 
 
 def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
-    if phase == "research":
-        root = artifact_path(spec, "research_dir")
-        return [
-            root / "01-competitor-landscape.md",
-            root / "02-review-insights.md",
-            root / "03-feature-opportunities.md",
-        ]
-    if phase == "prd":
-        return [artifact_path(spec, "prd_dir") / "product-requirements.md"]
-    if phase == "design":
-        root = artifact_path(spec, "design_dir")
-        return [root / "ui-ux-spec.md", root / "i18n-strategy.md"]
-    if phase in {"planning", "delivery"}:
-        return [artifact_path(spec, "plan_dir") / "implementation-plan.md"]
-    return [artifact_path(spec, "release_dir") / "release-readiness.md"]
+    return common_phase_targets(spec, phase, ROOT_DIR)
+
+
+def ensure_certification_gate(spec: dict[str, Any], phase: str, status: str) -> None:
+    normalized = status.strip().lower()
+    if normalized == "pending":
+        return
+    state = load_certification_state(certification_state_path(spec))
+    entry = state.get("phases", {}).get(phase)
+    if certification_passed(entry, normalized):
+        return
+    report_path = ""
+    if isinstance(entry, dict):
+        report_path = str(entry.get("report_path", "")).strip()
+    message = [f"Cannot advance {phase} to {normalized} without a passing certification result."]
+    if report_path:
+        message.append(f"Latest certification report: {report_path}")
+    else:
+        message.append(f"Run ./scripts/supernb certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase} first.")
+    raise ValueError(" ".join(message))
 
 
 def phase_update_spec(phase: str, status: str, actor: str, date_value: str) -> list[tuple[str, str]]:
@@ -277,6 +190,12 @@ def main() -> int:
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
+        return 1
+
+    try:
+        ensure_certification_gate(spec, args.phase, args.status)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
 
     targets = phase_targets(spec, args.phase)

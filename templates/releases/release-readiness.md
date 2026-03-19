@@ -27,6 +27,13 @@
 - Translation validation:
 - Hardcoded copy check command/result:
 
+## Operational Readiness
+
+- Logging / monitoring readiness:
+- Support readiness:
+- Incident owner or escalation path:
+- Data / analytics readiness:
+
 ## Release Checklist
 
 - [ ] PRD scope delivered
@@ -44,8 +51,36 @@
 | --- | --- | --- | --- |
 |  |  |  |  |
 
+## Rollout And Rollback Plan
+
+- Rollout strategy:
+- Rollback trigger:
+- Rollback owner:
+- Kill switch or mitigation notes:
+
+## Scale Launch Controls
+
+- Capacity / traffic assumption:
+- Feature flag or staged rollout controls:
+- Incident drill or rollback rehearsal:
+- Support / moderation readiness:
+- Analytics dashboard owner:
+
+## Post-Launch Watchlist
+
+- Activation signal to watch:
+- Retention signal to watch:
+- Revenue or conversion signal to watch:
+- Quality or support signal to watch:
+
 ## Release Notes Draft
 
 - Added:
 - Improved:
 - Fixed:
+
+## Go Or No-Go Rationale
+
+- Reasons to ship:
+- Remaining risks:
+- Final recommendation:

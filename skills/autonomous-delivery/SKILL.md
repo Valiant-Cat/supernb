@@ -28,6 +28,11 @@ Do not start if these are missing:
 6. Commit each validated batch.
 7. Treat each execution run as one validated batch unless the user explicitly scopes a larger bounded batch.
 8. Record in the execution packet whether brainstorming, writing-plans, TDD, and code review were used in this run.
+9. Keep the delivery artifact trail rich enough for release readiness:
+   - update implementation plan progress
+   - update release-readiness inputs when relevant
+   - keep evidence at commercial-product depth rather than demo depth
+   - preserve the implementation depth needed for a 10M-DAU-class product, including observability, trust, and growth instrumentation when relevant
 
 ## Loop Safety
 
@@ -44,6 +49,7 @@ Good loop tasks:
 ## Completion Rule
 
 Code generation is not completion. Completion requires verification evidence.
+Shallow feature coverage is not completion either. Delivery should move the product meaningfully toward the approved journeys and capability set.
 
 ## Template Rule
 

@@ -25,6 +25,7 @@ Commands:
   record-result
   advance-phase
   certify-phase
+  upgrade-artifacts
   show-command
   render-command
   save-command
@@ -56,6 +57,7 @@ case "${SUBCOMMAND}" in
   record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
   advance-phase) exec python3 "${ROOT_DIR}/scripts/supernb-advance-phase.py" "$@" ;;
   certify-phase) exec python3 "${ROOT_DIR}/scripts/supernb-certify-phase.py" "$@" ;;
+  upgrade-artifacts) exec python3 "${ROOT_DIR}/scripts/supernb-upgrade-artifacts.py" "$@" ;;
   show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
   render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;
   save-command) exec "${ROOT_DIR}/scripts/save-command-brief.sh" "$@" ;;
