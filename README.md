@@ -131,6 +131,7 @@ That command now:
 - safely skips self-update when your worktree is dirty or you are on a non-default branch
 - updates `superpowers`, `dotclaude`, and `impeccable`
 - rebuilds `impeccable` by default
+- writes JSON and Markdown update reports to `artifacts/updates/`
 
 If you only want upstream caches:
 

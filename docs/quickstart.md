@@ -78,6 +78,7 @@ make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Bui
 Update shortcuts:
 
 - `make update` updates `supernb` itself when safe, then updates upstreams
+- `make update` also writes JSON and Markdown reports to `artifacts/updates/`
 - `make update-upstreams` updates only upstream caches
 
 ## Harness-Specific Notes

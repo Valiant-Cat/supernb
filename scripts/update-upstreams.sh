@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UPSTREAM_DIR="${ROOT_DIR}/upstreams"
 BUILD_IMPECCABLE=1
+REPORT_FILE=""
+REPORT_LINES_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -12,9 +14,13 @@ while [[ $# -gt 0 ]]; do
       BUILD_IMPECCABLE=0
       shift
       ;;
+    --report-file)
+      REPORT_FILE="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       cat <<'EOF'
-Usage: ./scripts/update-upstreams.sh [--skip-impeccable-build]
+Usage: ./scripts/update-upstreams.sh [--skip-impeccable-build] [--report-file <path>]
 
 Clones or fast-forwards:
   - obra/superpowers
@@ -34,6 +40,30 @@ done
 
 mkdir -p "${UPSTREAM_DIR}"
 
+if [[ -n "${REPORT_FILE}" ]]; then
+  mkdir -p "$(dirname "${REPORT_FILE}")"
+  REPORT_LINES_FILE="$(mktemp)"
+fi
+
+record_repo_status() {
+  local name="$1"
+  local status="$2"
+  local before_commit="$3"
+  local after_commit="$4"
+  local default_branch="$5"
+  local message="$6"
+
+  if [[ -n "${REPORT_LINES_FILE}" ]]; then
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${name}" \
+      "${status}" \
+      "${before_commit}" \
+      "${after_commit}" \
+      "${default_branch}" \
+      "${message}" >>"${REPORT_LINES_FILE}"
+  fi
+}
+
 update_repo() {
   local name="$1"
   local url="$2"
@@ -46,6 +76,7 @@ update_repo() {
 
     if [[ -n "$(git -C "${target}" status --porcelain)" ]]; then
       echo "${name}: skipped because the upstream cache has local changes."
+      record_repo_status "${name}" "skipped_dirty" "${before_head}" "${after_head}" "" "upstream cache has local changes"
       return 0
     fi
 
@@ -73,14 +104,17 @@ update_repo() {
 
     if [[ "${before_head}" == "${after_head}" ]]; then
       echo "${name}: already up to date (${after_head})."
+      record_repo_status "${name}" "up_to_date" "${before_head}" "${after_head}" "${default_branch}" "already up to date"
     else
       echo "${name}: ${before_head} -> ${after_head}."
+      record_repo_status "${name}" "updated" "${before_head}" "${after_head}" "${default_branch}" "updated successfully"
     fi
   else
     echo "Cloning ${name}..."
     git clone "${url}" "${target}"
     after_head="$(git -C "${target}" rev-parse --short HEAD)"
     echo "${name}: installed at ${after_head}."
+    record_repo_status "${name}" "installed" "" "${after_head}" "" "cloned successfully"
   fi
 }
 
@@ -90,4 +124,47 @@ update_repo "impeccable" "https://github.com/pbakaus/impeccable.git"
 
 if [[ "${BUILD_IMPECCABLE}" -eq 1 ]]; then
   "${ROOT_DIR}/scripts/build-impeccable-dist.sh"
+  IMPECCABLE_BUILD_STATUS="built"
+  IMPECCABLE_BUILD_MESSAGE="impeccable dist rebuilt"
+else
+  IMPECCABLE_BUILD_STATUS="skipped_by_flag"
+  IMPECCABLE_BUILD_MESSAGE="impeccable build skipped by flag"
+fi
+
+if [[ -n "${REPORT_FILE}" ]]; then
+  python3 - "${REPORT_FILE}" "${REPORT_LINES_FILE}" "${IMPECCABLE_BUILD_STATUS}" "${IMPECCABLE_BUILD_MESSAGE}" <<'PY'
+import json
+import sys
+
+report_path, lines_path, build_status, build_message = sys.argv[1:]
+repos = []
+
+with open(lines_path, "r", encoding="utf-8") as handle:
+    for raw_line in handle:
+        name, status, before_commit, after_commit, default_branch, message = raw_line.rstrip("\n").split("\t")
+        repos.append(
+            {
+                "name": name,
+                "status": status,
+                "before_commit": before_commit or None,
+                "after_commit": after_commit or None,
+                "default_branch": default_branch or None,
+                "message": message or None,
+            }
+        )
+
+payload = {
+    "repositories": repos,
+    "impeccable_build": {
+        "status": build_status,
+        "message": build_message,
+    },
+}
+
+with open(report_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2)
+    handle.write("\n")
+PY
+
+  rm -f "${REPORT_LINES_FILE}"
 fi

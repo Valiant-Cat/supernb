@@ -7,6 +7,8 @@
 !/artifacts/prd/
 !/artifacts/releases/
 !/artifacts/research/
+!/artifacts/updates/
+/artifacts/updates/*
 !/artifacts/commands/.gitkeep
 !/artifacts/design/.gitkeep
 !/artifacts/initiatives/.gitkeep
@@ -14,6 +16,7 @@
 !/artifacts/prd/.gitkeep
 !/artifacts/releases/.gitkeep
 !/artifacts/research/.gitkeep
+!/artifacts/updates/.gitkeep
 !/artifacts/**/.gitkeep
 /tmp/
 /node_modules/

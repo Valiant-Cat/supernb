@@ -51,6 +51,8 @@ If you only want upstream caches without touching the current `supernb` checkout
 make update-upstreams
 ```
 
+`make update` now also writes JSON and Markdown reports to `artifacts/updates/`.
+
 ## 2. Install local project skills and the `impeccable` bundle
 
 ```bash
