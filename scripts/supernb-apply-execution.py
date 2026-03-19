@@ -117,6 +117,18 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def unique_items(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        item = str(value).strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -166,6 +178,7 @@ def main() -> int:
         print(f"Missing summary suggestion in {suggestion_path}; pass --summary explicitly.", file=sys.stderr)
         return 1
 
+    execution_report = suggestion.get("execution_report") or {}
     evidence_paths = [
         str(path)
         for path in [
@@ -177,6 +190,15 @@ def main() -> int:
         ]
         if path.exists()
     ]
+    evidence_paths.extend(unique_items([str(item) for item in execution_report.get("evidence_artifacts", [])]))
+
+    if args.apply_certification and status not in {"succeeded", "needs-follow-up"}:
+        print(
+            f"--apply-certification requires a success-like result status; got '{status}'. "
+            "Override with --status succeeded only if you have actually completed the phase work.",
+            file=sys.stderr,
+        )
+        return 1
 
     record_command = [
         sys.executable,
@@ -192,7 +214,7 @@ def main() -> int:
         "--notes-file",
         str(packet_dir / "summary.md"),
     ]
-    for evidence_path in evidence_paths:
+    for evidence_path in unique_items(evidence_paths):
         record_command.extend(["--artifact-path", evidence_path])
     if args.no_rerun or args.certify or args.apply_certification:
         record_command.append("--no-rerun")

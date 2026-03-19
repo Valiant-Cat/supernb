@@ -17,6 +17,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
+REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
+REPORT_END = "SUPERNB_EXECUTION_REPORT_JSON_END"
 
 
 def utc_now() -> str:
@@ -273,6 +275,202 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def default_gate_status(phase: str) -> str:
+    return {
+        "research": "approved",
+        "prd": "approved",
+        "design": "approved",
+        "planning": "ready",
+        "delivery": "verified",
+        "release": "ready",
+    }[phase]
+
+
+def response_contract(phase: str) -> str:
+    gate_status = default_gate_status(phase)
+    return (
+        "\n\nFinal response requirement for supernb:\n"
+        "After your normal response, append a machine-readable JSON block between these exact markers:\n"
+        f"{REPORT_START}\n"
+        "{\n"
+        '  "completion_status": "completed|partial|blocked|needs-input",\n'
+        '  "summary": "short summary",\n'
+        '  "completed_items": ["..."],\n'
+        '  "remaining_items": ["..."],\n'
+        '  "evidence_artifacts": ["path/or/file"],\n'
+        '  "commands_run": ["command"],\n'
+        '  "tests_run": ["test or verification command"],\n'
+        '  "recommended_result_status": "succeeded|needs-follow-up|blocked|manual-follow-up",\n'
+        '  "recommended_gate_action": "none|certify|advance",\n'
+        f'  "recommended_gate_status": "{gate_status}|pending|",\n'
+        '  "follow_up": ["..."]\n'
+        "}\n"
+        f"{REPORT_END}\n"
+        "Rules:\n"
+        "- Use valid JSON only between the markers.\n"
+        "- Keep arrays as arrays of strings.\n"
+        "- Only list evidence_artifacts that were actually created, updated, or are central proof of the work.\n"
+        "- Prefer recommended_gate_action=certify unless the phase is truly ready to advance.\n"
+    )
+
+
+def ensure_string(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def ensure_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        items = [str(item).strip() for item in value if str(item).strip()]
+    else:
+        items = [str(value).strip()] if str(value).strip() else []
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def extract_report_json(text: str) -> dict[str, Any] | None:
+    pattern = re.compile(rf"{REPORT_START}\s*(\{{.*?\}})\s*{REPORT_END}", re.DOTALL)
+    match = pattern.search(text)
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(1))
+    except json.JSONDecodeError:
+        return None
+
+    completion_status = ensure_string(parsed.get("completion_status")).lower()
+    if completion_status not in {"completed", "partial", "blocked", "needs-input"}:
+        completion_status = "partial"
+
+    recommended_result_status = ensure_string(parsed.get("recommended_result_status")).lower()
+    if recommended_result_status not in {"succeeded", "needs-follow-up", "blocked", "manual-follow-up"}:
+        recommended_result_status = ""
+
+    recommended_gate_action = ensure_string(parsed.get("recommended_gate_action")).lower()
+    if recommended_gate_action not in {"none", "certify", "advance"}:
+        recommended_gate_action = "none"
+
+    return {
+        "completion_status": completion_status,
+        "summary": ensure_string(parsed.get("summary")),
+        "completed_items": ensure_list(parsed.get("completed_items")),
+        "remaining_items": ensure_list(parsed.get("remaining_items")),
+        "evidence_artifacts": ensure_list(parsed.get("evidence_artifacts")),
+        "commands_run": ensure_list(parsed.get("commands_run")),
+        "tests_run": ensure_list(parsed.get("tests_run")),
+        "recommended_result_status": recommended_result_status,
+        "recommended_gate_action": recommended_gate_action,
+        "recommended_gate_status": ensure_string(parsed.get("recommended_gate_status")).lower(),
+        "follow_up": ensure_list(parsed.get("follow_up")),
+    }
+
+
+def extract_bullet_section(text: str, headings: list[str]) -> list[str]:
+    lines = text.splitlines()
+    results: list[str] = []
+    collecting = False
+    heading_patterns = [re.compile(rf"^\s{{0,3}}#{{0,6}}\s*{pattern}\s*:?\s*$", re.IGNORECASE) for pattern in headings]
+
+    for line in lines:
+        stripped = line.strip()
+        if any(pattern.match(stripped) for pattern in heading_patterns):
+            collecting = True
+            continue
+        if collecting and re.match(r"^\s{0,3}#{1,6}\s+\S", stripped):
+            break
+        if collecting:
+            bullet_match = re.match(r"^\s*[-*]\s+(.*)$", line)
+            numbered_match = re.match(r"^\s*\d+\.\s+(.*)$", line)
+            item = ""
+            if bullet_match:
+                item = bullet_match.group(1).strip()
+            elif numbered_match:
+                item = numbered_match.group(1).strip()
+            elif stripped:
+                if results:
+                    results[-1] = f"{results[-1]} {stripped}".strip()
+                continue
+            if item:
+                results.append(item)
+    return results
+
+
+def extract_candidate_paths(text: str) -> list[str]:
+    candidates = re.findall(r"(?:[\w./-]+/)+[\w.-]+", text)
+    valid: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        candidate = candidate.strip().strip("`")
+        if candidate in seen:
+            continue
+        if candidate.startswith("./"):
+            candidate = candidate[2:]
+        if "/" not in candidate:
+            continue
+        seen.add(candidate)
+        valid.append(candidate)
+    return valid
+
+
+def heuristic_report_from_text(phase: str, status: str, response_text: str, stderr_text: str, excerpt: str, stderr_excerpt: str) -> dict[str, Any]:
+    completed_items = extract_bullet_section(response_text, [r"completed", r"done", r"implemented", r"finished"])
+    remaining_items = extract_bullet_section(response_text, [r"remaining", r"open items?", r"next steps?", r"follow[- ]?up"])
+    tests_run = extract_bullet_section(response_text, [r"tests?", r"verification", r"checks?"])
+    commands_run = extract_bullet_section(response_text, [r"commands? run", r"commands?", r"shell commands?"])
+    evidence_artifacts = extract_bullet_section(response_text, [r"files changed", r"artifacts?", r"evidence"])
+    if not evidence_artifacts:
+        evidence_artifacts = extract_candidate_paths(response_text)
+
+    if status == "succeeded":
+        completion_status = "completed" if not remaining_items else "partial"
+        recommended_result_status = "succeeded" if completion_status == "completed" else "needs-follow-up"
+        recommended_gate_action = "certify" if completion_status == "completed" else "none"
+    elif status == "failed":
+        completion_status = "blocked"
+        recommended_result_status = "blocked"
+        recommended_gate_action = "none"
+    elif status == "unsupported":
+        completion_status = "needs-input"
+        recommended_result_status = "manual-follow-up"
+        recommended_gate_action = "none"
+    else:
+        completion_status = "needs-input"
+        recommended_result_status = "manual-follow-up"
+        recommended_gate_action = "none"
+
+    summary = excerpt or stderr_excerpt or f"{phase} execution ended with status {status}."
+    follow_up = remaining_items[:]
+    if not follow_up:
+        if status == "failed":
+            follow_up = ["Inspect stderr.log and fix the execution failure."]
+        elif status == "unsupported":
+            follow_up = ["Run the prepared prompt manually in the target harness."]
+        elif status == "prepared":
+            follow_up = ["Rerun execute-next without --dry-run."]
+
+    return {
+        "completion_status": completion_status,
+        "summary": summary,
+        "completed_items": completed_items,
+        "remaining_items": remaining_items,
+        "evidence_artifacts": evidence_artifacts,
+        "commands_run": commands_run,
+        "tests_run": tests_run,
+        "recommended_result_status": recommended_result_status,
+        "recommended_gate_action": recommended_gate_action,
+        "recommended_gate_status": default_gate_status(phase) if recommended_gate_action in {"certify", "advance"} else "",
+        "follow_up": follow_up,
+    }
+
+
 def short_text_excerpt(text: str) -> str:
     for line in text.splitlines():
         stripped = line.strip()
@@ -300,6 +498,11 @@ def build_result_suggestion(
 ) -> dict[str, Any]:
     excerpt = short_text_excerpt(response_text)
     stderr_excerpt = short_text_excerpt(stderr_text)
+    structured_report = extract_report_json(response_text)
+    report_source = "structured-report" if structured_report else "heuristic"
+
+    if not structured_report:
+        structured_report = heuristic_report_from_text(phase, status, response_text, stderr_text, excerpt, stderr_excerpt)
 
     if dry_run:
         result_status = "not-run"
@@ -311,12 +514,18 @@ def build_result_suggestion(
         next_step = "run the prepared prompt manually in the target harness"
     elif status == "failed":
         result_status = "blocked"
-        summary = stderr_excerpt or excerpt or f"{phase} execution failed in {harness} with exit code {exit_code}."
+        summary = structured_report.get("summary") or stderr_excerpt or excerpt or f"{phase} execution failed in {harness} with exit code {exit_code}."
         next_step = "inspect stderr.log and fix the failure before rerunning"
     else:
-        result_status = "succeeded"
-        summary = excerpt or f"{phase} execution completed successfully in {harness}."
-        next_step = "record the result, then certify the phase"
+        result_status = ensure_string(structured_report.get("recommended_result_status")).lower() or "succeeded"
+        summary = structured_report.get("summary") or excerpt or f"{phase} execution completed successfully in {harness}."
+        gate_action = ensure_string(structured_report.get("recommended_gate_action")).lower()
+        if gate_action == "advance":
+            next_step = f"apply the execution packet, then certify or advance toward {ensure_string(structured_report.get('recommended_gate_status')) or default_gate_status(phase)}"
+        elif gate_action == "certify":
+            next_step = "apply the execution packet, then certify the phase"
+        else:
+            next_step = "apply the execution packet and review follow-up items"
 
     return {
         "phase": phase,
@@ -330,6 +539,8 @@ def build_result_suggestion(
         "stderr_excerpt": stderr_excerpt,
         "suggested_next_step": next_step,
         "packet_dir": display_path(packet_dir),
+        "source": report_source,
+        "execution_report": structured_report,
     }
 
 
@@ -348,6 +559,7 @@ def write_result_suggestion_md(
         f"- Harness: `{suggestion['harness']}`",
         f"- Execution status: `{suggestion['execution_status']}`",
         f"- Dry run: `{'yes' if suggestion['dry_run'] else 'no'}`",
+        f"- Suggestion source: `{suggestion['source']}`",
         f"- Suggested result status: `{suggestion['suggested_result_status']}`",
         f"- Suggested summary: {suggestion['suggested_summary']}",
         f"- Suggested next step: {suggestion['suggested_next_step']}",
@@ -365,6 +577,31 @@ def write_result_suggestion_md(
         f"- Stdout: `{display_path(packet_dir / 'stdout.log')}`",
         f"- Stderr: `{display_path(packet_dir / 'stderr.log')}`",
     ]
+    report = suggestion.get("execution_report") or {}
+    if report.get("completed_items"):
+        lines.extend(["", "## Completed Items", ""])
+        for item in report["completed_items"]:
+            lines.append(f"- {item}")
+    if report.get("remaining_items"):
+        lines.extend(["", "## Remaining Items", ""])
+        for item in report["remaining_items"]:
+            lines.append(f"- {item}")
+    if report.get("evidence_artifacts"):
+        lines.extend(["", "## Evidence Artifacts", ""])
+        for item in report["evidence_artifacts"]:
+            lines.append(f"- `{item}`")
+    if report.get("commands_run"):
+        lines.extend(["", "## Commands Run", ""])
+        for item in report["commands_run"]:
+            lines.append(f"- `{item}`")
+    if report.get("tests_run"):
+        lines.extend(["", "## Tests Run", ""])
+        for item in report["tests_run"]:
+            lines.append(f"- `{item}`")
+    if report.get("follow_up"):
+        lines.extend(["", "## Follow Up", ""])
+        for item in report["follow_up"]:
+            lines.append(f"- {item}")
     if suggestion.get("response_excerpt"):
         lines.extend(["", "## Response Excerpt", "", suggestion["response_excerpt"]])
     if suggestion.get("stderr_excerpt"):
@@ -416,6 +653,7 @@ def write_summary(
     exit_code: int | None,
     packet_dir: Path,
     prompt_source: Path,
+    prompt_with_report_path: Path,
     response_path: Path,
     stdout_path: Path,
     stderr_path: Path,
@@ -439,6 +677,7 @@ def write_summary(
         "## Files",
         "",
         f"- Prompt copy: `{display_path(packet_dir / 'prompt.md')}`",
+        f"- Prompt with report contract: `{display_path(prompt_with_report_path)}`",
         f"- Request metadata: `{display_path(packet_dir / 'request.json')}`",
         f"- Response: `{display_path(response_path)}`",
         f"- Stdout: `{display_path(stdout_path)}`",
@@ -510,6 +749,9 @@ def main() -> int:
 
     prompt_copy_path = packet_dir / "prompt.md"
     prompt_copy_path.write_text(prompt_text, encoding="utf-8")
+    prompt_with_report_path = packet_dir / "prompt-with-report.md"
+    prompt_with_report_text = prompt_text + response_contract(phase)
+    prompt_with_report_path.write_text(prompt_with_report_text, encoding="utf-8")
     response_path = packet_dir / "response.md"
     stdout_path = packet_dir / "stdout.log"
     stderr_path = packet_dir / "stderr.log"
@@ -542,6 +784,8 @@ def main() -> int:
             "harness": harness,
             "generated_at": utc_now(),
             "prompt_source": display_path(prompt_source),
+            "prompt_copy": display_path(prompt_copy_path),
+            "prompt_with_report": display_path(prompt_with_report_path),
             "project_dir": str(project_dir),
             "dry_run": args.dry_run,
             "command": command_argv or [],
@@ -569,7 +813,7 @@ def main() -> int:
     else:
         proc = subprocess.run(
             command_argv,
-            input=prompt_text,
+            input=prompt_with_report_text,
             text=True,
             capture_output=True,
             cwd=str(project_dir),
@@ -602,6 +846,7 @@ def main() -> int:
         exit_code,
         packet_dir,
         prompt_source,
+        prompt_with_report_path,
         response_path,
         stdout_path,
         stderr_path,

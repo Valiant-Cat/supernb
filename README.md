@@ -135,7 +135,7 @@ That flow now:
 - creates initiative-local `phase-packet.md`, `run-log.md`, and archived `command-briefs/`
 - creates initiative-local `phase-results/` for recorded execution outcomes
 - creates initiative-local `executions/` packets for bridged harness runs
-- creates per-execution `result-suggestion.md/json` so packet outcomes can be applied safely
+- creates per-execution `prompt-with-report.md` plus `result-suggestion.md/json` so packet outcomes can be applied safely with completed items, remaining items, evidence, and gate suggestions
 - computes which phase is blocked, ready, or complete
 - generates the next structured command brief when the next phase is ready
 
