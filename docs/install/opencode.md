@@ -61,10 +61,11 @@ make update-upstreams
 
 This script:
 
-- symlinks `supernb/skills` into `<project>/.opencode/skills/supernb`
+- symlinks each `supernb` skill directory directly into `<project>/.opencode/skills/`
 - symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.opencode/skills/`
 - symlinks `impeccable` skills from the isolated local build cache into `<project>/.opencode/skills/`
 - repairs previously copied generated `impeccable` skill directories into managed symlinks
+- repairs the older aggregate `supernb` symlink layout into per-skill links that OpenCode can discover cleanly
 
 ## 3. Ensure upstream `superpowers` in `opencode.json`
 

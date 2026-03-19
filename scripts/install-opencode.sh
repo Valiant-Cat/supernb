@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/lib/install-common.sh"
 
-TARGET_DIR="${1:-${ROOT_DIR}}"
+TARGET_DIR="${1:-${PWD}}"
 OPENCODE_DIR="${TARGET_DIR}/.opencode"
 IMPECCABLE_OPENCODE_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/opencode/.opencode"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
@@ -20,7 +20,8 @@ fi
 mkdir -p "${OPENCODE_DIR}/skills"
 echo "Installing OpenCode project assets into ${TARGET_DIR}:"
 sync_directory_as_symlinks "${IMPECCABLE_OPENCODE_DIR}/skills" "${OPENCODE_DIR}/skills" ".opencode/skills" "replace_skill_dir"
-ensure_symlink_if_missing "${ROOT_DIR}/skills" "${OPENCODE_DIR}/skills/supernb" "supernb"
+remove_managed_symlink_if_target_matches "${OPENCODE_DIR}/skills/supernb" "${ROOT_DIR}/skills" "supernb"
+sync_directory_as_symlinks "${ROOT_DIR}/skills" "${OPENCODE_DIR}/skills" "supernb" "replace_skill_dir"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/sensortower-research" "${OPENCODE_DIR}/skills/sensortower-research" "sensortower-research"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/flutter-l10n-translation" "${OPENCODE_DIR}/skills/flutter-l10n-translation" "flutter-l10n-translation"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/android-i18n-translation" "${OPENCODE_DIR}/skills/android-i18n-translation" "android-i18n-translation"

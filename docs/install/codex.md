@@ -58,14 +58,15 @@ make update-upstreams
 
 The script wires these paths into `~/.agents/skills/` when missing:
 
-- `supernb`
-- `superpowers`
-- `impeccable`
+- each `supernb` skill as a first-level Codex skill entry
+- each upstream `superpowers` skill as a first-level Codex skill entry
+- each `impeccable` skill as a first-level Codex skill entry
 - `sensortower-research`
 - `flutter-l10n-translation`
 - `android-i18n-translation`
 
 `impeccable` now points at the isolated local build cache under `.supernb-cache/impeccable-dist` rather than depending on mutable files inside the upstream clone.
+The installer also repairs the older aggregate-link layout so Codex sees individual skills instead of a hidden nested bundle.
 
 ## 3. Restart Codex
 

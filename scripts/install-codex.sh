@@ -8,6 +8,7 @@ source "${ROOT_DIR}/scripts/lib/install-common.sh"
 AGENTS_SKILLS_DIR="${HOME}/.agents/skills"
 IMPECCABLE_SKILLS_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/codex/.codex/skills"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
+LEGACY_IMPECCABLE_SKILLS_DIR="${ROOT_DIR}/upstreams/impeccable/dist/codex/.codex/skills"
 
 mkdir -p "${AGENTS_SKILLS_DIR}"
 
@@ -22,9 +23,13 @@ if [[ ! -d "${IMPECCABLE_SKILLS_DIR}" ]]; then
 fi
 
 echo "Installing Codex skills into ${AGENTS_SKILLS_DIR}:"
-ensure_symlink_if_missing "${ROOT_DIR}/skills" "${AGENTS_SKILLS_DIR}/supernb" "supernb"
-ensure_symlink_if_missing "${ROOT_DIR}/upstreams/superpowers/skills" "${AGENTS_SKILLS_DIR}/superpowers" "superpowers"
-ensure_symlink_if_missing "${IMPECCABLE_SKILLS_DIR}" "${AGENTS_SKILLS_DIR}/impeccable" "impeccable"
+remove_managed_symlink_if_target_matches "${AGENTS_SKILLS_DIR}/supernb" "${ROOT_DIR}/skills" "supernb"
+sync_directory_as_symlinks "${ROOT_DIR}/skills" "${AGENTS_SKILLS_DIR}" "supernb" "replace_skill_dir"
+remove_managed_symlink_if_target_matches "${AGENTS_SKILLS_DIR}/superpowers" "${ROOT_DIR}/upstreams/superpowers/skills" "superpowers"
+sync_directory_as_symlinks "${ROOT_DIR}/upstreams/superpowers/skills" "${AGENTS_SKILLS_DIR}" "superpowers" "replace_skill_dir"
+remove_managed_symlink_if_target_matches "${AGENTS_SKILLS_DIR}/impeccable" "${IMPECCABLE_SKILLS_DIR}" "impeccable"
+remove_managed_symlink_if_target_matches "${AGENTS_SKILLS_DIR}/impeccable" "${LEGACY_IMPECCABLE_SKILLS_DIR}" "impeccable"
+sync_directory_as_symlinks "${IMPECCABLE_SKILLS_DIR}" "${AGENTS_SKILLS_DIR}" "impeccable" "replace_skill_dir"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/sensortower-research" "${AGENTS_SKILLS_DIR}/sensortower-research" "sensortower-research"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/flutter-l10n-translation" "${AGENTS_SKILLS_DIR}/flutter-l10n-translation" "flutter-l10n-translation"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/android-i18n-translation" "${AGENTS_SKILLS_DIR}/android-i18n-translation" "android-i18n-translation"
