@@ -40,6 +40,9 @@ Then apply the resulting packet:
   --certify
 ```
 
+For certifiable packets, Codex responses must include the structured `REPORT JSON` block that `execute-next` asks for.
+`--dry-run` packets are preview-only and should be rerun before certification.
+
 ## Why This Works
 
 - Codex can already discover `supernb` skills through `~/.agents/skills/`

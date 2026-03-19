@@ -165,6 +165,9 @@ make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=claude-code PROJEC
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
 ```
 
+When you switch from `DRY_RUN=1` to a real bridged run, keep the `REPORT JSON` block in Claude Code's final response.
+Without that block, the packet is marked `needs-follow-up` and certification will not treat it as clean execution evidence.
+
 Use the `supernb` command templates from:
 
 - [commands/README.md](../../commands/README.md)

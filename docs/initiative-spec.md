@@ -83,6 +83,9 @@ Each execution packet now also includes:
 - `result-suggestion.json`
 - `result-suggestion.md`
 
+`--dry-run` packets are preview-only, and `certify-phase` now prefers the latest real non-dry-run packet when evaluating planning and delivery readiness.
+For direct Codex and Claude Code bridging, the captured response must include the `REPORT JSON` block or the packet will be downgraded to `needs-follow-up`.
+
 You can apply that packet back into the initiative with:
 
 ```bash
@@ -92,6 +95,15 @@ You can apply that packet back into the initiative with:
 ```
 
 That command turns the packet into a recorded phase result, and can optionally run certification or certification+gate apply.
+
+For OpenCode or other manual handoff flows, import a structured execution result into a normal packet first:
+
+```bash
+./scripts/supernb import-execution \
+  --initiative-id <initiative-id> \
+  --phase delivery \
+  --report-json /path/to/report.json
+```
 
 After phase execution, record the outcome with:
 
@@ -131,6 +143,8 @@ Current default initiative posture:
 - `delivery.scale_target_dau` defaults to `10000000`
 - `delivery.quality_bar` defaults to `10m-dau-grade`
 - old initiatives can be brought forward with `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`
+- pre-initiative loose workspaces can be imported with `./scripts/supernb migrate-legacy --initiative-id <initiative-id>`
+- stale dry runs, unsupported packets, and older execution artifacts can be previewed or pruned with `./scripts/supernb clean-initiative --initiative-id <initiative-id> [--apply]`
 
 ## Gate Fields In Artifact Templates
 

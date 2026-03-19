@@ -258,17 +258,31 @@ make bootstrap HARNESS=codex
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
+   直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
+   `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。
    如果是 OpenCode，这一步会先准备 execution packet 和 prompt，再由你在 OpenCode 里手动执行。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。
-6. 如果你需要单独认证某个阶段，运行 `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>`。
-7. 只有在你想覆盖 packet 建议时，才手动运行 `./scripts/supernb record-result ...`。
-8. 只有在你想绕过认证助手时，才手动运行 `./scripts/supernb advance-phase ...`。
+6. 对 OpenCode 或其他手动执行场景，用 `./scripts/supernb import-execution --initiative-id <initiative-id> --phase <phase> --report-json /path/to/report.json` 导入结构化执行结果，再应用该 packet。
+7. 如果你需要单独认证某个阶段，运行 `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>`。
+8. 只有在你想覆盖 packet 建议时，才手动运行 `./scripts/supernb record-result ...`。
+9. 只有在你想绕过认证助手时，才手动运行 `./scripts/supernb advance-phase ...`。
 
 如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：
 
 1. 运行 `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`。
 2. 补齐现有 research、PRD、design、plan、release 文档中新增的章节。
 3. 再次运行 `./scripts/supernb run --initiative-id <initiative-id>`，并重新做对应 phase 的 certification。
+
+如果是更早期的松散 `.supernb` 项目，还没有 initiative 结构：
+
+1. 先运行 `./scripts/supernb init-initiative ...` 创建新 initiative。
+2. 再运行 `./scripts/supernb migrate-legacy --initiative-id <initiative-id> [--legacy-root /path/to/.supernb]`。
+3. 检查 `legacy-import/`，把需要保留的内容并回 initiative 作用域文档，然后重新执行 `./scripts/supernb run`。
+
+如果经过大量 dry-run 和重试后需要清理产物：
+
+- 用 `./scripts/supernb clean-initiative --initiative-id <initiative-id>` 预览旧 command brief、dry-run packet、unsupported packet 和较旧 execution artifact。
+- 仅在确认预览结果后，再加 `--apply` 真正删除。
 
 ## 常用命令
 
@@ -283,8 +297,12 @@ make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
+make import-execution INITIATIVE_ID=2026-03-19-my-product PHASE=delivery REPORT_JSON=/path/to/report.json
 make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
 make upgrade-artifacts INITIATIVE_ID=2026-03-19-my-product
+make migrate-legacy INITIATIVE_ID=2026-03-19-my-product LEGACY_ROOT=/path/to/.supernb
+make clean-initiative INITIATIVE_ID=2026-03-19-my-product
+make test
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
@@ -310,8 +328,12 @@ make install-opencode
 ./scripts/supernb run --initiative-id 2026-03-19-my-product
 ./scripts/supernb execute-next --initiative-id 2026-03-19-my-product --harness codex --project-dir /path/to/repo --dry-run
 ./scripts/supernb apply-execution --initiative-id 2026-03-19-my-product --packet /path/to/packet --certify
+./scripts/supernb import-execution --initiative-id 2026-03-19-my-product --phase delivery --report-json /path/to/report.json
 ./scripts/supernb certify-phase --initiative-id 2026-03-19-my-product --phase research
 ./scripts/supernb upgrade-artifacts --initiative-id 2026-03-19-my-product
+./scripts/supernb migrate-legacy --initiative-id 2026-03-19-my-product --legacy-root /path/to/.supernb
+./scripts/supernb clean-initiative --initiative-id 2026-03-19-my-product
+./scripts/supernb test
 ./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy

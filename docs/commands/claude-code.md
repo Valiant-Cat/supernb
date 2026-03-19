@@ -59,6 +59,9 @@ Then apply the resulting packet:
   --certify
 ```
 
+For certifiable packets, Claude Code responses must include the structured `REPORT JSON` block that `execute-next` asks for.
+`--dry-run` packets are preview-only and should be rerun before certification.
+
 ## Notes
 
 - `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.

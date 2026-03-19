@@ -93,6 +93,9 @@ make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
 ```
 
+When you rerun without `DRY_RUN=1`, keep the `REPORT JSON` block in Codex's final response.
+Without that block, the packet is marked `needs-follow-up` and certification will not treat it as clean execution evidence.
+
 Ask for one of these flows:
 
 - use `supernb-orchestrator` to run end-to-end product delivery

@@ -136,15 +136,67 @@ def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
     return common_phase_targets(spec, phase, ROOT_DIR)
 
 
+def packet_metadata(packet: Path) -> dict[str, Any]:
+    request_path = packet / "request.json"
+    suggestion_path = packet / "result-suggestion.json"
+    metadata: dict[str, Any] = {
+        "packet": packet,
+        "request_path": request_path,
+        "suggestion_path": suggestion_path,
+        "initiative_id": "",
+        "phase": "",
+        "dry_run": False,
+        "execution_status": "",
+        "suggested_result_status": "",
+        "valid": False,
+    }
+    if not request_path.is_file() or not suggestion_path.is_file():
+        return metadata
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+        suggestion = json.loads(suggestion_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return metadata
+    metadata.update(
+        {
+            "initiative_id": str(request.get("initiative_id", "")).strip(),
+            "phase": str(request.get("phase", "")).strip(),
+            "dry_run": bool(request.get("dry_run")),
+            "execution_status": str(suggestion.get("execution_status", "")).strip().lower(),
+            "suggested_result_status": str(suggestion.get("suggested_result_status", "")).strip().lower(),
+            "valid": True,
+        }
+    )
+    return metadata
+
+
 def latest_execution_packet(spec: dict[str, Any], phase: str) -> Path | None:
     executions_dir = artifact_path(spec, "executions_dir")
     if not executions_dir.is_dir():
         return None
+    initiative_id = nested_get(spec, "initiative", "id")
     candidates = [path for path in executions_dir.iterdir() if path.is_dir() and f"-{phase}-" in path.name]
     if not candidates:
         return None
     candidates.sort(key=lambda item: item.stat().st_mtime, reverse=True)
-    return candidates[0]
+
+    matching_packets: list[dict[str, Any]] = []
+    fallback_packets: list[dict[str, Any]] = []
+    for packet in candidates:
+        metadata = packet_metadata(packet)
+        if metadata["initiative_id"] and metadata["initiative_id"] != initiative_id:
+            continue
+        if metadata["phase"] and metadata["phase"] != phase:
+            continue
+        fallback_packets.append(metadata)
+        if metadata["valid"] and not metadata["dry_run"] and metadata["execution_status"] not in {"prepared", "unsupported"}:
+            matching_packets.append(metadata)
+
+    if matching_packets:
+        return matching_packets[0]["packet"]
+    if fallback_packets:
+        return fallback_packets[0]["packet"]
+    return None
 
 
 def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]:
@@ -166,11 +218,18 @@ def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]
     initiative_id = nested_get(spec, "initiative", "id")
     packet_initiative = str(request.get("initiative_id", "")).strip()
     packet_phase = str(request.get("phase", "")).strip()
+    if bool(request.get("dry_run")):
+        return [f"Latest {phase} execution packet is a dry run only; run ./scripts/supernb execute-next without --dry-run or import a manual execution packet first."]
     findings: list[str] = []
     if packet_initiative and packet_initiative != initiative_id:
         findings.append(f"Latest execution packet belongs to initiative {packet_initiative}, not {initiative_id}.")
     if packet_phase and packet_phase != phase:
         findings.append(f"Latest execution packet phase is {packet_phase}, not {phase}.")
+    execution_status = str(suggestion.get("execution_status", "")).strip().lower()
+    if execution_status == "unsupported":
+        findings.append(
+            f"Latest {phase} execution packet only prepared a manual handoff (execution_status=unsupported); import a real execution result before certification."
+        )
 
     suggested_result = str(suggestion.get("suggested_result_status", "")).strip().lower()
     if phase == "delivery" and suggested_result != "succeeded":

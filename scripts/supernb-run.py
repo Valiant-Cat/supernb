@@ -751,7 +751,7 @@ def main() -> int:
     if next_command:
         print(f"Next command: {next_command_md}")
         if archived_brief:
-            print(f"Archived brief: {ROOT_DIR / archived_brief}")
+            print(f"Archived brief: {archived_brief}")
     else:
         print("Next command: not generated because the selected phase is blocked.")
     return 0

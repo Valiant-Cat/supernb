@@ -74,6 +74,15 @@ Then apply the generated execution packet:
   --certify
 ```
 
+If the work was run manually, or via OpenCode after preparing the prompt, import a structured execution report first:
+
+```bash
+./scripts/supernb import-execution \
+  --initiative-id <initiative-id> \
+  --phase <phase> \
+  --report-json /path/to/report.json
+```
+
 After the phase work is done, record it:
 
 ```bash
@@ -99,6 +108,18 @@ If that work should advance the gate, apply the status update:
   --phase research \
   --status approved \
   --actor supernb
+```
+
+For a legacy loose `.supernb` workspace that predates initiatives, create the new initiative and then run:
+
+```bash
+./scripts/supernb migrate-legacy --initiative-id <initiative-id>
+```
+
+If repeated previews and retries have filled `executions/` with stale packets, preview cleanup candidates with:
+
+```bash
+./scripts/supernb clean-initiative --initiative-id <initiative-id>
 ```
 
 ## 4. Run Research Before PRD

@@ -99,7 +99,17 @@ make save-command COMMAND=full-product-delivery TITLE="10M DAU Delivery Brief" G
 ```
 
 `make execute-next` currently prepares the execution packet for OpenCode initiatives, but direct CLI invocation is not enabled here yet.
-After running the prepared prompt manually, use `make apply-execution INITIATIVE_ID=<id> PACKET=/path/to/packet CERTIFY=1`.
+After running the prepared prompt manually, import a structured report first:
+
+```bash
+make import-execution INITIATIVE_ID=<id> PHASE=delivery REPORT_JSON=/path/to/report.json
+```
+
+Then apply the imported packet:
+
+```bash
+make apply-execution INITIATIVE_ID=<id> PACKET=/path/to/packet CERTIFY=1
+```
 
 - load `supernb-orchestrator` when the work spans product to delivery
 - load `product-research-prd` for research-backed product definition

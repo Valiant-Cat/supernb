@@ -257,17 +257,31 @@ For a new product initiative:
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
+   Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
+   `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
-6. Run `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>` if you need an explicit standalone certification check.
-7. Record the outcome manually with `./scripts/supernb record-result ...` only when you want to override the packet suggestion.
-8. Apply the gate update with `./scripts/supernb advance-phase ...` only when you want to bypass the certification helper.
+6. For OpenCode or any manual handoff, import a structured execution result with `./scripts/supernb import-execution --initiative-id <initiative-id> --phase <phase> --report-json /path/to/report.json`, then apply that imported packet.
+7. Run `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>` if you need an explicit standalone certification check.
+8. Record the outcome manually with `./scripts/supernb record-result ...` only when you want to override the packet suggestion.
+9. Apply the gate update with `./scripts/supernb advance-phase ...` only when you want to bypass the certification helper.
 
 For an existing initiative created before the deeper templates and stricter gates were added:
 
 1. Run `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`.
 2. Backfill the newly appended sections in the existing research, PRD, design, plan, and release Markdown artifacts.
 3. Re-run `./scripts/supernb run --initiative-id <initiative-id>` and then certify the relevant phase again.
+
+For a legacy loose `.supernb` project that predates initiatives entirely:
+
+1. Create the new initiative first with `./scripts/supernb init-initiative ...`.
+2. Run `./scripts/supernb migrate-legacy --initiative-id <initiative-id> [--legacy-root /path/to/.supernb]`.
+3. Review `legacy-import/`, reconcile the imported content into the initiative-scoped artifacts, then rerun `./scripts/supernb run`.
+
+For housekeeping after many previews and retries:
+
+- Run `./scripts/supernb clean-initiative --initiative-id <initiative-id>` to preview stale command briefs, dry-run packets, unsupported packets, and older execution artifacts.
+- Re-run with `--apply` only after reviewing the preview output.
 
 ## Handy Commands
 
@@ -282,8 +296,12 @@ make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
+make import-execution INITIATIVE_ID=2026-03-19-my-product PHASE=delivery REPORT_JSON=/path/to/report.json
 make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
 make upgrade-artifacts INITIATIVE_ID=2026-03-19-my-product
+make migrate-legacy INITIATIVE_ID=2026-03-19-my-product LEGACY_ROOT=/path/to/.supernb
+make clean-initiative INITIATIVE_ID=2026-03-19-my-product
+make test
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
@@ -309,8 +327,12 @@ Or use the scripts directly:
 ./scripts/supernb run --initiative-id 2026-03-19-my-product
 ./scripts/supernb execute-next --initiative-id 2026-03-19-my-product --harness codex --project-dir /path/to/repo --dry-run
 ./scripts/supernb apply-execution --initiative-id 2026-03-19-my-product --packet /path/to/packet --certify
+./scripts/supernb import-execution --initiative-id 2026-03-19-my-product --phase delivery --report-json /path/to/report.json
 ./scripts/supernb certify-phase --initiative-id 2026-03-19-my-product --phase research
 ./scripts/supernb upgrade-artifacts --initiative-id 2026-03-19-my-product
+./scripts/supernb migrate-legacy --initiative-id 2026-03-19-my-product --legacy-root /path/to/.supernb
+./scripts/supernb clean-initiative --initiative-id 2026-03-19-my-product
+./scripts/supernb test
 ./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy

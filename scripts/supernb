@@ -22,10 +22,14 @@ Commands:
   run
   execute-next
   apply-execution
+  import-execution
   record-result
   advance-phase
   certify-phase
   upgrade-artifacts
+  migrate-legacy
+  clean-initiative
+  test
   show-command
   render-command
   save-command
@@ -54,10 +58,14 @@ case "${SUBCOMMAND}" in
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
   execute-next) exec python3 "${ROOT_DIR}/scripts/supernb-execute-next.py" "$@" ;;
   apply-execution) exec python3 "${ROOT_DIR}/scripts/supernb-apply-execution.py" "$@" ;;
+  import-execution) exec python3 "${ROOT_DIR}/scripts/supernb-import-execution.py" "$@" ;;
   record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
   advance-phase) exec python3 "${ROOT_DIR}/scripts/supernb-advance-phase.py" "$@" ;;
   certify-phase) exec python3 "${ROOT_DIR}/scripts/supernb-certify-phase.py" "$@" ;;
   upgrade-artifacts) exec python3 "${ROOT_DIR}/scripts/supernb-upgrade-artifacts.py" "$@" ;;
+  migrate-legacy) exec python3 "${ROOT_DIR}/scripts/supernb-migrate-legacy.py" "$@" ;;
+  clean-initiative) exec python3 "${ROOT_DIR}/scripts/supernb-clean-initiative-artifacts.py" "$@" ;;
+  test) exec python3 -m unittest discover -s "${ROOT_DIR}/tests" "$@" ;;
   show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
   render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;
   save-command) exec "${ROOT_DIR}/scripts/save-command-brief.sh" "$@" ;;

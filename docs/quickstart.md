@@ -75,6 +75,8 @@ Use `--dry-run` first if you only want to prepare the packet and inspect the exa
 This writes a timestamped execution packet under `executions/` with the prompt copy, `prompt-with-report.md`, request metadata, response, stdout, stderr, and a summary.
 It also writes `result-suggestion.md/json` and `phase-readiness.md/json` with completed items, remaining items, evidence artifacts, gate suggestions, and phase-specific structural plus semantic readiness checks.
 For planning and delivery work, the packet also records explicit `superpowers` workflow trace and batch commit evidence requirements.
+`--dry-run` packets are preview-only and are not certification-grade.
+For direct Codex and Claude Code bridging, the captured response must include the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up`.
 
 ## 5. Apply The Execution Packet
 
@@ -104,6 +106,17 @@ If you want it to record, certify, and advance the phase when certification pass
   --apply-certification
 ```
 
+If the phase was executed manually, or via OpenCode after `execute-next` prepared the prompt, import a structured report first:
+
+```bash
+./scripts/supernb import-execution \
+  --initiative-id <initiative-id> \
+  --phase delivery \
+  --report-json /path/to/report.json
+```
+
+That command creates a normal execution packet under `executions/` so the rest of the workflow can still use `apply-execution`, `certify-phase`, and `advance-phase`.
+
 ## 6. Record The Outcome
 
 After a phase execution, record what happened:
@@ -118,6 +131,20 @@ After a phase execution, record what happened:
 This writes a timestamped result file into `phase-results/`, appends to `run-log.md`, and reruns `supernb run` by default.
 
 Use this direct path only when you need to override the packet suggestion manually.
+
+If you are bringing an older loose `.supernb` workspace forward, run:
+
+```bash
+./scripts/supernb migrate-legacy \
+  --initiative-id <initiative-id> \
+  --legacy-root /path/to/.supernb
+```
+
+If execution history gets noisy after many previews and retries, inspect cleanup candidates with:
+
+```bash
+./scripts/supernb clean-initiative --initiative-id <initiative-id>
+```
 
 ## 7. Certify The Phase
 

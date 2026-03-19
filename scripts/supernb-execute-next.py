@@ -556,6 +556,14 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
     }
 
 
+def missing_structured_report_issue(harness: str) -> str:
+    return (
+        "Harness response is missing the required REPORT JSON block between "
+        f"{REPORT_START} and {REPORT_END}. Structured execution reports are mandatory "
+        f"for certifiable packets from direct {harness} runs."
+    )
+
+
 def extract_bullet_section(text: str, headings: list[str]) -> list[str]:
     lines = text.splitlines()
     results: list[str] = []
@@ -1567,14 +1575,20 @@ def build_result_suggestion(
     stderr_excerpt = short_text_excerpt(stderr_text)
     structured_report = extract_report_json(response_text)
     report_source = "structured-report" if structured_report else "heuristic"
+    missing_structured_report = False
 
     if not structured_report:
         structured_report = heuristic_report_from_text(phase, status, response_text, stderr_text, excerpt, stderr_excerpt)
+        if not dry_run and status in {"succeeded", "failed"} and harness in DIRECT_EXECUTION_HARNESSES:
+            missing_structured_report = True
+            report_source = "heuristic-missing-structured-report"
 
     if created_commits and not structured_report.get("batch_commits"):
         structured_report["batch_commits"] = created_commits
 
     workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
+    if missing_structured_report:
+        workflow_issues.insert(0, missing_structured_report_issue(harness))
     workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
     commit_issue = ""
     if phase == "delivery" and git_after.get("is_repo") and not created_commits:
@@ -1597,7 +1611,11 @@ def build_result_suggestion(
         result_status = ensure_string(structured_report.get("recommended_result_status")).lower() or "succeeded"
         summary = structured_report.get("summary") or excerpt or f"{phase} execution completed successfully in {harness}."
         gate_action = ensure_string(structured_report.get("recommended_gate_action")).lower()
-        if workflow_issues:
+        if missing_structured_report:
+            if result_status == "succeeded":
+                result_status = "needs-follow-up"
+            next_step = "rerun the batch with a compliant REPORT JSON block or import a structured manual packet before certification"
+        elif workflow_issues:
             if result_status == "succeeded":
                 result_status = "needs-follow-up"
             next_step = "apply the execution packet, then resolve the workflow-trace and commit-policy gaps"

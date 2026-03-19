@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase upgrade-artifacts check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution import-execution record-result advance-phase certify-phase upgrade-artifacts migrate-legacy clean-initiative test check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -45,6 +45,11 @@ apply-execution:
 	@if [ -z "$(PACKET)" ]; then echo "Usage: make apply-execution INITIATIVE_ID=<id> PACKET=/path/to/packet [CERTIFY=1] [APPLY_CERTIFICATION=1]"; exit 1; fi
 	./scripts/supernb apply-execution $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) --packet "$(PACKET)" $(if $(STATUS),--status "$(STATUS)",) $(if $(SUMMARY),--summary "$(SUMMARY)",) $(if $(CERTIFY),--certify,) $(if $(APPLY_CERTIFICATION),--apply-certification,) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(DATE),--date "$(DATE)",) $(if $(NO_RERUN),--no-rerun,)
 
+import-execution:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make import-execution INITIATIVE_ID=<id> PHASE=<phase> REPORT_JSON=/path/to/report.json"; exit 1; fi
+	@if [ -z "$(PHASE)" ] || [ -z "$(REPORT_JSON)" ]; then echo "PHASE and REPORT_JSON are required."; exit 1; fi
+	./scripts/supernb import-execution $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) --phase "$(PHASE)" --report-json "$(REPORT_JSON)" $(if $(RESPONSE_FILE),--response-file "$(RESPONSE_FILE)",) $(if $(STDOUT_FILE),--stdout-file "$(STDOUT_FILE)",) $(if $(STDERR_FILE),--stderr-file "$(STDERR_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(EXECUTION_STATUS),--execution-status "$(EXECUTION_STATUS)",) $(if $(EXIT_CODE),--exit-code "$(EXIT_CODE)",)
+
 record-result:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi
 	@if [ -z "$(STATUS)" ] || [ -z "$(SUMMARY)" ]; then echo "STATUS and SUMMARY are required."; exit 1; fi
@@ -62,6 +67,17 @@ certify-phase:
 upgrade-artifacts:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make upgrade-artifacts INITIATIVE_ID=<id> or make upgrade-artifacts SPEC=/path/to/initiative.yaml"; exit 1; fi
 	./scripts/supernb upgrade-artifacts $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",)
+
+migrate-legacy:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make migrate-legacy INITIATIVE_ID=<id> [LEGACY_ROOT=/path/to/.supernb]"; exit 1; fi
+	./scripts/supernb migrate-legacy $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(LEGACY_ROOT),--legacy-root "$(LEGACY_ROOT)",) $(if $(NO_UPGRADE),--no-upgrade,)
+
+clean-initiative:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make clean-initiative INITIATIVE_ID=<id> [APPLY=1]"; exit 1; fi
+	./scripts/supernb clean-initiative $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(APPLY),--apply,) $(if $(KEEP_COMMAND_BRIEFS),--keep-command-briefs "$(KEEP_COMMAND_BRIEFS)",) $(if $(KEEP_EXECUTIONS_PER_PHASE),--keep-executions-per-phase "$(KEEP_EXECUTIONS_PER_PHASE)",) $(if $(PRUNE_PHASE_RESULTS),--prune-phase-results,) $(if $(KEEP_PHASE_RESULTS_PER_PHASE),--keep-phase-results-per-phase "$(KEEP_PHASE_RESULTS_PER_PHASE)",)
+
+test:
+	./scripts/supernb test
 
 check-copy:
 	./scripts/check-no-hardcoded-copy.sh
