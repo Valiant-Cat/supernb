@@ -26,6 +26,7 @@ That includes:
 - For Flutter projects, use the local `flutter-l10n-translation` workflow when translation or ARB maintenance is needed.
 - For Android projects, use the local `android-i18n-translation` workflow when extracting hardcoded strings or maintaining `strings.xml` locales.
 - For other stacks, enforce the same externalization principle using the project’s localization layer or resource files.
+- Prefer the stack-specific guidance in `docs/i18n-stack-guidance.md` when this repo is available locally.
 
 ## Minimum Workflow
 
@@ -36,6 +37,12 @@ That includes:
 5. Fill translations with the relevant local translation workflow when available.
 6. Verify that the implementation reads strings from localization resources, not inline literals.
 7. Run the hardcoded-copy check when the workspace provides it.
+
+## Stack Awareness
+
+- Flutter and Android have explicit local translation workflows available in this environment.
+- iOS, web, and mixed-stack projects still follow the same no-hardcoded-copy rule even when the exact toolchain differs.
+- The goal is consistent localization governance across stacks, not a one-framework-only solution.
 
 ## Shipping Rule
 

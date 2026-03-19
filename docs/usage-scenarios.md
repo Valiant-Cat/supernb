@@ -154,6 +154,7 @@ What `supernb` should do:
 - sync and complete target locales
 - verify the UI reads from localization resources
 - run the hardcoded-copy check before release
+- apply the appropriate stack-specific guidance for Flutter, Android, web, iOS, or mixed-stack products
 
 ## Operating Principle
 

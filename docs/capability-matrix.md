@@ -92,6 +92,7 @@ Observed localization workflows:
 - Flutter projects should route to the ARB workflow when localization or translation is needed
 - Android projects should route to the strings.xml extraction and translation workflow when localization or translation is needed
 - the same externalization principle should be enforced for web and other stacks, even if a different concrete i18n toolchain is used
+- stack-specific behavior should follow `docs/i18n-stack-guidance.md`
 
 ## 5. `dotclaude` Superpower Loop Layer
 
