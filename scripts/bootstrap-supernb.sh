@@ -10,7 +10,7 @@ SKIP_UPDATE=0
 usage() {
   cat <<'EOF'
 Usage:
-  bootstrap-supernb.sh --harness <codex|claude-code|opencode> [options]
+  bootstrap-supernb.sh [--harness <codex|claude-code|opencode>] [options]
 
 Options:
   --repo-dir <path>      Where to clone or update supernb. Default: ~/.supernb/supernb
@@ -18,9 +18,53 @@ Options:
   --skip-update          Skip upstream sync/build step
 
 Examples:
+  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
   bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
   bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir ~/projects/my-app
 EOF
+}
+
+detect_harness() {
+  local probe_dir="${PROJECT_DIR:-${PWD}}"
+  local marker=""
+  local -a candidates=()
+
+  if [[ -d "${probe_dir}/.claude" ]]; then
+    marker="claude-code"
+  fi
+
+  if [[ -d "${probe_dir}/.opencode" ]]; then
+    if [[ -n "${marker}" && "${marker}" != "opencode" ]]; then
+      echo "Could not auto-detect harness: both .claude and .opencode markers exist in ${probe_dir}" >&2
+      echo "Pass --harness explicitly." >&2
+      return 1
+    fi
+    marker="opencode"
+  fi
+
+  if [[ -n "${marker}" ]]; then
+    printf '%s\n' "${marker}"
+    return 0
+  fi
+
+  command -v codex >/dev/null 2>&1 && candidates+=("codex")
+  command -v claude >/dev/null 2>&1 && candidates+=("claude-code")
+  command -v opencode >/dev/null 2>&1 && candidates+=("opencode")
+
+  if [[ ${#candidates[@]} -eq 1 ]]; then
+    printf '%s\n' "${candidates[0]}"
+    return 0
+  fi
+
+  if [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "Could not auto-detect a supported harness." >&2
+    echo "Install one of: codex, claude, opencode; or pass --harness explicitly." >&2
+    return 1
+  fi
+
+  echo "Could not auto-detect harness because multiple supported CLIs are installed: ${candidates[*]}" >&2
+  echo "Pass --harness explicitly." >&2
+  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -54,9 +98,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "${HARNESS}" ]]; then
-  echo "--harness is required." >&2
-  usage >&2
-  exit 1
+  HARNESS="$(detect_harness)"
+  echo "Auto-detected harness: ${HARNESS}"
 fi
 
 case "${HARNESS}" in
@@ -100,4 +143,3 @@ echo
 echo "supernb bootstrap complete."
 echo "Repo dir: ${REPO_DIR}"
 echo "Harness: ${HARNESS}"
-

@@ -77,6 +77,12 @@ Architecture: [docs/architecture.md](/Users/xiaomiao26_1_26/projects/supernb/doc
 Fastest install path:
 
 ```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
+```
+
+If auto-detection is ambiguous, use an explicit harness:
+
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
 ```
 
@@ -108,6 +114,12 @@ Then install for the harness you use:
 One-command local shortcut:
 
 ```bash
+make bootstrap
+```
+
+If auto-detection is ambiguous:
+
+```bash
 make bootstrap HARNESS=codex
 ```
 
@@ -122,7 +134,7 @@ make bootstrap HARNESS=codex
 
 ```bash
 make update
-make bootstrap HARNESS=codex
+make bootstrap
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
@@ -139,7 +151,7 @@ Or use the scripts directly:
 
 ```bash
 ./scripts/update-upstreams.sh
-./scripts/bootstrap-supernb.sh --harness codex
+./scripts/bootstrap-supernb.sh
 ./scripts/build-impeccable-dist.sh
 ./scripts/init-initiative.sh my-product "My Product"
 ./scripts/check-no-hardcoded-copy.sh

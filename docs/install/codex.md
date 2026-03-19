@@ -12,10 +12,22 @@ Codex is the cleanest environment for the full `supernb` stack because it can us
 One-command install:
 
 ```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
+```
+
+Or explicitly:
+
+```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
 ```
 
 Or from a local clone:
+
+```bash
+make bootstrap
+```
+
+If auto-detection is ambiguous:
 
 ```bash
 make bootstrap HARNESS=codex

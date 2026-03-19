@@ -6,8 +6,7 @@ update:
 	./scripts/update-upstreams.sh
 
 bootstrap:
-	@if [ -z "$(HARNESS)" ]; then echo "Usage: make bootstrap HARNESS=<codex|claude-code|opencode> [PROJECT_DIR=...]"; exit 1; fi
-	./scripts/bootstrap-supernb.sh --harness "$(HARNESS)" $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
+	./scripts/bootstrap-supernb.sh $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
 
 build-impeccable:
 	./scripts/build-impeccable-dist.sh
