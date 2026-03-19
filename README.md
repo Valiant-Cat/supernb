@@ -9,6 +9,8 @@
 
 The goal is not an MVP generator. The goal is a repeatable path from product idea to research-backed PRD, polished UI/UX, autonomous implementation, and commercial-grade delivery.
 
+`supernb` is framework-agnostic. Platform, stack, language, and repository choices are inputs from the user or project context, not fixed assumptions baked into the system.
+
 ## What This Repository Is
 
 This repository does not fork and rewrite the upstream projects. It acts as the coordination layer:
@@ -17,6 +19,11 @@ This repository does not fork and rewrite the upstream projects. It acts as the 
 - `scripts/` keeps upstreams synced and prepares local installs
 - `docs/` captures upstream analysis, architecture, and install guides
 - `artifacts/` is the workspace for research, PRD, design, plan, and release outputs
+
+It has two jobs:
+
+- full-product delivery orchestration
+- single-capability routing across all integrated upstream abilities
 
 ## Upstream Projects
 
@@ -132,6 +139,7 @@ For a new product initiative:
 
 Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
 Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
+Capability matrix: [docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
 
 ## Notes
 

@@ -2,13 +2,16 @@
 
 This file turns the main `supernb` modes into concrete prompts you can use directly.
 
+Examples here are illustrative only. `supernb` is not tied to Flutter, Android, or any specific framework.
+
 ## 1. Full Product Delivery
 
 Example:
 
 ```text
-Use supernb to build me a commercial-grade Android expense tracking app in Flutter.
-It must support major global languages, especially Southeast Asian languages.
+Use supernb to build me a commercial-grade expense tracking product.
+Target platform, framework, and stack are described in the task itself.
+It must support the required languages and markets I specify.
 Do not stop at MVP quality.
 Use this remote repository: <repo-url>
 ```
@@ -28,6 +31,16 @@ What `supernb` should do:
 - define UI/UX
 - implement in batches
 - commit continuously
+
+Possible user-specified stack inputs:
+
+- Flutter
+- React Native
+- native Android
+- native iOS
+- Next.js
+- Django
+- Go backend plus web frontend
 
 ## 2. Brainstorm And Save
 
@@ -90,6 +103,36 @@ What `supernb` should do:
 - implement and verify
 - commit the result
 
+## 5. Any Single Upstream Capability
+
+Example:
+
+```text
+Use supernb to audit my frontend, harden the UX edge cases, and polish the final interactions.
+```
+
+Or:
+
+```text
+Use supernb to run competitor review mining for this app category and save the insights locally.
+```
+
+Or:
+
+```text
+Use supernb to debug this flaky test, verify the fix, and review the final patch.
+```
+
+Expected mode:
+
+- `single-capability-router`
+
+What `supernb` should do:
+
+- identify the narrowest matching upstream capability
+- use that capability directly
+- save artifacts if the request expects persistent output
+
 ## Operating Principle
 
 The user may ask for "one shot" output, but `supernb` should still distinguish between:
@@ -98,6 +141,7 @@ The user may ask for "one shot" output, but `supernb` should still distinguish b
 - product strategy and documentation only
 - UI/UX upgrade only
 - implementation only
+- any focused single capability already supported by the integrated upstream stack
 
 That split keeps the system usable for both large autonomous runs and focused single-purpose work.
 

@@ -1,6 +1,6 @@
 ---
 name: full-product-delivery
-description: Use when the user wants supernb to take a product from idea to a commercial-grade release-ready implementation, including research, PRD, UI/UX, coding, verification, and continuous commits rather than a thin MVP.
+description: Use when the user wants supernb to take a product from idea to a commercial-grade release-ready implementation, including research, PRD, UI/UX, coding, verification, and continuous commits rather than a thin MVP, regardless of framework or stack.
 ---
 
 # Full Product Delivery
@@ -42,4 +42,8 @@ The user may ask for "one shot" delivery, but the work must still proceed throug
 ## Mobile And Globalization Rule
 
 If the request includes mobile apps, internationalization, or broad language support, capture that in the PRD and design artifacts early instead of bolting it on later.
+
+## Framework Neutrality
+
+Flutter is one possible stack, not a default. The same mode applies to web apps, backend systems, native mobile apps, cross-platform apps, desktop tools, or mixed-stack products.
 
