@@ -446,6 +446,18 @@ def record_result_command(initiative_id: str, phase: str) -> str:
     return f'./scripts/supernb record-result --initiative-id {initiative_id} --phase {phase} --status "<status>" --summary "<what happened>"'
 
 
+def advance_phase_command(initiative_id: str, phase: str) -> str:
+    defaults = {
+        "research": "approved",
+        "prd": "approved",
+        "design": "approved",
+        "planning": "ready",
+        "delivery": "verified",
+        "release": "ready",
+    }
+    return f'./scripts/supernb advance-phase --initiative-id {initiative_id} --phase {phase} --status {defaults[phase]} --actor "<who approved it>"'
+
+
 def phase_artifact_lines(spec: dict[str, Any], phase: str) -> list[str]:
     artifact_roots = {
         "research": artifact_path(spec, "research_dir"),
@@ -508,6 +520,7 @@ def write_phase_packet(
 
     lines.extend(["", "## After Execution", ""])
     lines.append(f"- Record the outcome: `{record_result_command(initiative_id, selected_phase)}`")
+    lines.append(f"- Advance the gate when ready: `{advance_phase_command(initiative_id, selected_phase)}`")
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -538,6 +551,27 @@ def append_run_log(
     lines.append("")
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
+
+
+def update_initiative_index(spec: dict[str, Any], results: dict[str, PhaseResult]) -> None:
+    index_path = artifact_path(spec, "initiative_index")
+    if not index_path.is_file():
+        return
+
+    labels = {
+        "research": "Research",
+        "prd": "PRD",
+        "design": "Design",
+        "planning": "Planning",
+        "delivery": "Delivery",
+        "release": "Release",
+    }
+    text = index_path.read_text(encoding="utf-8")
+    for phase in PHASES:
+        label = labels[phase]
+        replacement = f"- [{'x' if results[phase].status == 'complete' else ' '}] {label}"
+        text = re.sub(rf"^- \[[ x]\] {re.escape(label)}$", replacement, text, flags=re.MULTILINE)
+    index_path.write_text(text, encoding="utf-8")
 
 
 def build_markdown(
@@ -601,6 +635,7 @@ def build_markdown(
             lines.append(f"- Archived brief: `{archived_brief}`")
         lines.append(f"- Run: `./scripts/supernb run --initiative-id {initiative_id}` after phase progress changes")
     lines.append(f"- Record execution results: `{record_result_command(initiative_id, selected_phase)}`")
+    lines.append(f"- Advance phase gate: `{advance_phase_command(initiative_id, selected_phase)}`")
     return "\n".join(lines) + "\n"
 
 
@@ -628,6 +663,7 @@ def main() -> int:
 
     results, meta = build_phase_results(spec, spec_path)
     selected_phase = args.phase if args.phase != "auto" else auto_phase(results)
+    update_initiative_index(spec, results)
 
     run_status_md = artifact_path(spec, "run_status_md")
     run_status_json = artifact_path(spec, "run_status_json")

@@ -195,6 +195,7 @@ make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
+make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
@@ -215,6 +216,7 @@ Or use the scripts directly:
 ./scripts/supernb init-initiative my-product "My Product"
 ./scripts/supernb run --initiative-id 2026-03-19-my-product
 ./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
+./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
 ./scripts/supernb check-copy
 ./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/supernb show-command full-product-delivery
@@ -252,7 +254,8 @@ For a new product initiative:
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
 4. Execute the generated `next-command.md` for the current phase.
 5. Record the outcome with `./scripts/supernb record-result --initiative-id <initiative-id> --status ... --summary ...`.
-6. Re-run `./scripts/supernb run --initiative-id <initiative-id>` after each phase approval or let `record-result` rerun automatically.
+6. Apply the gate update with `./scripts/supernb advance-phase --initiative-id <initiative-id> --phase <phase> --status <status>`.
+7. Re-run `./scripts/supernb run --initiative-id <initiative-id>` after each phase approval or let `record-result` / `advance-phase` rerun automatically.
 
 Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
 Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)

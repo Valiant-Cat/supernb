@@ -61,6 +61,16 @@ After the phase work is done, record it:
   --summary "Describe the completed batch"
 ```
 
+If that work should advance the gate, apply the status update:
+
+```bash
+./scripts/supernb advance-phase \
+  --initiative-id <initiative-id> \
+  --phase research \
+  --status approved \
+  --actor supernb
+```
+
 ## 4. Run Research Before PRD
 
 Fill these first:

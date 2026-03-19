@@ -72,6 +72,18 @@ After phase execution, record the outcome with:
 
 That command writes a timestamped phase result, appends to `run-log.md`, and reruns `supernb run` by default.
 
+When the phase should really advance, apply the gate update:
+
+```bash
+./scripts/supernb advance-phase \
+  --initiative-id <initiative-id> \
+  --phase research \
+  --status approved \
+  --actor supernb
+```
+
+That command updates the relevant artifact status fields for the phase, writes a gate-update record into `phase-results/`, and reruns `supernb run` by default.
+
 ## Gate Fields In Artifact Templates
 
 The runner uses explicit status fields from the initiative artifacts instead of guessing from file existence alone.

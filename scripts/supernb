@@ -17,6 +17,7 @@ Commands:
   init-initiative
   run
   record-result
+  advance-phase
   show-command
   render-command
   save-command
@@ -40,6 +41,7 @@ case "${SUBCOMMAND}" in
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
   record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
+  advance-phase) exec python3 "${ROOT_DIR}/scripts/supernb-advance-phase.py" "$@" ;;
   show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
   render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;
   save-command) exec "${ROOT_DIR}/scripts/save-command-brief.sh" "$@" ;;
