@@ -3,6 +3,9 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Research date: `{{DATE_STAMP}}`
+- Status: pending
+- Approved by:
+- Approved on:
 
 ## Must-Have Features
 
@@ -34,4 +37,3 @@
 - First premium lever:
 - Biggest UX risk:
 - Biggest market risk:
-

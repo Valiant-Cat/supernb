@@ -24,13 +24,13 @@ Output: <artifacts and implementation expectations>
 From this repo:
 
 ```bash
-make show-command COMMAND=full-product-delivery
+./scripts/supernb show-command full-product-delivery
 ```
 
 Or:
 
 ```bash
-./scripts/show-command-template.sh full-product-delivery
+make show-command COMMAND=full-product-delivery
 ```
 
 Then paste the template into Claude Code and fill the placeholders.
@@ -38,7 +38,7 @@ Then paste the template into Claude Code and fill the placeholders.
 For a pre-filled prompt:
 
 ```bash
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="nextjs"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "nextjs"
 ```
 
 ## Notes

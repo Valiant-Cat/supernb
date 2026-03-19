@@ -1,0 +1,39 @@
+initiative:
+  id: "{{INIT_ID}}"
+  title: "{{TITLE}}"
+  slug: "{{SLUG}}"
+  created_at: "{{DATE_STAMP}}"
+
+delivery:
+  goal: "{{GOAL_YAML}}"
+  repository: "{{REPOSITORY_YAML}}"
+  platform: "{{PLATFORM_YAML}}"
+  stack: "{{STACK_YAML}}"
+  product_category: "{{PRODUCT_CATEGORY_YAML}}"
+  markets: "{{MARKETS_YAML}}"
+  research_window: "{{RESEARCH_WINDOW_YAML}}"
+  seed_competitors: "{{SEED_COMPETITORS_YAML}}"
+  source_locale: "{{SOURCE_LOCALE_YAML}}"
+  target_locales: "{{TARGET_LOCALES_YAML}}"
+  quality_bar: "{{QUALITY_BAR_YAML}}"
+  constraints: "{{CONSTRAINTS_YAML}}"
+  acceptance_criteria: ""
+
+artifacts:
+  initiative_index: "artifacts/initiatives/{{INIT_ID}}.md"
+  research_dir: "artifacts/research/{{INIT_ID}}"
+  prd_dir: "artifacts/prd/{{INIT_ID}}"
+  design_dir: "artifacts/design/{{INIT_ID}}"
+  plan_dir: "artifacts/plans/{{INIT_ID}}"
+  release_dir: "artifacts/releases/{{INIT_ID}}"
+  run_status_md: "artifacts/initiatives/{{INIT_ID}}/run-status.md"
+  run_status_json: "artifacts/initiatives/{{INIT_ID}}/run-status.json"
+  next_command_md: "artifacts/initiatives/{{INIT_ID}}/next-command.md"
+
+gates:
+  research_required: "yes"
+  prd_required: "yes"
+  design_required: "yes"
+  planning_required: "yes"
+  commits_required: "yes"
+  release_evidence_required: "yes"

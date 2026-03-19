@@ -5,7 +5,7 @@ This is the operational path for a new `supernb` initiative.
 ## 1. Scaffold The Initiative
 
 ```bash
-make init-initiative INITIATIVE=my-product TITLE="My Product"
+./scripts/supernb init-initiative my-product "My Product"
 ```
 
 This creates a dated initiative ID and standard files across:
@@ -17,9 +17,41 @@ This creates a dated initiative ID and standard files across:
 - `artifacts/plans/`
 - `artifacts/releases/`
 
-It also creates an `i18n-strategy.md` file in the design artifacts so localization decisions are documented before implementation.
+It also creates:
 
-## 2. Run Research Before PRD
+- `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- `artifacts/initiatives/<initiative-id>/run-status.md`
+- `artifacts/initiatives/<initiative-id>/next-command.md`
+
+And it creates an `i18n-strategy.md` file in the design artifacts so localization decisions are documented before implementation.
+
+## 2. Fill The Initiative Spec
+
+Update `initiative.yaml` before execution starts.
+
+At minimum, fill:
+
+- `delivery.goal`
+- `delivery.product_category`
+- `delivery.markets`
+- `delivery.research_window`
+
+Before planning and delivery, also fill:
+
+- `delivery.repository`
+- `delivery.platform`
+- `delivery.stack`
+- `delivery.quality_bar`
+
+## 3. Run The Phase Controller
+
+```bash
+./scripts/supernb run --initiative-id <initiative-id>
+```
+
+This computes the first incomplete phase, writes `run-status.md`, and generates `next-command.md` when the phase is ready.
+
+## 4. Run Research Before PRD
 
 Fill these first:
 
@@ -29,7 +61,7 @@ Fill these first:
 
 Use `sensortower-research` whenever available. Export raw data first, then summarize.
 
-## 3. Write The PRD
+## 5. Write The PRD
 
 Use the PRD template to convert research into:
 
@@ -42,7 +74,7 @@ Use the PRD template to convert research into:
 
 Do not finalize the PRD without clear citations back to the research.
 
-## 4. Produce UI UX Direction
+## 6. Produce UI UX Direction
 
 Use `impeccable` against the design template to define:
 
@@ -53,7 +85,7 @@ Use `impeccable` against the design template to define:
 - interaction states
 - audit notes
 
-## 5. Write The Implementation Plan
+## 7. Write The Implementation Plan
 
 Use the plan template with the latest `obra/superpowers` to define:
 
@@ -63,7 +95,7 @@ Use the plan template with the latest `obra/superpowers` to define:
 - tests-first order
 - verification commands
 
-## 6. Execute In Batches
+## 8. Execute In Batches
 
 Default path:
 
@@ -77,7 +109,7 @@ Optional Claude Code loop path:
 - use bounded completion promises
 - never run an unbounded vague loop
 
-## 7. Final Verification
+## 9. Final Verification
 
 Before release:
 
@@ -85,3 +117,9 @@ Before release:
 - run final `impeccable` audit for UI/UX
 - confirm release checklist items
 - document residual risks explicitly
+
+After each phase approval, rerun:
+
+```bash
+./scripts/supernb run --initiative-id <initiative-id>
+```

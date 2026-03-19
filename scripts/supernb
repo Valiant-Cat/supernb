@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SUBCOMMAND="${1:-}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/supernb <command> [args]
+
+Commands:
+  bootstrap
+  update
+  update-upstreams
+  init-initiative
+  run
+  show-command
+  render-command
+  save-command
+  init-i18n
+  check-copy
+  build-impeccable
+EOF
+}
+
+if [[ -z "${SUBCOMMAND}" ]]; then
+  usage >&2
+  exit 1
+fi
+
+shift || true
+
+case "${SUBCOMMAND}" in
+  bootstrap) exec "${ROOT_DIR}/scripts/bootstrap-supernb.sh" "$@" ;;
+  update) exec "${ROOT_DIR}/scripts/update-supernb.sh" "$@" ;;
+  update-upstreams) exec "${ROOT_DIR}/scripts/update-upstreams.sh" "$@" ;;
+  init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
+  run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
+  show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
+  render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;
+  save-command) exec "${ROOT_DIR}/scripts/save-command-brief.sh" "$@" ;;
+  init-i18n) exec "${ROOT_DIR}/scripts/init-i18n-foundation.sh" "$@" ;;
+  check-copy) exec "${ROOT_DIR}/scripts/check-no-hardcoded-copy.sh" "$@" ;;
+  build-impeccable) exec "${ROOT_DIR}/scripts/build-impeccable-dist.sh" "$@" ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Unknown supernb command: ${SUBCOMMAND}" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

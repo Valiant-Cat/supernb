@@ -3,6 +3,9 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Research date: `{{DATE_STAMP}}`
+- Status: pending
+- Approved by:
+- Approved on:
 
 ## Research Window
 
@@ -38,4 +41,3 @@
 
 - Sensor Tower export:
 - Notes:
-

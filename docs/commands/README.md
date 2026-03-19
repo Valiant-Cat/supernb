@@ -7,9 +7,10 @@ These docs do not assume that every harness has the same native command system.
 The stable cross-harness base is:
 
 - command templates live in `commands/`
-- `./scripts/show-command-template.sh <command>` prints the template
-- `./scripts/render-command.sh --command <command> ...` renders a filled command prompt
-- `./scripts/save-command-brief.sh --command <command> ...` stores a dated command brief in `artifacts/commands/`
+- `./scripts/supernb show-command <command>` prints the template
+- `./scripts/supernb render-command --command <command> ...` renders a filled command prompt
+- `./scripts/supernb save-command --command <command> ...` stores a dated command brief in `artifacts/commands/`
+- `./scripts/supernb run --initiative-id <id>` reads `initiative.yaml`, computes gates, and writes the next command brief for the active phase
 - `render-command.sh` validates that the command exists and now renders research-critical fields for product-definition flows
 - `make show-command COMMAND=<command>` is the shortcut
 - `make render-command COMMAND=<command> GOAL="..." ...` is the structured shortcut

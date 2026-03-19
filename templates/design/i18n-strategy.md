@@ -3,6 +3,9 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Prepared: `{{DATE_STAMP}}`
+- Approval status: pending
+- Approved by:
+- Approved on:
 
 ## Localization Scope
 
@@ -45,4 +48,3 @@
 - Required locale coverage before release:
 - Manual QA locales:
 - Automated checks:
-

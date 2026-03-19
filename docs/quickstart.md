@@ -25,9 +25,31 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness opencode --project-dir /path/to/project
 ```
 
-## 2. Pick A Command
+## 2. Create An Initiative
 
-The three most useful entrypoints are:
+```bash
+./scripts/supernb init-initiative my-product "My Product"
+```
+
+Then fill:
+
+- `artifacts/initiatives/<initiative-id>/initiative.yaml`
+
+## 3. Run The Control Plane
+
+```bash
+./scripts/supernb run --initiative-id <initiative-id>
+```
+
+This writes:
+
+- `artifacts/initiatives/<initiative-id>/run-status.md`
+- `artifacts/initiatives/<initiative-id>/run-status.json`
+- `artifacts/initiatives/<initiative-id>/next-command.md`
+
+## 4. Pick A Command
+
+The three most useful manual entrypoints are:
 
 - `full-product-delivery`
 - `single-capability-router`
@@ -36,15 +58,15 @@ The three most useful entrypoints are:
 See the raw templates:
 
 ```bash
-./scripts/show-command-template.sh full-product-delivery
-./scripts/show-command-template.sh single-capability-router
-./scripts/show-command-template.sh ui-ux-upgrade
+./scripts/supernb show-command full-product-delivery
+./scripts/supernb show-command single-capability-router
+./scripts/supernb show-command ui-ux-upgrade
 ```
 
-## 3. Render A Filled Prompt
+## 5. Render A Filled Prompt
 
 ```bash
-./scripts/render-command.sh \
+./scripts/supernb render-command \
   --command full-product-delivery \
   --goal "Build a commercial-grade product" \
   --repository "https://github.com/example/repo.git" \
@@ -55,10 +77,10 @@ See the raw templates:
   --constraints "no MVP shortcuts; commercial quality"
 ```
 
-## 4. Save The Brief
+## 6. Save The Brief
 
 ```bash
-./scripts/save-command-brief.sh \
+./scripts/supernb save-command \
   --command full-product-delivery \
   --title "Commercial Product Delivery Brief" \
   --goal "Build a commercial-grade product" \
@@ -76,9 +98,11 @@ This stores the prompt in `artifacts/commands/` for reuse and auditability.
 ```bash
 make bootstrap
 make update
+make init-initiative INITIATIVE=my-product TITLE="My Product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
+make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
 ```
 
 Update shortcuts:

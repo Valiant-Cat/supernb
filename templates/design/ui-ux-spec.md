@@ -3,6 +3,9 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Prepared: `{{DATE_STAMP}}`
+- Approval status: pending
+- Approved by:
+- Approved on:
 
 ## Design Context
 

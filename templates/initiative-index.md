@@ -6,6 +6,9 @@
 
 ## Artifact Map
 
+- Initiative spec: [artifacts/initiatives/{{INIT_ID}}/initiative.yaml](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/initiative.yaml)
+- Run status: [artifacts/initiatives/{{INIT_ID}}/run-status.md](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/run-status.md)
+- Next command: [artifacts/initiatives/{{INIT_ID}}/next-command.md](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/next-command.md)
 - Research: [artifacts/research/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/research/{{INIT_ID}})
 - PRD: [artifacts/prd/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/prd/{{INIT_ID}})
 - Design: [artifacts/design/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/design/{{INIT_ID}})
@@ -27,3 +30,5 @@
 - Use `product-research-prd` first.
 - Use `ui-ux-governance` only after the PRD is evidence-backed.
 - Use `autonomous-delivery` only after PRD and design approval.
+- Keep `initiative.yaml` updated before each major phase handoff.
+- Run `./scripts/supernb run --initiative-id {{INIT_ID}}` to compute gates and generate the next command brief.

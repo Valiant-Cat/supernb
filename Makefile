@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -28,7 +28,11 @@ install-opencode:
 
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi
-	./scripts/init-initiative.sh "$(INITIATIVE)" "$(TITLE)"
+	GOAL="$(GOAL)" REPOSITORY="$(REPOSITORY)" PLATFORM="$(PLATFORM)" STACK="$(STACK)" PRODUCT_CATEGORY="$(PRODUCT_CATEGORY)" MARKETS="$(MARKETS)" RESEARCH_WINDOW="$(RESEARCH_WINDOW)" SEED_COMPETITORS="$(SEED_COMPETITORS)" SOURCE_LOCALE="$(if $(SOURCE_LOCALE),$(SOURCE_LOCALE),en)" TARGET_LOCALES="$(TARGET_LOCALES)" QUALITY_BAR="$(if $(QUALITY_BAR),$(QUALITY_BAR),commercial-grade)" CONSTRAINTS="$(CONSTRAINTS)" ./scripts/init-initiative.sh "$(INITIATIVE)" "$(TITLE)"
+
+run-initiative:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make run-initiative INITIATIVE_ID=<id> [PHASE=auto] or make run-initiative SPEC=/path/to/initiative.yaml"; exit 1; fi
+	./scripts/supernb run $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",)
 
 check-copy:
 	./scripts/check-no-hardcoded-copy.sh
@@ -43,8 +47,8 @@ show-command:
 
 render-command:
 	@if [ -z "$(COMMAND)" ]; then echo "Usage: make render-command COMMAND=<command-name> [GOAL='...'] [REPOSITORY='...'] [STACK='...']"; exit 1; fi
-	./scripts/render-command.sh --command "$(COMMAND)" $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",)
+	./scripts/render-command.sh --command "$(COMMAND)" $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",) $(if $(PRODUCT_CATEGORY),--product-category "$(PRODUCT_CATEGORY)",) $(if $(SEED_COMPETITORS),--seed-competitors "$(SEED_COMPETITORS)",) $(if $(RESEARCH_WINDOW),--research-window "$(RESEARCH_WINDOW)",) $(if $(QUALITY_BAR),--quality-bar "$(QUALITY_BAR)",) $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",)
 
 save-command:
 	@if [ -z "$(COMMAND)" ]; then echo "Usage: make save-command COMMAND=<command-name> [GOAL='...'] [TITLE='...']"; exit 1; fi
-	./scripts/save-command-brief.sh --command "$(COMMAND)" $(if $(TITLE),--title "$(TITLE)",) $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",)
+	./scripts/save-command-brief.sh --command "$(COMMAND)" $(if $(TITLE),--title "$(TITLE)",) $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(GOAL),--goal "$(GOAL)",) $(if $(REPOSITORY),--repository "$(REPOSITORY)",) $(if $(PLATFORM),--platform "$(PLATFORM)",) $(if $(STACK),--stack "$(STACK)",) $(if $(MARKETS),--markets "$(MARKETS)",) $(if $(LOCALES),--locales "$(LOCALES)",) $(if $(CONSTRAINTS),--constraints "$(CONSTRAINTS)",) $(if $(SOURCE_LOCALE),--source-locale "$(SOURCE_LOCALE)",) $(if $(TARGET_LOCALES),--target-locales "$(TARGET_LOCALES)",) $(if $(CAPABILITY_HINT),--capability-hint "$(CAPABILITY_HINT)",) $(if $(TRANSLATION_CONSTRAINTS),--translation-constraints "$(TRANSLATION_CONSTRAINTS)",) $(if $(PRODUCT_CATEGORY),--product-category "$(PRODUCT_CATEGORY)",) $(if $(SEED_COMPETITORS),--seed-competitors "$(SEED_COMPETITORS)",) $(if $(RESEARCH_WINDOW),--research-window "$(RESEARCH_WINDOW)",) $(if $(QUALITY_BAR),--quality-bar "$(QUALITY_BAR)",)

@@ -3,6 +3,10 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Prepared: `{{DATE_STAMP}}`
+- Ready for execution: no
+- Delivery status: pending
+- Approved by:
+- Approved on:
 
 ## Scope For This Plan
 

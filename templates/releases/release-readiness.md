@@ -3,6 +3,9 @@
 - Initiative ID: `{{INIT_ID}}`
 - Product: `{{TITLE}}`
 - Prepared: `{{DATE_STAMP}}`
+- Release decision: pending
+- Approved by:
+- Approved on:
 
 ## Verification Summary
 

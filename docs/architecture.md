@@ -6,6 +6,8 @@
 
 The `supernb` artifact templates are optional scaffolding. They provide a stable place to save outputs, but they do not override the native plan, design, or execution documentation formats that upstream `superpowers` may generate when a richer structure is warranted.
 
+`supernb` now also uses an initiative control file at `artifacts/initiatives/<initiative-id>/initiative.yaml`. That file is the machine-readable source of truth for phase routing, gate evaluation, and next-command generation.
+
 ## Phases
 
 ### 1. Research

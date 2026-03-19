@@ -29,6 +29,7 @@ It has two jobs:
 - full-product delivery orchestration
 - single-capability routing across all integrated upstream abilities
 - reusable command entrypoints for predictable invocation
+- initiative-spec-driven execution control
 
 Its templates and artifact scaffolds are additive. They are meant to capture and organize outputs, not to replace or shrink the native documentation behavior of upstream `superpowers`.
 
@@ -104,9 +105,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 Then use one of the three main command entrypoints:
 
 ```bash
-./scripts/show-command-template.sh full-product-delivery
-./scripts/render-command.sh --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
-./scripts/save-command-brief.sh --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
+./scripts/supernb show-command full-product-delivery
+./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
+./scripts/supernb save-command --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
 ```
 
 New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
@@ -119,6 +120,20 @@ What bootstrap now does:
 - builds `impeccable` into an isolated local cache instead of mutating the upstream clone
 - auto-installs the default Claude Code `superpowers` plugin when needed
 - auto-ensures the OpenCode `superpowers` plugin entry in project config
+
+New initiative control-plane path:
+
+```bash
+./scripts/supernb init-initiative my-product "My Product"
+./scripts/supernb run --initiative-id 2026-03-19-my-product
+```
+
+That flow now:
+
+- creates `artifacts/initiatives/<initiative-id>/initiative.yaml`
+- creates initiative-local `run-status.md` and `next-command.md`
+- computes which phase is blocked, ready, or complete
+- generates the next structured command brief when the next phase is ready
 
 Unified update path:
 
@@ -176,11 +191,12 @@ make update-upstreams
 make bootstrap
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
+make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="flutter"
-make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
+make render-command COMMAND=full-product-delivery GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade" STACK="flutter"
+make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -189,17 +205,17 @@ make install-opencode
 Or use the scripts directly:
 
 ```bash
-./scripts/update-upstreams.sh
-./scripts/update-supernb.sh
-./scripts/bootstrap-supernb.sh
-./scripts/build-impeccable-dist.sh
-./scripts/init-initiative.sh my-product "My Product"
-./scripts/check-no-hardcoded-copy.sh
-./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
-./scripts/show-command-template.sh full-product-delivery
-./scripts/render-command.sh --command full-product-delivery --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --stack flutter
-./scripts/save-command-brief.sh --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days"
-./scripts/install-codex.sh
+./scripts/supernb update-upstreams
+./scripts/supernb update
+./scripts/supernb bootstrap
+./scripts/supernb build-impeccable
+./scripts/supernb init-initiative my-product "My Product"
+./scripts/supernb run --initiative-id 2026-03-19-my-product
+./scripts/supernb check-copy
+./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"
+./scripts/supernb show-command full-product-delivery
+./scripts/supernb render-command --command full-product-delivery --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade" --stack flutter
+./scripts/supernb save-command --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade"
 ```
 
 ## Repository Layout
@@ -227,16 +243,17 @@ supernb/
 
 For a new product initiative:
 
-1. Run `make init-initiative INITIATIVE=my-product TITLE="My Product"`.
-2. Start with the `product-research-prd` skill and fill the research templates.
-3. Move to `ui-ux-governance` only after the PRD is evidence-backed.
-4. Use `autonomous-delivery` after design approval.
-5. Keep `supernb-orchestrator` active when the goal is end-to-end product delivery.
+1. Run `./scripts/supernb init-initiative my-product "My Product"`.
+2. Fill `artifacts/initiatives/<initiative-id>/initiative.yaml`.
+3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
+4. Execute the generated `next-command.md` for the current phase.
+5. Re-run `./scripts/supernb run --initiative-id <initiative-id>` after each phase approval.
 
 Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
 Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
 Capability matrix: [docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
 I18n guidance: [docs/i18n-stack-guidance.md](/Users/xiaomiao26_1_26/projects/supernb/docs/i18n-stack-guidance.md)
+Initiative spec: [docs/initiative-spec.md](/Users/xiaomiao26_1_26/projects/supernb/docs/initiative-spec.md)
 Command entrypoints: [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
 Harness mapping: [docs/commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/docs/commands/README.md)
 
