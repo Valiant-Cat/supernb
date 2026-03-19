@@ -105,10 +105,11 @@ If you want a user-global install instead of a per-project install:
 
 What the script does:
 
-- symlinks `supernb/skills` to `<project>/.claude/skills/supernb`
+- symlinks each `supernb` skill directory directly into `<project>/.claude/skills/`
 - symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.claude/skills/`
 - symlinks `impeccable` skills from the isolated local build cache into `<project>/.claude/skills/`
 - repairs previously copied generated `impeccable` skill directories into managed symlinks
+- repairs the older aggregate `supernb` symlink layout into per-skill links that Claude Code can actually list
 
 ## 4. Optional Frad Loop Mode
 

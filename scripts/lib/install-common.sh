@@ -108,3 +108,20 @@ copy_tree_contents_if_missing() {
   done
   shopt -u dotglob nullglob
 }
+
+remove_managed_symlink_if_target_matches() {
+  local target_path="$1"
+  local expected_source="$2"
+  local label="$3"
+
+  if [[ ! -L "${target_path}" ]]; then
+    return 0
+  fi
+
+  local current_target
+  current_target="$(readlink "${target_path}")"
+  if [[ "${current_target}" == "${expected_source}" ]]; then
+    rm -f "${target_path}"
+    echo "  repaired aggregate link: ${label}"
+  fi
+}
