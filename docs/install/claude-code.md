@@ -46,11 +46,18 @@ If you are already inside the target project:
 /path/to/supernb/scripts/supernb install-claude-code
 ```
 
+Direct user-global install into `~/.claude`:
+
+```bash
+./scripts/supernb install-claude-code "$HOME"
+```
+
 This path now:
 
 - installs bundled project-local skills when missing
 - keeps already-installed managed skills aligned through symlinks
 - auto-installs the default Claude Code `superpowers` plugin when it is not already installed
+- auto-enables the plugin when it is already installed but currently disabled
 
 Manual path:
 
@@ -87,6 +94,13 @@ If you want to install into the current project:
 ./scripts/install-claude-code.sh /path/to/your-project
 ./scripts/supernb install-claude-code /path/to/your-project
 make install-claude-code PROJECT_DIR=/path/to/your-project
+```
+
+If you want a user-global install instead of a per-project install:
+
+```bash
+./scripts/install-claude-code.sh "$HOME"
+./scripts/supernb install-claude-code "$HOME"
 ```
 
 What the script does:
