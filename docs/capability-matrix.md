@@ -79,7 +79,21 @@ Observed specialist research commands:
 
 - any app intelligence request should route to the specific dataset pull the user actually needs
 
-## 4. `dotclaude` Superpower Loop Layer
+## 4. Local Translation Skills
+
+Observed localization workflows:
+
+- `flutter-l10n-translation`
+- `android-i18n-translation`
+
+`supernb` expectation:
+
+- user-facing strings must be extracted into localization resources rather than hardcoded in code
+- Flutter projects should route to the ARB workflow when localization or translation is needed
+- Android projects should route to the strings.xml extraction and translation workflow when localization or translation is needed
+- the same externalization principle should be enforced for web and other stacks, even if a different concrete i18n toolchain is used
+
+## 5. `dotclaude` Superpower Loop Layer
 
 Observed specialist additions:
 
@@ -98,4 +112,3 @@ Observed specialist additions:
 When a user asks for one focused thing, `supernb` should answer with the narrowest correct capability from the matrix above.
 
 When a user asks for a whole product, `supernb` should orchestrate multiple capabilities across the matrix.
-

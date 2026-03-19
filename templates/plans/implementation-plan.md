@@ -31,6 +31,13 @@
 - Test-first tasks:
 - Verification:
 
+## Localization Work
+
+- Hardcoded string extraction tasks:
+- Source locale key creation:
+- Target locale sync:
+- Translation completion workflow:
+
 ## Loop Candidates
 
 Use Frad loop mode only for bounded tasks.
@@ -50,4 +57,3 @@ Use Frad loop mode only for bounded tasks.
 - Commit frequency:
 - Branch strategy:
 - PR strategy:
-

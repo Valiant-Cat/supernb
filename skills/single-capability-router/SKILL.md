@@ -66,6 +66,18 @@ Route to `implementation-execution`, `autonomous-delivery`, or upstream `superpo
 - parallel agent execution
 - verification before completion
 
+### Localization And Translation
+
+Route to `i18n-localization-governance` when the user asks for:
+
+- extracting hardcoded strings
+- localization setup
+- translation completion
+- multi-language support
+- ARB sync
+- Android strings.xml localization
+- keeping copy out of source code
+
 ### Loop Persistence
 
 Route to the optional Frad loop flow only when:
@@ -77,4 +89,3 @@ Route to the optional Frad loop flow only when:
 ## Anti-Reduction Rule
 
 Do not answer "supernb only supports A, B, C" when the integrated upstream stack supports more specialist modes. Route to the narrowest correct capability.
-

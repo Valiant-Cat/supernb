@@ -134,6 +134,13 @@ Storage target:
 7. Do not install two same-named `superpowers` plugins in one Claude Code environment.
 8. Every verified batch is committed to git.
 
+## Cross-Cutting Localization Rule
+
+- User-facing copy must not be hardcoded in product code, whether the target is app, web, or another UI surface.
+- New strings should be added to the relevant localization resources first, then referenced from code.
+- If a framework-specific localization workflow exists, `supernb` should route to it instead of inventing inline copy patterns.
+- Translation coverage and extraction of hardcoded strings are part of release readiness, not optional cleanup.
+
 ## Why This Split Works
 
 - `sensortower-research` provides evidence

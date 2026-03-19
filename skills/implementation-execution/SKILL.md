@@ -15,6 +15,12 @@ This mode is for focused build work inside an existing project.
 4. Code with tests and verification.
 5. Commit validated work.
 
+## Hardcoded Copy Rule
+
+- Do not write user-facing copy directly into product code.
+- Externalize strings into the relevant localization layer before wiring UI.
+- If the project stack has a known localization workflow, route to `i18n-localization-governance`.
+
 ## When Not To Use It
 
 Do not use this mode when the request is actually product discovery, competitor research, or UI/UX direction setting from scratch. Route those to the more specific modes.

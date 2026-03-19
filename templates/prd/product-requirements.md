@@ -51,6 +51,14 @@
 - Empty, loading, success, and error states must be designed deliberately.
 - Mobile layouts must adapt rather than simply shrink.
 
+## Localization Requirements
+
+- Source language:
+- Target locales:
+- Localization system:
+- User-facing copy must be externalized, not hardcoded in code.
+- Translation workflow:
+
 ## Business Model
 
 - Monetization approach:
@@ -74,4 +82,3 @@
 - Competitor landscape:
 - Review insights:
 - Feature opportunities:
-

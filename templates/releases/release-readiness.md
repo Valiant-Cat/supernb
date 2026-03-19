@@ -17,11 +17,19 @@
 - Contrast and readability checks:
 - Responsive checks:
 
+## Localization Summary
+
+- Hardcoded copy audit:
+- Locale coverage:
+- Translation validation:
+
 ## Release Checklist
 
 - [ ] PRD scope delivered
 - [ ] Design requirements delivered
 - [ ] Core journeys verified
+- [ ] User-facing copy externalized from code
+- [ ] Required locales covered
 - [ ] Regression checks passed
 - [ ] Known risks documented
 - [ ] Release notes prepared
@@ -37,4 +45,3 @@
 - Added:
 - Improved:
 - Fixed:
-

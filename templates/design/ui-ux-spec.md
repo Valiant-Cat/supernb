@@ -25,6 +25,13 @@
 - Disabled/loading state rules:
 - Focus state rules:
 
+## Localization And Copy Rules
+
+- Source locale:
+- Target locales:
+- Copy must be referenced from localization resources, not hardcoded in UI code.
+- Long-text expansion and multi-locale layout considerations:
+
 ## Information Architecture
 
 - Primary navigation:
@@ -60,4 +67,3 @@
 - Audit findings:
 - Critique findings:
 - Polish actions:
-

@@ -133,6 +133,27 @@ What `supernb` should do:
 - use that capability directly
 - save artifacts if the request expects persistent output
 
+## 6. Localization And Translation
+
+Example:
+
+```text
+Use supernb to remove hardcoded UI copy from my project, wire it into the localization system, and complete the required translations.
+```
+
+Expected mode:
+
+- `i18n-localization-governance`
+- `single-capability-router`
+
+What `supernb` should do:
+
+- find the localization layer
+- extract hardcoded copy out of code
+- add source-locale keys
+- sync and complete target locales
+- verify the UI reads from localization resources
+
 ## Operating Principle
 
 The user may ask for "one shot" output, but `supernb` should still distinguish between:
@@ -144,4 +165,3 @@ The user may ask for "one shot" output, but `supernb` should still distinguish b
 - any focused single capability already supported by the integrated upstream stack
 
 That split keeps the system usable for both large autonomous runs and focused single-purpose work.
-
