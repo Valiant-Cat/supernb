@@ -112,6 +112,61 @@ Then use one of the three main command entrypoints:
 
 New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
 
+## Keys And Environment
+
+`supernb` 本身不是“必须先配一堆 key 才能启动”的项目。
+安装、编排、PRD/design/delivery 流程本身不要求额外 key。只有当你实际调用某些 bundled skills 时，才需要对应的环境变量。
+
+推荐原则：
+
+- 统一优先配在启动 harness 的 shell 环境里，比如 `~/.zshrc` 或 `~/.bashrc`
+- 如果是 Claude Code / Codex / OpenCode，改完环境变量后重启对应工具，让新会话继承到这些变量
+- 不要把真实 key 写进仓库、`initiative.yaml`、命令模板或提交记录
+
+最常用的配置方式：
+
+```bash
+# 一次性写到 shell 配置里
+echo 'export SENSORTOWER_AUTH_TOKEN="st_your_token"' >> ~/.zshrc
+echo 'export OPENAI_API_KEY="sk-..."' >> ~/.zshrc
+source ~/.zshrc
+```
+
+或者只在当前会话临时设置：
+
+```bash
+export SENSORTOWER_AUTH_TOKEN="st_your_token"
+export OPENAI_API_KEY="sk-..."
+```
+
+环境变量清单：
+
+| Key | 用途 | 是否必须 | 建议配置位置 | 说明 |
+| --- | --- | --- | --- | --- |
+| `SENSORTOWER_AUTH_TOKEN` | `sensortower-research` 的主 API token | 只在使用 Sensor Tower 研究时必须 | `~/.zshrc` / `~/.bashrc` / 启动 Claude Code 之前的 shell | 推荐使用这个名字，作为主 token |
+| `SENSORTOWER_AUTH_TOKEN_BACKUP` | `sensortower-research` 的备用 token | 可选 | 同上 | 主 token 限流或失败时可回退 |
+| `SENSORTOWER_API_TOKEN` | `sensortower-research` 的兼容别名 | 可选 | 同上 | 兼容旧命名；如果已经配置 `SENSORTOWER_AUTH_TOKEN`，一般不需要再配 |
+| `SENSOR_TOWER_API_TOKEN` | `sensortower-research` 的兼容别名 | 可选 | 同上 | 同上 |
+| `SENSORTOWER_API_TOKEN_BACKUP` | `sensortower-research` 备用 token 兼容别名 | 可选 | 同上 | 同上 |
+| `SENSOR_TOWER_API_TOKEN_BACKUP` | `sensortower-research` 备用 token 兼容别名 | 可选 | 同上 | 同上 |
+| `OPENAI_API_KEY` | `flutter-l10n-translation`、`android-i18n-translation` 和相关翻译脚本的 OpenAI 模式 | 只在使用 AI 翻译补全时必须 | `~/.zshrc` / `~/.bashrc` / 启动 harness 之前的 shell | 如果你改用脚本的 `--api-key` 参数，也可以不配环境变量，但环境变量更适合跨 harness 使用 |
+
+是否必须配置，可以直接这样理解：
+
+- 只做 `supernb` 编排、PRD、UI/UX、代码实现，不做 Sensor Tower 研究，也不跑翻译脚本：通常不需要额外 key
+- 要跑 `sensortower-research`：至少配置一个 Sensor Tower token，推荐 `SENSORTOWER_AUTH_TOKEN`
+- 要跑 OpenAI 翻译补全：配置 `OPENAI_API_KEY`
+- `android-i18n-translation` 的 `--provider google` 路径在当前仓库里不依赖额外环境变量；只有走 OpenAI provider 时才需要 `OPENAI_API_KEY`
+
+建议优先使用的标准命名：
+
+```bash
+export SENSORTOWER_AUTH_TOKEN="st_your_token"
+export OPENAI_API_KEY="sk-..."
+```
+
+这样最不容易和 skill 文档、CLI 脚本、后续排查出现偏差。
+
 What bootstrap now does:
 
 - syncs `superpowers`, `dotclaude`, and `impeccable`
