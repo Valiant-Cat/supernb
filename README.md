@@ -27,6 +27,7 @@ It has two jobs:
 
 - full-product delivery orchestration
 - single-capability routing across all integrated upstream abilities
+- reusable command entrypoints for predictable invocation
 
 ## Upstream Projects
 
@@ -103,6 +104,7 @@ make update
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
+make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -115,6 +117,7 @@ Or use the scripts directly:
 ./scripts/build-impeccable-dist.sh
 ./scripts/init-initiative.sh my-product "My Product"
 ./scripts/check-no-hardcoded-copy.sh
+./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/install-codex.sh
 ```
 
@@ -129,6 +132,7 @@ supernb/
 │   ├── prd/
 │   ├── releases/
 │   └── research/
+├── commands/
 ├── docs/
 ├── scripts/
 ├── skills/
@@ -149,6 +153,7 @@ Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/s
 Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
 Capability matrix: [docs/capability-matrix.md](/Users/xiaomiao26_1_26/projects/supernb/docs/capability-matrix.md)
 I18n guidance: [docs/i18n-stack-guidance.md](/Users/xiaomiao26_1_26/projects/supernb/docs/i18n-stack-guidance.md)
+Command entrypoints: [commands/README.md](/Users/xiaomiao26_1_26/projects/supernb/commands/README.md)
 
 ## Notes
 

@@ -51,6 +51,7 @@ render_template "${TEMPLATES_DIR}/research/02-review-insights.md" "${RESEARCH_DI
 render_template "${TEMPLATES_DIR}/research/03-feature-opportunities.md" "${RESEARCH_DIR}/03-feature-opportunities.md"
 render_template "${TEMPLATES_DIR}/prd/product-requirements.md" "${PRD_DIR}/product-requirements.md"
 render_template "${TEMPLATES_DIR}/design/ui-ux-spec.md" "${DESIGN_DIR}/ui-ux-spec.md"
+render_template "${TEMPLATES_DIR}/design/i18n-strategy.md" "${DESIGN_DIR}/i18n-strategy.md"
 render_template "${TEMPLATES_DIR}/plans/implementation-plan.md" "${PLANS_DIR}/implementation-plan.md"
 render_template "${TEMPLATES_DIR}/releases/release-readiness.md" "${RELEASE_DIR}/release-readiness.md"
 
@@ -64,10 +65,10 @@ Created:
   ${RESEARCH_DIR}/03-feature-opportunities.md
   ${PRD_DIR}/product-requirements.md
   ${DESIGN_DIR}/ui-ux-spec.md
+  ${DESIGN_DIR}/i18n-strategy.md
   ${PLANS_DIR}/implementation-plan.md
   ${RELEASE_DIR}/release-readiness.md
 
 Recommended next step:
   Use the product-research-prd skill and fill the research files first.
 EOF
-

@@ -17,6 +17,8 @@ This creates a dated initiative ID and standard files across:
 - `artifacts/plans/`
 - `artifacts/releases/`
 
+It also creates an `i18n-strategy.md` file in the design artifacts so localization decisions are documented before implementation.
+
 ## 2. Run Research Before PRD
 
 Fill these first:
@@ -83,4 +85,3 @@ Before release:
 - run final `impeccable` audit for UI/UX
 - confirm release checklist items
 - document residual risks explicitly
-
