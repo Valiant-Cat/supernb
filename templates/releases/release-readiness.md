@@ -78,11 +78,11 @@
 
 ## Delivered Traceability Summary
 
-Show that the shipped product still matches the launch-critical capabilities and surfaces promised upstream.
+Show that the shipped product still matches the launch-critical capabilities and surfaces promised upstream. Reuse the same Trace ID values so release checks can be reconciled back to PRD and design.
 
-| PRD capability | Design surface | Delivered evidence | Release verification | Watch signal |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| Trace ID | PRD capability | Design surface | Delivered evidence | Release verification | Watch signal |
+| --- | --- | --- | --- | --- | --- |
+| TR-001 |  |  |  |  |  |
 
 ## Release Notes Draft
 

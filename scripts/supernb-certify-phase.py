@@ -522,8 +522,8 @@ def main() -> int:
             [
                 sys.executable,
                 str(ROOT_DIR / "scripts" / "supernb-advance-phase.py"),
-                "--initiative-id",
-                initiative_id,
+                "--spec",
+                str(spec_path),
                 "--phase",
                 phase,
                 "--status",

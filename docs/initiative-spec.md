@@ -146,7 +146,7 @@ Current default initiative posture:
 
 - `delivery.scale_target_dau` defaults to `10000000`
 - `delivery.quality_bar` defaults to `10m-dau-grade`
-- PRD, design, implementation plan, and release readiness are expected to carry aligned cross-phase traceability matrices
+- PRD, design, implementation plan, and release readiness are expected to carry aligned cross-phase traceability matrices with stable `Trace ID` rows
 - old initiatives can be brought forward with `./scripts/supernb upgrade-artifacts --initiative-id <initiative-id>`
 - pre-initiative loose workspaces can be imported with `./scripts/supernb migrate-legacy --initiative-id <initiative-id>`
 - legacy imports now include `legacy-mapping.md/json` so reconciliation starts from suggested target artifacts instead of ad hoc copying

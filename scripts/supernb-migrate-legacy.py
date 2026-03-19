@@ -131,10 +131,22 @@ def suggest_target(spec: dict[str, Any], relative: Path) -> tuple[str, str, str]
             "Merge legacy PRD content into the initiative-scoped product requirements document.",
         )
     if relative_text.startswith("design/"):
+        if any(token in relative_text for token in ["i18n", "l10n", "locale", "translation", "strings", "copy"]):
+            return (
+                str(artifact_path(spec, "design_dir") / "i18n-strategy.md"),
+                "high",
+                "Merge localization scope, translation workflow, locale coverage, and copy-governance detail into the i18n strategy artifact.",
+            )
+        if any(token in relative_text for token in ["motion", "animation", "interaction", "prototype", "flow", "wireframe", "visual", "component", "token", "design-system"]):
+            return (
+                str(artifact_path(spec, "design_dir") / "ui-ux-spec.md"),
+                "high",
+                "Merge interaction, motion, visual system, and surface-spec detail into the initiative-scoped UI UX spec.",
+            )
         return (
             str(artifact_path(spec, "design_dir") / "ui-ux-spec.md"),
-            "high",
-            "Merge UI/UX specifications into the initiative-scoped design spec.",
+            "medium",
+            "Merge broader UI/UX specifications into the initiative-scoped design spec and decide whether any locale or copy guidance also belongs in i18n strategy.",
         )
     if relative_text.startswith("implementation/"):
         return (

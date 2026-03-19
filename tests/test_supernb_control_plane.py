@@ -276,18 +276,18 @@ class SupernbControlPlaneTests(unittest.TestCase):
             (prd_dir / "product-requirements.md").write_text(
                 "# PRD\n\n"
                 "## Cross-Phase Traceability Matrix\n\n"
-                "| Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |\n"
-                "| --- | --- | --- | --- | --- |\n"
-                "| Users hate manual setup | Smart onboarding | Onboarding flow | Batch 1 | Activation QA |\n"
-                "| Users want trusted insights | Insight feed | Insight dashboard | Batch 2 | Insight regression |\n",
+                "| Trace ID | Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |\n"
+                "| --- | --- | --- | --- | --- | --- |\n"
+                "| TR-001 | Users hate manual setup | Smart onboarding | Onboarding flow | Batch 1 | Activation QA |\n"
+                "| TR-002 | Users want trusted insights | Insight feed | Insight dashboard | Batch 2 | Insight regression |\n",
                 encoding="utf-8",
             )
             (design_dir / "ui-ux-spec.md").write_text(
                 "# UI UX Spec\n\n"
                 "## Traceability To Research And PRD\n\n"
-                "| PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |\n"
-                "| --- | --- | --- | --- | --- |\n"
-                "| Smart onboarding | Users hate manual setup | Onboarding flow | Empty/loading/error | Audit v1 |\n",
+                "| Trace ID | PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |\n"
+                "| --- | --- | --- | --- | --- | --- |\n"
+                "| TR-001 | Smart onboarding | Users hate manual setup | Welcome tour | Empty/loading/error | Audit v1 |\n",
                 encoding="utf-8",
             )
 
@@ -303,8 +303,10 @@ class SupernbControlPlaneTests(unittest.TestCase):
             checks = execute_next.build_traceability_checks(spec, "design")
             issues = [issue for check in checks for issue in check.get("issues", [])]
 
-            self.assertTrue(any("missing capabilities" in issue for issue in issues))
-            self.assertTrue(any("Insight feed" in issue for issue in issues))
+            self.assertTrue(any("missing source rows" in issue for issue in issues))
+            self.assertTrue(any("TR-002" in issue for issue in issues))
+            self.assertTrue(any("changes primary surfaces" in issue for issue in issues))
+            self.assertTrue(any("Welcome tour" in issue for issue in issues))
 
 
 if __name__ == "__main__":

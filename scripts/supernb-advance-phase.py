@@ -80,7 +80,22 @@ def replace_field(path: Path, field: str, value: str) -> None:
     text = path.read_text(encoding="utf-8")
     updated, count = pattern.subn(rf"\1 {value}", text, count=1)
     if count == 0:
-        raise ValueError(f"Field '{field}' not found in {path}")
+        lines = text.splitlines()
+        insert_at = 1 if lines else 0
+        last_metadata_index = -1
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                break
+            if stripped.startswith("- ") and ":" in stripped:
+                last_metadata_index = idx
+        if last_metadata_index >= 0:
+            insert_at = last_metadata_index + 1
+        field_line = f"- {field}: {value}" if value else f"- {field}:"
+        lines.insert(insert_at, field_line)
+        updated = "\n".join(lines)
+        if text.endswith("\n"):
+            updated += "\n"
     path.write_text(updated, encoding="utf-8")
 
 
@@ -242,7 +257,15 @@ def main() -> int:
     print(f"Gate update record: {result_path}")
 
     if not args.no_rerun:
-        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--initiative-id", initiative_id], check=True)
+        subprocess.run(
+            [
+                sys.executable,
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(spec_path),
+            ],
+            check=True,
+        )
 
     return 0
 

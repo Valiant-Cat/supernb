@@ -458,7 +458,11 @@ def phase_objectives(phase: str) -> list[str]:
 
 
 def record_result_command(initiative_id: str, phase: str) -> str:
-    return f'./scripts/supernb record-result --initiative-id {initiative_id} --phase {phase} --status "<status>" --summary "<what happened>"'
+    return (
+        f'./scripts/supernb record-result --initiative-id {initiative_id} --phase {phase} '
+        '--status "<status>" --summary "<what happened>" '
+        '--source manual-override --override-reason "<why packet automation was bypassed>"'
+    )
 
 
 def advance_phase_command(initiative_id: str, phase: str) -> str:

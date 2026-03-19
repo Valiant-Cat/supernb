@@ -107,8 +107,8 @@ Use Frad loop mode only for bounded tasks.
 
 ## Delivery Traceability Map
 
-Carry the same launch-critical capabilities from the PRD/design traceability matrix into concrete delivery batches and verification.
+Carry the same launch-critical capabilities from the PRD/design traceability matrix into concrete delivery batches and verification. Reuse the same Trace ID values so delivery can be audited row by row.
 
-| PRD capability | Design surface | Delivery batch | Verification evidence | Release dependency |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| Trace ID | PRD capability | Design surface | Delivery batch | Verification evidence | Release dependency |
+| --- | --- | --- | --- | --- | --- |
+| TR-001 |  |  |  |  |  |

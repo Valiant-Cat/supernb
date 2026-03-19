@@ -169,11 +169,11 @@
 
 ## Cross-Phase Traceability Matrix
 
-Map launch-critical capabilities only. Each row should carry one research-backed capability through design, delivery, and release.
+Map launch-critical capabilities only. Give each row a stable Trace ID so downstream design, plan, and release artifacts can prove they are carrying the same product promise.
 
-| Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| Trace ID | Research insight or review theme | PRD capability | Primary design surface | Planned delivery batch | Release validation |
+| --- | --- | --- | --- | --- | --- |
+| TR-001 |  |  |  |  |  |
 
 ## Evidence Appendix
 

@@ -180,11 +180,11 @@
 
 ## Traceability To Research And PRD
 
-Map launch-critical capabilities one row at a time so the design spec proves it is covering the same product defined by research and PRD.
+Map launch-critical capabilities one row at a time. Reuse the same Trace ID values from the PRD so the design spec proves it is covering the same product defined upstream.
 
-| PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| Trace ID | PRD capability | Research insight reference | Primary design surface | Key states or edge cases | Impeccable evidence |
+| --- | --- | --- | --- | --- | --- |
+| TR-001 |  |  |  |  |  |
 
 ## Impeccable Review Notes
 

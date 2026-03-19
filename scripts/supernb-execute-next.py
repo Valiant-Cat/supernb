@@ -209,33 +209,37 @@ TRACEABILITY_ARTIFACTS = {
         "artifact_key": "prd_dir",
         "filename": "product-requirements.md",
         "section": "Cross-Phase Traceability Matrix",
-        "capability_col": 1,
-        "surface_col": 2,
-        "reference_col": 0,
+        "trace_id_headers": ["Trace ID"],
+        "capability_headers": ["PRD capability"],
+        "surface_headers": ["Primary design surface"],
+        "reference_headers": ["Research insight or review theme"],
     },
     "design": {
         "artifact_key": "design_dir",
         "filename": "ui-ux-spec.md",
         "section": "Traceability To Research And PRD",
-        "capability_col": 0,
-        "surface_col": 2,
-        "reference_col": 1,
+        "trace_id_headers": ["Trace ID"],
+        "capability_headers": ["PRD capability"],
+        "surface_headers": ["Primary design surface"],
+        "reference_headers": ["Research insight reference"],
     },
     "plan": {
         "artifact_key": "plan_dir",
         "filename": "implementation-plan.md",
         "section": "Delivery Traceability Map",
-        "capability_col": 0,
-        "surface_col": 1,
-        "reference_col": None,
+        "trace_id_headers": ["Trace ID"],
+        "capability_headers": ["PRD capability"],
+        "surface_headers": ["Design surface"],
+        "reference_headers": [],
     },
     "release": {
         "artifact_key": "release_dir",
         "filename": "release-readiness.md",
         "section": "Delivered Traceability Summary",
-        "capability_col": 0,
-        "surface_col": 1,
-        "reference_col": None,
+        "trace_id_headers": ["Trace ID"],
+        "capability_headers": ["PRD capability"],
+        "surface_headers": ["Design surface"],
+        "reference_headers": [],
     },
 }
 TRACEABILITY_COMPARISONS = {
@@ -792,19 +796,53 @@ def normalize_traceability_label(value: str) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
-def table_label_map(rows: list[list[str]], cell_index: int | None) -> dict[str, str]:
-    if cell_index is None:
-        return {}
-    labels: dict[str, str] = {}
-    for row in rows:
-        if cell_index >= len(row):
+def normalize_table_header(value: str) -> str:
+    normalized = str(value or "").strip().strip("`").lower()
+    normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def first_markdown_table(lines: list[str]) -> tuple[list[str], list[dict[str, str]]]:
+    raw_table: list[str] = []
+    in_table = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            if in_table and raw_table:
+                break
             continue
-        raw_value = row[cell_index].strip().strip("`")
-        normalized = normalize_traceability_label(raw_value)
-        if not raw_value or not normalized or normalized in labels:
+        in_table = True
+        raw_table.append(stripped)
+
+    if len(raw_table) < 2:
+        return [], []
+
+    headers = [cell.strip() for cell in raw_table[0].strip("|").split("|")]
+    normalized_headers = [normalize_table_header(header) for header in headers]
+    rows: list[dict[str, str]] = []
+    for raw_line in raw_table[1:]:
+        if re.fullmatch(r"\|\s*-+\s*(\|\s*-+\s*)+\|?", raw_line):
             continue
-        labels[normalized] = raw_value
-    return labels
+        if line_is_empty_table_row(raw_line):
+            continue
+        cells = [cell.strip() for cell in raw_line.strip("|").split("|")]
+        if all(not cell for cell in cells):
+            continue
+        if any("{{" in cell and "}}" in cell for cell in cells):
+            continue
+        row: dict[str, str] = {}
+        for index, header in enumerate(normalized_headers):
+            row[header] = cells[index].strip() if index < len(cells) else ""
+        rows.append(row)
+    return headers, rows
+
+
+def table_value_from_headers(row: dict[str, str], headers: list[str]) -> str:
+    for header in headers:
+        value = row.get(normalize_table_header(header), "").strip().strip("`")
+        if value:
+            return value
+    return ""
 
 
 def summarize_labels(labels: list[str], limit: int = 5) -> str:
@@ -894,6 +932,9 @@ def load_traceability_matrix(spec: dict[str, Any], trace_key: str) -> dict[str, 
         "capability_labels": {},
         "surface_labels": {},
         "reference_labels": {},
+        "rows_by_key": {},
+        "duplicate_keys": [],
+        "invalid_rows": 0,
     }
     if not path.is_file():
         return result
@@ -902,17 +943,55 @@ def load_traceability_matrix(spec: dict[str, Any], trace_key: str) -> dict[str, 
     section_lines = sections.get(config["section"], [])
     if section_lines:
         result["section_present"] = True
-    rows = table_data_rows(section_lines, trace_key)
+    _headers, rows = first_markdown_table(section_lines)
     result["row_count"] = len(rows)
-    result["capability_labels"] = table_label_map(rows, config["capability_col"])
-    result["surface_labels"] = table_label_map(rows, config["surface_col"])
-    result["reference_labels"] = table_label_map(rows, config["reference_col"])
+
+    capability_labels: dict[str, str] = {}
+    surface_labels: dict[str, str] = {}
+    reference_labels: dict[str, str] = {}
+    rows_by_key: dict[str, dict[str, str]] = {}
+    duplicate_keys: list[str] = []
+    invalid_rows = 0
+
+    for index, row in enumerate(rows, start=1):
+        trace_id = table_value_from_headers(row, config["trace_id_headers"])
+        capability = table_value_from_headers(row, config["capability_headers"])
+        surface = table_value_from_headers(row, config["surface_headers"])
+        reference = table_value_from_headers(row, config["reference_headers"])
+        trace_id_key = normalize_traceability_label(trace_id)
+        capability_key = normalize_traceability_label(capability)
+        row_key = trace_id_key or capability_key
+        if not row_key:
+            invalid_rows += 1
+            continue
+        if row_key in rows_by_key:
+            duplicate_keys.append(trace_id or capability or f"row-{index}")
+            continue
+
+        rows_by_key[row_key] = {
+            "key": row_key,
+            "trace_id": trace_id,
+            "capability": capability,
+            "surface": surface,
+            "reference": reference,
+            "display_key": trace_id or capability or f"row-{index}",
+        }
+        if capability_key:
+            capability_labels[capability_key] = capability
+        surface_key = normalize_traceability_label(surface)
+        if surface_key:
+            surface_labels[surface_key] = surface
+        reference_key = normalize_traceability_label(reference)
+        if reference_key:
+            reference_labels[reference_key] = reference
+
+    result["capability_labels"] = capability_labels
+    result["surface_labels"] = surface_labels
+    result["reference_labels"] = reference_labels
+    result["rows_by_key"] = rows_by_key
+    result["duplicate_keys"] = sorted(duplicate_keys)
+    result["invalid_rows"] = invalid_rows
     return result
-
-
-def missing_traceability_labels(source_labels: dict[str, str], target_labels: dict[str, str]) -> list[str]:
-    missing = [label for key, label in source_labels.items() if key not in target_labels]
-    return sorted(missing)
 
 
 def compare_traceability_pair(
@@ -941,24 +1020,74 @@ def compare_traceability_pair(
         issues.append(f"{target_label} traceability section has no populated rows.")
 
     if not issues:
-        missing_capabilities = missing_traceability_labels(source_matrix["capability_labels"], target_matrix["capability_labels"])
-        if missing_capabilities:
+        if source_matrix.get("duplicate_keys"):
             issues.append(
-                f"{target_label} traceability is missing capabilities carried by {source_label}: {summarize_labels(missing_capabilities)}."
+                f"{source_label} traceability has duplicate row keys and should add stable Trace ID values: {summarize_labels(source_matrix['duplicate_keys'])}."
             )
-
-        missing_surfaces = missing_traceability_labels(source_matrix["surface_labels"], target_matrix["surface_labels"])
-        if missing_surfaces:
+        if target_matrix.get("duplicate_keys"):
             issues.append(
-                f"{target_label} traceability is missing primary surfaces carried by {source_label}: {summarize_labels(missing_surfaces)}."
+                f"{target_label} traceability has duplicate row keys and should add stable Trace ID values: {summarize_labels(target_matrix['duplicate_keys'])}."
             )
+        if int(source_matrix.get("invalid_rows", 0)) > 0:
+            issues.append(f"{source_label} traceability has rows missing both Trace ID and capability labels.")
+        if int(target_matrix.get("invalid_rows", 0)) > 0:
+            issues.append(f"{target_label} traceability has rows missing both Trace ID and capability labels.")
 
-        if compare_references:
-            missing_references = missing_traceability_labels(source_matrix["reference_labels"], target_matrix["reference_labels"])
-            if missing_references:
-                issues.append(
-                    f"{target_label} traceability is missing research evidence references carried by {source_label}: {summarize_labels(missing_references)}."
+        source_rows = source_matrix.get("rows_by_key", {})
+        target_rows = target_matrix.get("rows_by_key", {})
+        missing_rows: list[str] = []
+        capability_mismatches: list[str] = []
+        surface_mismatches: list[str] = []
+        reference_mismatches: list[str] = []
+
+        for row_key, source_row in source_rows.items():
+            target_row = target_rows.get(row_key)
+            if target_row is None:
+                missing_rows.append(source_row["display_key"])
+                continue
+
+            source_capability = normalize_traceability_label(source_row["capability"])
+            target_capability = normalize_traceability_label(target_row["capability"])
+            if source_capability and target_capability and source_capability != target_capability:
+                capability_mismatches.append(
+                    f"{source_row['display_key']} ({source_row['capability']} -> {target_row['capability']})"
                 )
+
+            source_surface = normalize_traceability_label(source_row["surface"])
+            target_surface = normalize_traceability_label(target_row["surface"])
+            if source_surface and target_surface and source_surface != target_surface:
+                surface_mismatches.append(
+                    f"{source_row['display_key']} ({source_row['surface']} -> {target_row['surface']})"
+                )
+            elif source_surface and not target_surface:
+                surface_mismatches.append(f"{source_row['display_key']} ({source_row['surface']} -> missing)")
+
+            if compare_references:
+                source_reference = normalize_traceability_label(source_row["reference"])
+                target_reference = normalize_traceability_label(target_row["reference"])
+                if source_reference and target_reference and source_reference != target_reference:
+                    reference_mismatches.append(
+                        f"{source_row['display_key']} ({source_row['reference']} -> {target_row['reference']})"
+                    )
+                elif source_reference and not target_reference:
+                    reference_mismatches.append(f"{source_row['display_key']} ({source_row['reference']} -> missing)")
+
+        if missing_rows:
+            issues.append(
+                f"{target_label} traceability is missing source rows carried by {source_label}: {summarize_labels(missing_rows)}."
+            )
+        if capability_mismatches:
+            issues.append(
+                f"{target_label} traceability changes capability meaning relative to {source_label}: {summarize_labels(capability_mismatches)}."
+            )
+        if surface_mismatches:
+            issues.append(
+                f"{target_label} traceability changes primary surfaces relative to {source_label}: {summarize_labels(surface_mismatches)}."
+            )
+        if reference_mismatches:
+            issues.append(
+                f"{target_label} traceability changes research references relative to {source_label}: {summarize_labels(reference_mismatches)}."
+            )
 
     return {
         "name": f"{source_name}-to-{target_name}",
@@ -971,12 +1100,15 @@ def compare_traceability_pair(
         "metrics": {
             "source_rows": source_matrix["row_count"],
             "target_rows": target_matrix["row_count"],
+            "source_duplicate_keys": len(source_matrix.get("duplicate_keys", [])),
+            "target_duplicate_keys": len(target_matrix.get("duplicate_keys", [])),
             "source_capabilities": len(source_matrix["capability_labels"]),
             "target_capabilities": len(target_matrix["capability_labels"]),
             "source_surfaces": len(source_matrix["surface_labels"]),
             "target_surfaces": len(target_matrix["surface_labels"]),
             "source_references": len(source_matrix["reference_labels"]),
             "target_references": len(target_matrix["reference_labels"]),
+            "aligned_rows": len(set(source_matrix.get("rows_by_key", {}).keys()).intersection(target_matrix.get("rows_by_key", {}).keys())),
         },
     }
 

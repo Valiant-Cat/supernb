@@ -256,7 +256,7 @@ For a new product initiative:
 1. Run `./scripts/supernb init-initiative my-product "My Product"`.
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
-   PRD, design, implementation plan, and release readiness now each carry traceability matrices. Certification blocks phase drift when those matrices stop lining up.
+   PRD, design, implementation plan, and release readiness now each carry traceability matrices with stable `Trace ID` rows. Certification blocks phase drift when those rows stop lining up.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.

@@ -257,7 +257,7 @@ make bootstrap HARNESS=codex
 1. 运行 `./scripts/supernb init-initiative my-product "My Product"`。
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
-   现在 PRD、design、implementation plan、release readiness 都带有 traceability matrix；这些矩阵一旦对不上，certification 会直接拦住 phase 漂移。
+   现在 PRD、design、implementation plan、release readiness 都带有带稳定 `Trace ID` 的 traceability matrix；这些行一旦对不上，certification 会直接拦住 phase 漂移。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
    `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。

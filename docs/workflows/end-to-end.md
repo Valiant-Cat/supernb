@@ -141,7 +141,7 @@ Fill these first:
 - `03-feature-opportunities.md`
 
 Use `sensortower-research` whenever available. Export raw data first, then summarize.
-Carry the core insights forward into the PRD traceability matrix so later design, planning, and release docs can prove they are still building the same product.
+Carry the core insights forward into the PRD traceability matrix with stable `Trace ID` rows so later design, planning, and release docs can prove they are still building the same product row by row.
 
 ## 5. Write The PRD
 
