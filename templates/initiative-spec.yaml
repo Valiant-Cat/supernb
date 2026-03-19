@@ -7,6 +7,8 @@ initiative:
 delivery:
   goal: "{{GOAL_YAML}}"
   repository: "{{REPOSITORY_YAML}}"
+  project_dir: "{{PROJECT_DIR_YAML}}"
+  harness_preference: "{{HARNESS_YAML}}"
   platform: "{{PLATFORM_YAML}}"
   stack: "{{STACK_YAML}}"
   product_category: "{{PRODUCT_CATEGORY_YAML}}"
@@ -33,6 +35,7 @@ artifacts:
   run_log_md: "artifacts/initiatives/{{INIT_ID}}/run-log.md"
   command_briefs_dir: "artifacts/initiatives/{{INIT_ID}}/command-briefs"
   phase_results_dir: "artifacts/initiatives/{{INIT_ID}}/phase-results"
+  executions_dir: "artifacts/initiatives/{{INIT_ID}}/executions"
 
 gates:
   research_required: "yes"

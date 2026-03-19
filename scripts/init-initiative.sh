@@ -7,6 +7,8 @@ TEMPLATES_DIR="${ROOT_DIR}/templates"
 DATE_STAMP="$(date +%F)"
 GOAL="${GOAL:-}"
 REPOSITORY="${REPOSITORY:-}"
+PROJECT_DIR="${PROJECT_DIR:-}"
+HARNESS="${HARNESS:-}"
 PLATFORM="${PLATFORM:-}"
 STACK="${STACK:-}"
 PRODUCT_CATEGORY="${PRODUCT_CATEGORY:-}"
@@ -48,8 +50,9 @@ PHASE_PACKET_FILE="${INITIATIVE_DIR}/phase-packet.md"
 RUN_LOG_FILE="${INITIATIVE_DIR}/run-log.md"
 COMMAND_BRIEFS_DIR="${INITIATIVE_DIR}/command-briefs"
 PHASE_RESULTS_DIR="${INITIATIVE_DIR}/phase-results"
+EXECUTIONS_DIR="${INITIATIVE_DIR}/executions"
 
-mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}" "${COMMAND_BRIEFS_DIR}" "${PHASE_RESULTS_DIR}"
+mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}" "${COMMAND_BRIEFS_DIR}" "${PHASE_RESULTS_DIR}" "${EXECUTIONS_DIR}"
 
 yaml_escape() {
   printf '%s' "$1" | perl -0pe 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g'
@@ -66,6 +69,8 @@ render_template() {
     s/\{\{TITLE\}\}/$ENV{TITLE}/g;
     s/\{\{GOAL_YAML\}\}/$ENV{GOAL_YAML}/g;
     s/\{\{REPOSITORY_YAML\}\}/$ENV{REPOSITORY_YAML}/g;
+    s/\{\{PROJECT_DIR_YAML\}\}/$ENV{PROJECT_DIR_YAML}/g;
+    s/\{\{HARNESS_YAML\}\}/$ENV{HARNESS_YAML}/g;
     s/\{\{PLATFORM_YAML\}\}/$ENV{PLATFORM_YAML}/g;
     s/\{\{STACK_YAML\}\}/$ENV{STACK_YAML}/g;
     s/\{\{PRODUCT_CATEGORY_YAML\}\}/$ENV{PRODUCT_CATEGORY_YAML}/g;
@@ -82,6 +87,8 @@ render_template() {
 export INIT_ID DATE_STAMP SLUG TITLE
 export GOAL_YAML="$(yaml_escape "${GOAL}")"
 export REPOSITORY_YAML="$(yaml_escape "${REPOSITORY}")"
+export PROJECT_DIR_YAML="$(yaml_escape "${PROJECT_DIR}")"
+export HARNESS_YAML="$(yaml_escape "${HARNESS}")"
 export PLATFORM_YAML="$(yaml_escape "${PLATFORM}")"
 export STACK_YAML="$(yaml_escape "${STACK}")"
 export PRODUCT_CATEGORY_YAML="$(yaml_escape "${PRODUCT_CATEGORY}")"
@@ -147,6 +154,7 @@ Created:
   ${RUN_LOG_FILE}
   ${COMMAND_BRIEFS_DIR}
   ${PHASE_RESULTS_DIR}
+  ${EXECUTIONS_DIR}
   ${RESEARCH_DIR}/01-competitor-landscape.md
   ${RESEARCH_DIR}/02-review-insights.md
   ${RESEARCH_DIR}/03-feature-opportunities.md

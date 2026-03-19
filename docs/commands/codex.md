@@ -22,6 +22,15 @@ For a pre-filled prompt:
 make render-command COMMAND=implementation-execution GOAL="Implement the billing module" REPOSITORY="/path/to/repo" STACK="go + react"
 ```
 
+For initiatives that already have a `next-command.md`, you can execute the current phase directly:
+
+```bash
+./scripts/supernb execute-next \
+  --initiative-id <initiative-id> \
+  --harness codex \
+  --project-dir /path/to/repo
+```
+
 ## Why This Works
 
 - Codex can already discover `supernb` skills through `~/.agents/skills/`

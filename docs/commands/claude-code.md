@@ -41,6 +41,15 @@ For a pre-filled prompt:
 ./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "nextjs"
 ```
 
+For initiatives that already have a `next-command.md`, you can bridge the current phase directly into Claude Code:
+
+```bash
+./scripts/supernb execute-next \
+  --initiative-id <initiative-id> \
+  --harness claude-code \
+  --project-dir /path/to/project
+```
+
 ## Notes
 
 - `supernb` skills are project-local guidance.

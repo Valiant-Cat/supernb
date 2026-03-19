@@ -113,6 +113,7 @@ Shortest usage path after install:
 make show-command COMMAND=full-product-delivery
 make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
 make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=claude-code PROJECT_DIR=/path/to/project DRY_RUN=1
 ```
 
 Use the `supernb` command templates from:

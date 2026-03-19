@@ -18,6 +18,8 @@ For a pre-filled prompt:
 make render-command COMMAND=ui-ux-upgrade GOAL="Upgrade the checkout UX" REPOSITORY="/path/to/repo" STACK="react"
 ```
 
+`supernb execute-next` will still prepare an execution packet for OpenCode initiatives, but direct CLI bridging is not enabled yet because the local OpenCode CLI contract is not standardized in this repo.
+
 ## Relationship To Skills
 
 - OpenCode project skills still come from `.opencode/skills/supernb`

@@ -16,6 +16,7 @@ Commands:
   update-upstreams
   init-initiative
   run
+  execute-next
   record-result
   advance-phase
   certify-phase
@@ -41,6 +42,7 @@ case "${SUBCOMMAND}" in
   update-upstreams) exec "${ROOT_DIR}/scripts/update-upstreams.sh" "$@" ;;
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
+  execute-next) exec python3 "${ROOT_DIR}/scripts/supernb-execute-next.py" "$@" ;;
   record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
   advance-phase) exec python3 "${ROOT_DIR}/scripts/supernb-advance-phase.py" "$@" ;;
   certify-phase) exec python3 "${ROOT_DIR}/scripts/supernb-certify-phase.py" "$@" ;;

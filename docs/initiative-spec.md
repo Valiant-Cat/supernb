@@ -14,6 +14,8 @@ The initiative spec gives `supernb` one place to read:
 
 - goal
 - repository
+- project directory
+- harness preference
 - platform
 - stack
 - product category
@@ -41,6 +43,7 @@ When you run:
 - `artifacts/initiatives/<initiative-id>/run-log.md`
 - `artifacts/initiatives/<initiative-id>/command-briefs/`
 - `artifacts/initiatives/<initiative-id>/phase-results/`
+- `artifacts/initiatives/<initiative-id>/executions/`
 
 ## Runner Behavior
 
@@ -60,6 +63,17 @@ The runner will:
 - archive a timestamped brief for the selected phase
 - write `phase-packet.md`
 - append execution history to `run-log.md`
+
+To bridge the rendered prompt into a supported harness CLI, use:
+
+```bash
+./scripts/supernb execute-next \
+  --initiative-id <initiative-id> \
+  --harness codex \
+  --project-dir /path/to/repo
+```
+
+That command copies the current prompt into a timestamped execution packet, invokes the harness when supported, and records stdout/stderr/response artifacts under `executions/`.
 
 After phase execution, record the outcome with:
 

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative execute-next record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -28,11 +28,15 @@ install-opencode:
 
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi
-	GOAL="$(GOAL)" REPOSITORY="$(REPOSITORY)" PLATFORM="$(PLATFORM)" STACK="$(STACK)" PRODUCT_CATEGORY="$(PRODUCT_CATEGORY)" MARKETS="$(MARKETS)" RESEARCH_WINDOW="$(RESEARCH_WINDOW)" SEED_COMPETITORS="$(SEED_COMPETITORS)" SOURCE_LOCALE="$(if $(SOURCE_LOCALE),$(SOURCE_LOCALE),en)" TARGET_LOCALES="$(TARGET_LOCALES)" QUALITY_BAR="$(if $(QUALITY_BAR),$(QUALITY_BAR),commercial-grade)" CONSTRAINTS="$(CONSTRAINTS)" ./scripts/init-initiative.sh "$(INITIATIVE)" "$(TITLE)"
+	GOAL="$(GOAL)" REPOSITORY="$(REPOSITORY)" PROJECT_DIR="$(PROJECT_DIR)" HARNESS="$(HARNESS)" PLATFORM="$(PLATFORM)" STACK="$(STACK)" PRODUCT_CATEGORY="$(PRODUCT_CATEGORY)" MARKETS="$(MARKETS)" RESEARCH_WINDOW="$(RESEARCH_WINDOW)" SEED_COMPETITORS="$(SEED_COMPETITORS)" SOURCE_LOCALE="$(if $(SOURCE_LOCALE),$(SOURCE_LOCALE),en)" TARGET_LOCALES="$(TARGET_LOCALES)" QUALITY_BAR="$(if $(QUALITY_BAR),$(QUALITY_BAR),commercial-grade)" CONSTRAINTS="$(CONSTRAINTS)" ./scripts/init-initiative.sh "$(INITIATIVE)" "$(TITLE)"
 
 run-initiative:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make run-initiative INITIATIVE_ID=<id> [PHASE=auto] or make run-initiative SPEC=/path/to/initiative.yaml"; exit 1; fi
 	./scripts/supernb run $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",)
+
+execute-next:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make execute-next INITIATIVE_ID=<id> [HARNESS=codex|claude-code|opencode] [PROJECT_DIR=/path] [DRY_RUN=1]"; exit 1; fi
+	./scripts/supernb execute-next $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",) $(if $(PROMPT_FILE),--prompt-file "$(PROMPT_FILE)",) $(foreach arg,$(subst ,, ,$(CLI_ARGS)),--cli-arg "$(arg)") $(if $(DRY_RUN),--dry-run,)
 
 record-result:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi

@@ -22,6 +22,7 @@ It also creates:
 - `artifacts/initiatives/<initiative-id>/initiative.yaml`
 - `artifacts/initiatives/<initiative-id>/run-status.md`
 - `artifacts/initiatives/<initiative-id>/next-command.md`
+- `artifacts/initiatives/<initiative-id>/executions/`
 
 And it creates an `i18n-strategy.md` file in the design artifacts so localization decisions are documented before implementation.
 
@@ -51,6 +52,15 @@ Before planning and delivery, also fill:
 
 This computes the first incomplete phase, writes `run-status.md`, and generates `next-command.md` when the phase is ready.
 It also archives a timestamped phase brief, writes `phase-packet.md`, and appends to `run-log.md`.
+
+Then execute the current phase through a supported harness:
+
+```bash
+./scripts/supernb execute-next \
+  --initiative-id <initiative-id> \
+  --harness codex \
+  --project-dir /path/to/repo
+```
 
 After the phase work is done, record it:
 

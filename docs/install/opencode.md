@@ -88,6 +88,8 @@ make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade
 make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
 ```
 
+`make execute-next` currently prepares the execution packet for OpenCode initiatives, but direct CLI invocation is not enabled here yet.
+
 - load `supernb/supernb-orchestrator` when the work spans product to delivery
 - load `supernb/product-research-prd` for research-backed product definition
 - load `supernb/ui-ux-governance` for design generation or design review
