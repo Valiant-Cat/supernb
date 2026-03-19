@@ -253,14 +253,20 @@ def resolve_phase(args: argparse.Namespace, payload: dict[str, Any]) -> str:
     return phase
 
 
-def resolve_prompt_path(args: argparse.Namespace, payload: dict[str, Any]) -> Path:
+def resolve_prompt_path(args: argparse.Namespace, payload: dict[str, Any], spec: dict[str, Any]) -> Path:
     if args.prompt_file:
         return Path(args.prompt_file).expanduser().resolve()
-    next_command = payload.get("next_command") or {}
-    next_path = str(next_command.get("path", "")).strip()
-    if not next_path:
-        raise ValueError("No next command is available for the current phase. The phase may still be blocked.")
-    return (ROOT_DIR / next_path).resolve()
+    try:
+        return artifact_path(spec, "next_command_md")
+    except KeyError:
+        next_command = payload.get("next_command") or {}
+        next_path = str(next_command.get("path", "")).strip()
+        if not next_path:
+            raise ValueError("No next command is available for the current phase. The phase may still be blocked.")
+        candidate = Path(next_path).expanduser()
+        if candidate.is_absolute():
+            return candidate.resolve()
+        return (project_root(spec) / candidate).resolve()
 
 
 def local_path_from_value(value: str) -> Path | None:
@@ -1925,7 +1931,7 @@ def main() -> int:
     try:
         _, payload = resolve_run_payload(spec)
         phase = resolve_phase(args, payload)
-        prompt_source = resolve_prompt_path(args, payload)
+        prompt_source = resolve_prompt_path(args, payload, spec)
         project_dir = resolve_project_dir(args, spec)
         harness = resolve_harness(args, spec, project_dir)
     except (FileNotFoundError, ValueError) as exc:

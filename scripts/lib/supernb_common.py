@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import Any
 
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
+SNAPSHOT_IGNORED_METADATA_FIELDS = {
+    "Status",
+    "Approval status",
+    "Ready for execution",
+    "Delivery status",
+    "Release decision",
+    "Approved by",
+    "Approved on",
+}
 
 
 def try_load_pyyaml(text: str) -> Any:
@@ -257,16 +266,29 @@ def phase_snapshot_paths(spec: dict[str, Any], phase: str, root_dir: Path) -> li
     return paths
 
 
+def normalized_snapshot_bytes(path: Path) -> bytes:
+    if path.suffix.lower() != ".md":
+        return path.read_bytes()
+
+    normalized_lines: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"^-\s+([^:]+):\s*(.*)$", raw_line.strip())
+        if match and match.group(1).strip() in SNAPSHOT_IGNORED_METADATA_FIELDS:
+            normalized_lines.append(f"- {match.group(1).strip()}:")
+            continue
+        normalized_lines.append(raw_line.rstrip())
+    return ("\n".join(normalized_lines) + "\n").encode("utf-8")
+
+
 def file_fingerprint(path: Path, roots: list[Path]) -> dict[str, Any]:
     if not path.exists():
         return {"path": display_path(path, roots), "exists": False}
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    stat = path.stat()
+    normalized_bytes = normalized_snapshot_bytes(path)
+    digest = hashlib.sha256(normalized_bytes).hexdigest()
     return {
         "path": display_path(path, roots),
         "exists": True,
-        "size": stat.st_size,
-        "mtime_ns": stat.st_mtime_ns,
+        "normalized_size": len(normalized_bytes),
         "sha256": digest,
     }
 

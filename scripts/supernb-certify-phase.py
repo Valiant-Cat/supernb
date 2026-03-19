@@ -451,6 +451,7 @@ def main() -> int:
 
     applied = False
     if args.apply and passed:
+        write_certification_state(spec, phase, passed, recommended_gate_status(phase), readiness, report_path)
         subprocess.run(
             [
                 sys.executable,
