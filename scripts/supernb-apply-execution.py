@@ -187,15 +187,24 @@ def main() -> int:
             packet_dir / "stdout.log",
             packet_dir / "stderr.log",
             packet_dir / "result-suggestion.md",
+            packet_dir / "phase-readiness.md",
         ]
         if path.exists()
     ]
     evidence_paths.extend(unique_items([str(item) for item in execution_report.get("evidence_artifacts", [])]))
+    phase_readiness = suggestion.get("phase_readiness") or {}
 
     if args.apply_certification and status not in {"succeeded", "needs-follow-up"}:
         print(
             f"--apply-certification requires a success-like result status; got '{status}'. "
             "Override with --status succeeded only if you have actually completed the phase work.",
+            file=sys.stderr,
+        )
+        return 1
+    if args.apply_certification and not phase_readiness.get("ready_for_certification", False):
+        print(
+            "--apply-certification blocked because phase-readiness still reports unresolved gaps. "
+            "Review phase-readiness.md or use --certify to inspect the exact blockers first.",
             file=sys.stderr,
         )
         return 1

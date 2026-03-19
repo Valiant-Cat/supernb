@@ -19,6 +19,114 @@ SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
 REPORT_END = "SUPERNB_EXECUTION_REPORT_JSON_END"
+METADATA_FIELDS = {
+    "Initiative ID",
+    "Product",
+    "Research date",
+    "Prepared",
+    "Status",
+    "Approval status",
+    "Ready for execution",
+    "Delivery status",
+    "Release decision",
+    "Approved by",
+    "Approved on",
+}
+SECTION_EXPECTATIONS = {
+    "research": {
+        "01-competitor-landscape.md": [
+            "Research Window",
+            "Competitor Shortlist",
+            "Metadata Snapshot",
+            "Observed Strategic Patterns",
+            "Gaps To Investigate",
+            "Raw Data References",
+        ],
+        "02-review-insights.md": [
+            "Query Context",
+            "Top Complaint Clusters",
+            "Top Delight Clusters",
+            "Explicit Feature Requests",
+            "Anti-Features",
+            "Version Or Country Hotspots",
+            "Raw Data References",
+        ],
+        "03-feature-opportunities.md": [
+            "Must-Have Features",
+            "Differentiators",
+            "Avoidances",
+            "Open Hypotheses",
+            "Recommendation",
+        ],
+    },
+    "prd": {
+        "product-requirements.md": [
+            "Product Summary",
+            "Problem Statement",
+            "Target Users",
+            "Product Goals",
+            "Non-Goals",
+            "Core User Journeys",
+            "Functional Requirements",
+            "Localization Requirements",
+            "Business Model",
+            "Success Metrics",
+            "Risks",
+            "Evidence Appendix",
+        ],
+    },
+    "design": {
+        "ui-ux-spec.md": [
+            "Design Context",
+            "Visual Direction",
+            "Accessibility And Readability Rules",
+            "Localization And Copy Rules",
+            "Information Architecture",
+            "Page Specs",
+            "Component Rules",
+            "Impeccable Review Notes",
+        ],
+        "i18n-strategy.md": [
+            "Localization Scope",
+            "Stack And Resource Model",
+            "Source Of Truth",
+            "Delivery Rules",
+            "Layout And UX Considerations",
+            "Validation",
+        ],
+    },
+    "planning": {
+        "implementation-plan.md": [
+            "Scope For This Plan",
+            "Milestones",
+            "Task Batches",
+            "Localization Work",
+            "Loop Candidates",
+            "Verification Commands",
+            "Commit Strategy",
+        ],
+    },
+    "delivery": {
+        "implementation-plan.md": [
+            "Scope For This Plan",
+            "Milestones",
+            "Task Batches",
+            "Localization Work",
+            "Verification Commands",
+            "Commit Strategy",
+        ],
+    },
+    "release": {
+        "release-readiness.md": [
+            "Verification Summary",
+            "UX Audit Summary",
+            "Localization Summary",
+            "Release Checklist",
+            "Known Issues",
+            "Release Notes Draft",
+        ],
+    },
+}
 
 
 def utc_now() -> str:
@@ -137,6 +245,24 @@ def artifact_path(spec: dict[str, Any], key: str, default: Path | None = None) -
     if default is not None:
         return default
     raise KeyError(f"Missing artifact path: {key}")
+
+
+def phase_targets(spec: dict[str, Any], phase: str) -> list[Path]:
+    if phase == "research":
+        root = artifact_path(spec, "research_dir")
+        return [
+            root / "01-competitor-landscape.md",
+            root / "02-review-insights.md",
+            root / "03-feature-opportunities.md",
+        ]
+    if phase == "prd":
+        return [artifact_path(spec, "prd_dir") / "product-requirements.md"]
+    if phase == "design":
+        root = artifact_path(spec, "design_dir")
+        return [root / "ui-ux-spec.md", root / "i18n-strategy.md"]
+    if phase in {"planning", "delivery"}:
+        return [artifact_path(spec, "plan_dir") / "implementation-plan.md"]
+    return [artifact_path(spec, "release_dir") / "release-readiness.md"]
 
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
@@ -420,6 +546,162 @@ def extract_candidate_paths(text: str) -> list[str]:
     return valid
 
 
+def line_is_placeholder_bullet(stripped: str) -> bool:
+    match = re.match(r"^- ([^:]+):\s*$", stripped)
+    if not match:
+        return False
+    label = match.group(1).strip()
+    return label not in METADATA_FIELDS
+
+
+def line_is_placeholder_numbered(stripped: str) -> bool:
+    return bool(re.match(r"^\d+\.\s+[^:]+:\s*$", stripped))
+
+
+def line_is_empty_table_row(stripped: str) -> bool:
+    if not stripped.startswith("|"):
+        return False
+    if re.fullmatch(r"\|\s*-+\s*(\|\s*-+\s*)+\|?", stripped):
+        return False
+    cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+    return all(cell == "" for cell in cells)
+
+
+def line_has_template_marker(stripped: str) -> bool:
+    patterns = [
+        r"\bPattern \d+:\s*$",
+        r"\bGap \d+:\s*$",
+        r"\bJourney \d+:\s*$",
+        r"\bGoal \d+:\s*$",
+        r"\bNon-goal \d+:\s*$",
+        r"\bPage \d+\s*$",
+        r"\bHotspot \d+:\s*$",
+        r"\bBatch \d+\s*$",
+    ]
+    return any(re.search(pattern, stripped) for pattern in patterns)
+
+
+def line_is_unchecked_release_checkbox(stripped: str, phase: str) -> bool:
+    return phase == "release" and stripped.startswith("- [ ] ")
+
+
+def is_placeholder_line(stripped: str, phase: str) -> bool:
+    if "{{" in stripped and "}}" in stripped:
+        return True
+    if line_is_placeholder_bullet(stripped):
+        return True
+    if line_is_placeholder_numbered(stripped):
+        return True
+    if line_is_empty_table_row(stripped):
+        return True
+    if line_has_template_marker(stripped) and stripped.endswith(":"):
+        return True
+    if line_is_unchecked_release_checkbox(stripped, phase):
+        return True
+    return False
+
+
+def useful_content_count(lines: list[str], phase: str) -> int:
+    count = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("### "):
+            continue
+        if stripped in {"```", "```bash"}:
+            continue
+        if stripped.startswith("|") and re.fullmatch(r"\|\s*-+\s*(\|\s*-+\s*)+\|?", stripped):
+            continue
+        if is_placeholder_line(stripped, phase):
+            continue
+        count += 1
+    return count
+
+
+def level2_sections(text: str) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw_line in text.splitlines():
+        heading = re.match(r"^##\s+(.+?)\s*$", raw_line)
+        if heading:
+            current = heading.group(1).strip()
+            sections[current] = []
+            continue
+        if current is not None:
+            sections[current].append(raw_line)
+    return sections
+
+
+def inspect_artifact_readiness(path: Path, phase: str, expected_sections: list[str]) -> dict[str, Any]:
+    if not path.is_file():
+        return {
+            "path": display_path(path),
+            "exists": False,
+            "missing_sections": expected_sections,
+            "thin_sections": [],
+            "placeholder_count": 0,
+            "ready": False,
+        }
+
+    text = path.read_text(encoding="utf-8")
+    sections = level2_sections(text)
+    missing_sections: list[str] = []
+    thin_sections: list[str] = []
+    placeholder_count = 0
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and is_placeholder_line(stripped, phase):
+            placeholder_count += 1
+
+    for section in expected_sections:
+        if section not in sections:
+            missing_sections.append(section)
+            continue
+        if useful_content_count(sections[section], phase) == 0:
+            thin_sections.append(section)
+
+    return {
+        "path": display_path(path),
+        "exists": True,
+        "missing_sections": missing_sections,
+        "thin_sections": thin_sections,
+        "placeholder_count": placeholder_count,
+        "ready": not missing_sections and not thin_sections and placeholder_count == 0,
+    }
+
+
+def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    for target in phase_targets(spec, phase):
+        expected_sections = SECTION_EXPECTATIONS.get(phase, {}).get(target.name, [])
+        checks.append(inspect_artifact_readiness(target, phase, expected_sections))
+
+    total_missing = sum(len(check["missing_sections"]) for check in checks)
+    total_thin = sum(len(check["thin_sections"]) for check in checks)
+    total_placeholders = sum(int(check["placeholder_count"]) for check in checks)
+    ready = all(bool(check["ready"]) for check in checks)
+
+    if ready:
+        summary = f"{phase} artifacts appear structurally ready for certification."
+    else:
+        summary = (
+            f"{phase} artifacts still have {total_missing} missing sections, "
+            f"{total_thin} thin sections, and {total_placeholders} unresolved placeholder lines."
+        )
+
+    return {
+        "phase": phase,
+        "ready_for_certification": ready,
+        "artifact_checks": checks,
+        "total_missing_sections": total_missing,
+        "total_thin_sections": total_thin,
+        "total_placeholders": total_placeholders,
+        "summary": summary,
+    }
+
+
 def heuristic_report_from_text(phase: str, status: str, response_text: str, stderr_text: str, excerpt: str, stderr_excerpt: str) -> dict[str, Any]:
     completed_items = extract_bullet_section(response_text, [r"completed", r"done", r"implemented", r"finished"])
     remaining_items = extract_bullet_section(response_text, [r"remaining", r"open items?", r"next steps?", r"follow[- ]?up"])
@@ -495,6 +777,7 @@ def build_result_suggestion(
     response_text: str,
     stderr_text: str,
     packet_dir: Path,
+    phase_readiness: dict[str, Any],
 ) -> dict[str, Any]:
     excerpt = short_text_excerpt(response_text)
     stderr_excerpt = short_text_excerpt(stderr_text)
@@ -520,7 +803,11 @@ def build_result_suggestion(
         result_status = ensure_string(structured_report.get("recommended_result_status")).lower() or "succeeded"
         summary = structured_report.get("summary") or excerpt or f"{phase} execution completed successfully in {harness}."
         gate_action = ensure_string(structured_report.get("recommended_gate_action")).lower()
-        if gate_action == "advance":
+        if not phase_readiness.get("ready_for_certification", False):
+            if result_status == "succeeded":
+                result_status = "needs-follow-up"
+            next_step = "apply the execution packet and address the phase-readiness gaps before certification"
+        elif gate_action == "advance":
             next_step = f"apply the execution packet, then certify or advance toward {ensure_string(structured_report.get('recommended_gate_status')) or default_gate_status(phase)}"
         elif gate_action == "certify":
             next_step = "apply the execution packet, then certify the phase"
@@ -541,6 +828,7 @@ def build_result_suggestion(
         "packet_dir": display_path(packet_dir),
         "source": report_source,
         "execution_report": structured_report,
+        "phase_readiness": phase_readiness,
     }
 
 
@@ -573,11 +861,13 @@ def write_result_suggestion_md(
         "## Evidence",
         "",
         f"- Packet summary: `{display_path(packet_dir / 'summary.md')}`",
+        f"- Phase readiness: `{display_path(packet_dir / 'phase-readiness.md')}`",
         f"- Response: `{display_path(packet_dir / 'response.md')}`",
         f"- Stdout: `{display_path(packet_dir / 'stdout.log')}`",
         f"- Stderr: `{display_path(packet_dir / 'stderr.log')}`",
     ]
     report = suggestion.get("execution_report") or {}
+    readiness = suggestion.get("phase_readiness") or {}
     if report.get("completed_items"):
         lines.extend(["", "## Completed Items", ""])
         for item in report["completed_items"]:
@@ -602,10 +892,43 @@ def write_result_suggestion_md(
         lines.extend(["", "## Follow Up", ""])
         for item in report["follow_up"]:
             lines.append(f"- {item}")
+    lines.extend(["", "## Phase Readiness", ""])
+    lines.append(f"- Ready for certification: `{'yes' if readiness.get('ready_for_certification') else 'no'}`")
+    lines.append(f"- Summary: {readiness.get('summary', 'No readiness summary.')}")
+    if readiness.get("artifact_checks"):
+        for check in readiness["artifact_checks"]:
+            lines.append(f"- `{check['path']}` ready=`{'yes' if check.get('ready') else 'no'}` placeholders=`{check.get('placeholder_count', 0)}`")
+            if check.get("missing_sections"):
+                lines.append(f"  missing sections: {', '.join(check['missing_sections'])}")
+            if check.get("thin_sections"):
+                lines.append(f"  thin sections: {', '.join(check['thin_sections'])}")
     if suggestion.get("response_excerpt"):
         lines.extend(["", "## Response Excerpt", "", suggestion["response_excerpt"]])
     if suggestion.get("stderr_excerpt"):
         lines.extend(["", "## Stderr Excerpt", "", suggestion["stderr_excerpt"]])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
+    lines = [
+        "# Phase Readiness",
+        "",
+        f"- Phase: `{readiness['phase']}`",
+        f"- Ready for certification: `{'yes' if readiness.get('ready_for_certification') else 'no'}`",
+        f"- Summary: {readiness.get('summary', '')}",
+        f"- Missing sections: `{readiness.get('total_missing_sections', 0)}`",
+        f"- Thin sections: `{readiness.get('total_thin_sections', 0)}`",
+        f"- Placeholder lines: `{readiness.get('total_placeholders', 0)}`",
+        "",
+        "## Artifact Checks",
+        "",
+    ]
+    for check in readiness.get("artifact_checks", []):
+        lines.append(f"- `{check['path']}` ready=`{'yes' if check.get('ready') else 'no'}` placeholders=`{check.get('placeholder_count', 0)}`")
+        if check.get("missing_sections"):
+            lines.append(f"  missing sections: {', '.join(check['missing_sections'])}")
+        if check.get("thin_sections"):
+            lines.append(f"  thin sections: {', '.join(check['thin_sections'])}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -620,6 +943,7 @@ def append_run_log(
     prompt_path: Path,
     response_path: Path,
     suggestion_path: Path,
+    readiness_path: Path,
 ) -> None:
     if not log_path.exists():
         log_path.write_text("# Run Log\n\n", encoding="utf-8")
@@ -636,6 +960,7 @@ def append_run_log(
         f"- Prompt: `{display_path(prompt_path)}`",
         f"- Response: `{display_path(response_path)}`",
         f"- Result suggestion: `{display_path(suggestion_path)}`",
+        f"- Phase readiness: `{display_path(readiness_path)}`",
         "",
     ]
     with log_path.open("a", encoding="utf-8") as handle:
@@ -658,6 +983,7 @@ def write_summary(
     stdout_path: Path,
     stderr_path: Path,
     result_suggestion_path: Path,
+    phase_readiness_path: Path,
     command_argv: list[str] | None,
 ) -> None:
     lines = [
@@ -679,6 +1005,7 @@ def write_summary(
         f"- Prompt copy: `{display_path(packet_dir / 'prompt.md')}`",
         f"- Prompt with report contract: `{display_path(prompt_with_report_path)}`",
         f"- Request metadata: `{display_path(packet_dir / 'request.json')}`",
+        f"- Phase readiness: `{display_path(phase_readiness_path)}`",
         f"- Response: `{display_path(response_path)}`",
         f"- Stdout: `{display_path(stdout_path)}`",
         f"- Stderr: `{display_path(stderr_path)}`",
@@ -759,6 +1086,8 @@ def main() -> int:
     request_path = packet_dir / "request.json"
     result_suggestion_json = packet_dir / "result-suggestion.json"
     result_suggestion_md = packet_dir / "result-suggestion.md"
+    phase_readiness_json = packet_dir / "phase-readiness.json"
+    phase_readiness_md = packet_dir / "phase-readiness.md"
 
     status = "prepared"
     exit_code: int | None = None
@@ -831,7 +1160,10 @@ def main() -> int:
 
     response_text = response_path.read_text(encoding="utf-8") if response_path.exists() else ""
     stderr_text = stderr_path.read_text(encoding="utf-8") if stderr_path.exists() else ""
-    suggestion = build_result_suggestion(phase, harness, status, args.dry_run, exit_code, response_text, stderr_text, packet_dir)
+    phase_readiness = build_phase_readiness(spec, phase)
+    write_json(phase_readiness_json, phase_readiness)
+    write_phase_readiness_md(phase_readiness_md, phase_readiness)
+    suggestion = build_result_suggestion(phase, harness, status, args.dry_run, exit_code, response_text, stderr_text, packet_dir, phase_readiness)
     write_json(result_suggestion_json, suggestion)
     write_result_suggestion_md(result_suggestion_md, initiative_id, suggestion, packet_dir)
 
@@ -851,9 +1183,10 @@ def main() -> int:
         stdout_path,
         stderr_path,
         result_suggestion_md,
+        phase_readiness_md,
         command_argv,
     )
-    append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md)
+    append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md, phase_readiness_md)
 
     print(f"Initiative: {initiative_id}")
     print(f"Phase: {phase}")
@@ -863,6 +1196,7 @@ def main() -> int:
     print(f"Summary: {summary_path}")
     print(f"Response: {response_path}")
     print(f"Result suggestion: {result_suggestion_md}")
+    print(f"Phase readiness: {phase_readiness_md}")
     if command_argv:
         print(f"Command: {shlex.join(command_argv)}")
     else:
