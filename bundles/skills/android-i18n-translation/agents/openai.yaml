@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android I18n Translation"
+  short_description: "Automate Android strings localization and translation"
+  default_prompt: "Extract hardcoded Android text to resources and complete locale translations while preserving placeholders."

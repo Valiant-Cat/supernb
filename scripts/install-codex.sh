@@ -3,11 +3,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "${ROOT_DIR}/scripts/lib/install-common.sh"
+
 AGENTS_SKILLS_DIR="${HOME}/.agents/skills"
 IMPECCABLE_SKILLS_DIR="${ROOT_DIR}/upstreams/impeccable/dist/codex/.codex/skills"
-SENSORTOWER_SKILL_DIR="/Users/xiaomiao26_1_26/.codex/skills/sensortower-research"
-FLUTTER_L10N_SKILL_DIR="/Users/xiaomiao26_1_26/.codex/skills/flutter-l10n-translation"
-ANDROID_I18N_SKILL_DIR="/Users/xiaomiao26_1_26/.codex/skills/android-i18n-translation"
+BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
 
 mkdir -p "${AGENTS_SKILLS_DIR}"
 
@@ -21,33 +21,13 @@ if [[ ! -d "${IMPECCABLE_SKILLS_DIR}" ]]; then
   exit 1
 fi
 
-ln -sfn "${ROOT_DIR}/skills" "${AGENTS_SKILLS_DIR}/supernb"
-ln -sfn "${ROOT_DIR}/upstreams/superpowers/skills" "${AGENTS_SKILLS_DIR}/superpowers"
-ln -sfn "${IMPECCABLE_SKILLS_DIR}" "${AGENTS_SKILLS_DIR}/impeccable"
-
-link_optional_skill() {
-  local source_dir="$1"
-  local link_name="$2"
-
-  if [[ -d "${source_dir}" ]]; then
-    ln -sfn "${source_dir}" "${AGENTS_SKILLS_DIR}/${link_name}"
-    echo "  ${AGENTS_SKILLS_DIR}/${link_name}"
-  else
-    echo "  skipped optional skill: ${link_name} (${source_dir} not found)"
-  fi
-}
-
-cat <<EOF
-Installed Codex skill links:
-  ${AGENTS_SKILLS_DIR}/supernb
-  ${AGENTS_SKILLS_DIR}/superpowers
-  ${AGENTS_SKILLS_DIR}/impeccable
-EOF
-
-echo "Optional local skill links:"
-link_optional_skill "${SENSORTOWER_SKILL_DIR}" "sensortower-research"
-link_optional_skill "${FLUTTER_L10N_SKILL_DIR}" "flutter-l10n-translation"
-link_optional_skill "${ANDROID_I18N_SKILL_DIR}" "android-i18n-translation"
+echo "Installing Codex skills into ${AGENTS_SKILLS_DIR}:"
+ensure_symlink_if_missing "${ROOT_DIR}/skills" "${AGENTS_SKILLS_DIR}/supernb" "supernb"
+ensure_symlink_if_missing "${ROOT_DIR}/upstreams/superpowers/skills" "${AGENTS_SKILLS_DIR}/superpowers" "superpowers"
+ensure_symlink_if_missing "${IMPECCABLE_SKILLS_DIR}" "${AGENTS_SKILLS_DIR}/impeccable" "impeccable"
+ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/sensortower-research" "${AGENTS_SKILLS_DIR}/sensortower-research" "sensortower-research"
+ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/flutter-l10n-translation" "${AGENTS_SKILLS_DIR}/flutter-l10n-translation" "flutter-l10n-translation"
+ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/android-i18n-translation" "${AGENTS_SKILLS_DIR}/android-i18n-translation" "android-i18n-translation"
 
 echo
 echo "Restart Codex to pick up the new skills."

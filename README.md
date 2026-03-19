@@ -5,8 +5,8 @@
 - the latest `obra/superpowers` as the default planning and delivery engine
 - `superpowers@frad-dotclaude` as an optional Claude Code loop executor for bounded long-running tasks
 - `impeccable` for UI/UX generation, critique, and post-implementation quality control
-- `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
-- local translation skills for localization extraction, key sync, and multi-language completion
+- bundled `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
+- bundled translation skills for localization extraction, key sync, and multi-language completion
 
 The goal is not an MVP generator. The goal is a repeatable path from product idea to research-backed PRD, polished UI/UX, autonomous implementation, and commercial-grade delivery.
 
@@ -19,6 +19,7 @@ The goal is not an MVP generator. The goal is a repeatable path from product ide
 This repository does not fork and rewrite the upstream projects. It acts as the coordination layer:
 
 - `skills/` defines the `supernb` orchestration rules
+- `bundles/` ships distributable local-only skills for one-pass installs
 - `scripts/` keeps upstreams synced and prepares local installs
 - `docs/` captures upstream analysis, architecture, and install guides
 - `artifacts/` is the workspace for research, PRD, design, plan, and release outputs
@@ -30,6 +31,20 @@ It has two jobs:
 - reusable command entrypoints for predictable invocation
 
 Its templates and artifact scaffolds are additive. They are meant to capture and organize outputs, not to replace or shrink the native documentation behavior of upstream `superpowers`.
+
+## Distribution Model
+
+`supernb` now uses two distribution paths:
+
+- latest upstream repos are not vendored into git; bootstrap clones or fast-forwards them into `upstreams/`
+- bundled local skills are committed under `bundles/skills/` so first-time users can install them in one pass
+
+Installer behavior is idempotent by default:
+
+- if a target skill or plugin is already installed, `supernb` skips it
+- if it is missing, `supernb` provisions it automatically
+- Claude Code default `superpowers` is auto-installed when missing
+- OpenCode project `opencode.json` is auto-created or updated to include upstream `superpowers`
 
 ## Upstream Projects
 
@@ -46,9 +61,9 @@ As inspected locally on 2026-03-19:
 - `pbakaus/impeccable`
   - package version: `1.5.1`
   - cross-provider design skill system with 20 commands and a provider build pipeline
-- local `sensortower-research` skill
+- bundled `sensortower-research` skill
   - Python CLI wrapper around verified Sensor Tower endpoints plus review insight generation
-- local translation skills
+- bundled translation skills
   - `flutter-l10n-translation` for ARB-based Flutter localization workflows
   - `android-i18n-translation` for `strings.xml` extraction and multi-locale translation
 
@@ -95,6 +110,14 @@ Then use one of the three main command entrypoints:
 ```
 
 New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
+
+What bootstrap now does:
+
+- syncs `superpowers`, `dotclaude`, and `impeccable`
+- installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
+- skips already installed skills instead of overwriting them
+- auto-installs the default Claude Code `superpowers` plugin when needed
+- auto-ensures the OpenCode `superpowers` plugin entry in project config
 
 If you already cloned this repo:
 
@@ -168,6 +191,8 @@ supernb/
 │   ├── prd/
 │   ├── releases/
 │   └── research/
+├── bundles/
+│   └── skills/
 ├── commands/
 ├── docs/
 ├── scripts/
@@ -194,7 +219,7 @@ Harness mapping: [docs/commands/README.md](/Users/xiaomiao26_1_26/projects/super
 
 ## Notes
 
-- `sensortower-research` expects a configured Sensor Tower token.
+- bundled `sensortower-research` still expects a configured Sensor Tower token.
 - User-facing copy should be externalized into localization resources rather than hardcoded in code.
 - `impeccable` bundles are generated from source and are not committed here.
 - `upstreams/` is intentionally a local cache so `supernb` can track latest upstream code without vendoring entire repositories into git.

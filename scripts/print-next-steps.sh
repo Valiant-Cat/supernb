@@ -68,10 +68,9 @@ EOF
     ;;
   claude-code)
     cat <<EOF
-1. In Claude Code, install the default upstream plugin:
-   /plugin install superpowers@claude-plugins-official
-2. Restart Claude Code and open this project:
+1. Restart Claude Code and open this project:
    ${PROJECT_DIR}
+2. Confirm the default superpowers plugin is available in this project.
 3. Generate a starter prompt locally:
    ${REPO_DIR}/scripts/show-command-template.sh full-product-delivery
 
@@ -84,10 +83,9 @@ EOF
     ;;
   opencode)
     cat <<EOF
-1. Add upstream superpowers to your opencode.json:
-   { "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"] }
-2. Restart OpenCode and open this project:
+1. Restart OpenCode and open this project:
    ${PROJECT_DIR}
+2. Confirm ${PROJECT_DIR}/opencode.json contains upstream superpowers.
 3. Generate a starter prompt locally:
    ${REPO_DIR}/scripts/show-command-template.sh full-product-delivery
 

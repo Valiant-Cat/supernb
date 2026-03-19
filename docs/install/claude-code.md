@@ -4,6 +4,7 @@
 
 - latest `obra/superpowers` as the default planning and delivery plugin
 - local `supernb` skills for orchestration
+- bundled `sensortower-research` and translation skills as project-local skills
 - built `impeccable` Claude Code bundle for UI/UX work
 - optional `superpowers@frad-dotclaude` only when you specifically need the loop workflow
 
@@ -33,6 +34,12 @@ If auto-detection is ambiguous:
 make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/your-project
 ```
 
+This path now:
+
+- installs bundled project-local skills when missing
+- skips already present skill paths instead of overwriting them
+- auto-installs the default Claude Code `superpowers` plugin when it is not already installed
+
 Manual path:
 
 From this repo:
@@ -41,13 +48,9 @@ From this repo:
 make update
 ```
 
-## 2. Install the default `superpowers` plugin
+## 2. Default `superpowers` plugin
 
-```bash
-/plugin install superpowers@claude-plugins-official
-```
-
-Restart Claude Code after install.
+`bootstrap` now attempts to install the default upstream plugin automatically.
 
 If your Claude Code setup does not use the official marketplace path, use the upstream marketplace fallback from `obra/superpowers` instead:
 
@@ -56,7 +59,7 @@ If your Claude Code setup does not use the official marketplace path, use the up
 /plugin install superpowers@superpowers-marketplace
 ```
 
-## 3. Install local `supernb` and `impeccable` assets into a project
+## 3. Install local `supernb`, bundled skills, and `impeccable` assets into a project
 
 If you want to install into the current project:
 
@@ -67,7 +70,9 @@ If you want to install into the current project:
 What the script does:
 
 - symlinks `supernb/skills` to `<project>/.claude/skills/supernb`
+- symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.claude/skills/`
 - copies the built `impeccable` Claude Code bundle into `<project>/.claude/`
+- skips existing paths instead of overwriting them
 
 ## 4. Optional Frad Loop Mode
 
@@ -117,6 +122,6 @@ Quickstart: [quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickst
 
 ## Notes
 
-- `sensortower-research` is a local Codex skill, not a Claude marketplace plugin. For Claude Code sessions, use the research outputs generated locally and checked into `artifacts/research/`.
+- bundled `sensortower-research` is installed as a project-local skill, not a Claude marketplace plugin.
 - If you want Claude Code to consume Sensor Tower data directly, expose that workflow separately through your own scripts or MCP setup.
 - The default recommendation here follows the current upstream `obra/superpowers` install docs, verified on 2026-03-19 from the project README: https://github.com/obra/superpowers/blob/main/README.md

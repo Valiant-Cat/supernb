@@ -2,6 +2,13 @@
 
 This is the shortest path to get `supernb` installed and used.
 
+Bootstrap behavior:
+
+- installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
+- skips existing skills and plugin installs instead of overwriting them
+- auto-installs the default Claude Code `superpowers` plugin when needed
+- auto-ensures the OpenCode `superpowers` plugin entry in project `opencode.json`
+
 ## 1. Install
 
 Use the bootstrap script:
@@ -70,5 +77,5 @@ make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Bui
 ## Harness-Specific Notes
 
 - Codex: restart Codex after install so it reloads skills from `~/.agents/skills/`.
-- Claude Code: install the default upstream `superpowers` plugin after bootstrap. See [claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md).
-- OpenCode: add upstream `superpowers` to `opencode.json` after bootstrap. See [opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md).
+- Claude Code: bootstrap now attempts to install the default upstream `superpowers` plugin automatically if it is missing. See [claude-code.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/claude-code.md).
+- OpenCode: bootstrap now ensures upstream `superpowers` is present in project `opencode.json`. See [opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md).

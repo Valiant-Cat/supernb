@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sensor Tower Research"
+  short_description: "Query Sensor Tower app intelligence"
+  default_prompt: "Use Sensor Tower APIs to research iOS or Google Play apps, including downloads, revenue, creatives, keywords, rankings, and review insights."

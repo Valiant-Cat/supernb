@@ -4,8 +4,9 @@ Codex is the cleanest environment for the full `supernb` stack because it can us
 
 - `superpowers` skills directly
 - local `supernb` orchestration skills
-- local `sensortower-research`
+- bundled `sensortower-research`
 - built `impeccable` Codex bundle
+- bundled translation skills
 
 ## 1. Bootstrap
 
@@ -33,6 +34,8 @@ If auto-detection is ambiguous:
 make bootstrap HARNESS=codex
 ```
 
+This path installs all bundled `supernb` skills in one pass and skips any skill links that are already present.
+
 Manual path if you want to run sync/build separately:
 
 ```bash
@@ -45,13 +48,11 @@ make update
 ./scripts/install-codex.sh
 ```
 
-The script always wires these paths into `~/.agents/skills/`:
+The script wires these paths into `~/.agents/skills/` when missing:
 
 - `supernb`
 - `superpowers`
 - `impeccable`
-
-If local optional skills exist, it also links:
 
 - `sensortower-research`
 - `flutter-l10n-translation`

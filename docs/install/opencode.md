@@ -4,6 +4,7 @@ OpenCode should use:
 
 - upstream `superpowers` plugin from git
 - local `supernb` project skills
+- bundled `sensortower-research` and translation skills as project-local skills
 - built `impeccable` OpenCode bundle
 
 ## 1. Bootstrap
@@ -32,6 +33,12 @@ If auto-detection is ambiguous:
 make bootstrap HARNESS=opencode PROJECT_DIR=/path/to/your-project
 ```
 
+This path now:
+
+- installs bundled project-local skills when missing
+- skips already present skill paths instead of overwriting them
+- auto-creates or updates project `opencode.json` so upstream `superpowers` is installed
+
 Manual path:
 
 ```bash
@@ -47,11 +54,13 @@ make update
 This script:
 
 - symlinks `supernb/skills` into `<project>/.opencode/skills/supernb`
+- symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.opencode/skills/`
 - copies the built `impeccable` OpenCode bundle into `<project>/.opencode/`
+- skips existing paths instead of overwriting them
 
-## 3. Add upstream `superpowers` to `opencode.json`
+## 3. Ensure upstream `superpowers` in `opencode.json`
 
-Add this to your global or project `opencode.json`:
+`bootstrap` now ensures this entry exists in project `opencode.json`:
 
 ```json
 {
