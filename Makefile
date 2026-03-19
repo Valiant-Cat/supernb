@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative record-result check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -33,6 +33,11 @@ init-initiative:
 run-initiative:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make run-initiative INITIATIVE_ID=<id> [PHASE=auto] or make run-initiative SPEC=/path/to/initiative.yaml"; exit 1; fi
 	./scripts/supernb run $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",)
+
+record-result:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi
+	@if [ -z "$(STATUS)" ] || [ -z "$(SUMMARY)" ]; then echo "STATUS and SUMMARY are required."; exit 1; fi
+	./scripts/supernb record-result $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) --status "$(STATUS)" --summary "$(SUMMARY)" $(if $(NOTES_FILE),--notes-file "$(NOTES_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(NO_RERUN),--no-rerun,)
 
 check-copy:
 	./scripts/check-no-hardcoded-copy.sh

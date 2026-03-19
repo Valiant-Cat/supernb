@@ -32,6 +32,7 @@ artifacts:
   phase_packet_md: "artifacts/initiatives/{{INIT_ID}}/phase-packet.md"
   run_log_md: "artifacts/initiatives/{{INIT_ID}}/run-log.md"
   command_briefs_dir: "artifacts/initiatives/{{INIT_ID}}/command-briefs"
+  phase_results_dir: "artifacts/initiatives/{{INIT_ID}}/phase-results"
 
 gates:
   research_required: "yes"

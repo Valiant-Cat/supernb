@@ -12,6 +12,7 @@
 - Phase packet: [artifacts/initiatives/{{INIT_ID}}/phase-packet.md](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/phase-packet.md)
 - Run log: [artifacts/initiatives/{{INIT_ID}}/run-log.md](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/run-log.md)
 - Archived command briefs: [artifacts/initiatives/{{INIT_ID}}/command-briefs](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/command-briefs)
+- Phase results: [artifacts/initiatives/{{INIT_ID}}/phase-results](/Users/xiaomiao26_1_26/projects/supernb/artifacts/initiatives/{{INIT_ID}}/phase-results)
 - Research: [artifacts/research/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/research/{{INIT_ID}})
 - PRD: [artifacts/prd/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/prd/{{INIT_ID}})
 - Design: [artifacts/design/{{INIT_ID}}](/Users/xiaomiao26_1_26/projects/supernb/artifacts/design/{{INIT_ID}})

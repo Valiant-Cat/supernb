@@ -48,8 +48,22 @@ This writes:
 - `artifacts/initiatives/<initiative-id>/next-command.md`
 - `artifacts/initiatives/<initiative-id>/phase-packet.md`
 - `artifacts/initiatives/<initiative-id>/run-log.md`
+- `artifacts/initiatives/<initiative-id>/phase-results/`
 
-## 4. Pick A Command
+## 4. Record The Outcome
+
+After a phase execution, record what happened:
+
+```bash
+./scripts/supernb record-result \
+  --initiative-id <initiative-id> \
+  --status succeeded \
+  --summary "Research batch completed"
+```
+
+This writes a timestamped result file into `phase-results/`, appends to `run-log.md`, and reruns `supernb run` by default.
+
+## 5. Pick A Command
 
 The three most useful manual entrypoints are:
 
@@ -65,7 +79,7 @@ See the raw templates:
 ./scripts/supernb show-command ui-ux-upgrade
 ```
 
-## 5. Render A Filled Prompt
+## 6. Render A Filled Prompt
 
 ```bash
 ./scripts/supernb render-command \
@@ -79,7 +93,7 @@ See the raw templates:
   --constraints "no MVP shortcuts; commercial quality"
 ```
 
-## 6. Save The Brief
+## 7. Save The Brief
 
 ```bash
 ./scripts/supernb save-command \
@@ -102,6 +116,7 @@ make bootstrap
 make update
 make init-initiative INITIATIVE=my-product TITLE="My Product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
+make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch completed"
 make show-command COMMAND=full-product-delivery
 make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
 make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"

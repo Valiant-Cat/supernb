@@ -40,6 +40,7 @@ When you run:
 - `artifacts/initiatives/<initiative-id>/phase-packet.md`
 - `artifacts/initiatives/<initiative-id>/run-log.md`
 - `artifacts/initiatives/<initiative-id>/command-briefs/`
+- `artifacts/initiatives/<initiative-id>/phase-results/`
 
 ## Runner Behavior
 
@@ -59,6 +60,17 @@ The runner will:
 - archive a timestamped brief for the selected phase
 - write `phase-packet.md`
 - append execution history to `run-log.md`
+
+After phase execution, record the outcome with:
+
+```bash
+./scripts/supernb record-result \
+  --initiative-id <initiative-id> \
+  --status succeeded \
+  --summary "Research batch completed"
+```
+
+That command writes a timestamped phase result, appends to `run-log.md`, and reruns `supernb run` by default.
 
 ## Gate Fields In Artifact Templates
 

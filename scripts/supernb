@@ -16,6 +16,7 @@ Commands:
   update-upstreams
   init-initiative
   run
+  record-result
   show-command
   render-command
   save-command
@@ -38,6 +39,7 @@ case "${SUBCOMMAND}" in
   update-upstreams) exec "${ROOT_DIR}/scripts/update-upstreams.sh" "$@" ;;
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
+  record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
   show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
   render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;
   save-command) exec "${ROOT_DIR}/scripts/save-command-brief.sh" "$@" ;;

@@ -52,6 +52,15 @@ Before planning and delivery, also fill:
 This computes the first incomplete phase, writes `run-status.md`, and generates `next-command.md` when the phase is ready.
 It also archives a timestamped phase brief, writes `phase-packet.md`, and appends to `run-log.md`.
 
+After the phase work is done, record it:
+
+```bash
+./scripts/supernb record-result \
+  --initiative-id <initiative-id> \
+  --status succeeded \
+  --summary "Describe the completed batch"
+```
+
 ## 4. Run Research Before PRD
 
 Fill these first:

@@ -47,8 +47,9 @@ NEXT_COMMAND_FILE="${INITIATIVE_DIR}/next-command.md"
 PHASE_PACKET_FILE="${INITIATIVE_DIR}/phase-packet.md"
 RUN_LOG_FILE="${INITIATIVE_DIR}/run-log.md"
 COMMAND_BRIEFS_DIR="${INITIATIVE_DIR}/command-briefs"
+PHASE_RESULTS_DIR="${INITIATIVE_DIR}/phase-results"
 
-mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}" "${COMMAND_BRIEFS_DIR}"
+mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}" "${COMMAND_BRIEFS_DIR}" "${PHASE_RESULTS_DIR}"
 
 yaml_escape() {
   printf '%s' "$1" | perl -0pe 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g'
@@ -145,6 +146,7 @@ Created:
   ${PHASE_PACKET_FILE}
   ${RUN_LOG_FILE}
   ${COMMAND_BRIEFS_DIR}
+  ${PHASE_RESULTS_DIR}
   ${RESEARCH_DIR}/01-competitor-landscape.md
   ${RESEARCH_DIR}/02-review-insights.md
   ${RESEARCH_DIR}/03-feature-opportunities.md

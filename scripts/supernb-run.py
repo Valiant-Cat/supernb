@@ -442,6 +442,10 @@ def phase_objectives(phase: str) -> list[str]:
     return mapping[phase]
 
 
+def record_result_command(initiative_id: str, phase: str) -> str:
+    return f'./scripts/supernb record-result --initiative-id {initiative_id} --phase {phase} --status "<status>" --summary "<what happened>"'
+
+
 def phase_artifact_lines(spec: dict[str, Any], phase: str) -> list[str]:
     artifact_roots = {
         "research": artifact_path(spec, "research_dir"),
@@ -465,7 +469,8 @@ def write_phase_packet(
     archived_brief: str | None,
     output_path: Path,
 ) -> None:
-    title = nested_get(spec, "initiative", "title") or nested_get(spec, "initiative", "id")
+    initiative_id = nested_get(spec, "initiative", "id")
+    title = nested_get(spec, "initiative", "title") or initiative_id
     lines = [
         f"# Phase Packet: {selected_phase}",
         "",
@@ -500,6 +505,9 @@ def write_phase_packet(
         lines.append(f"- Archived brief: `{archived_brief}`")
     if not next_command and not archived_brief:
         lines.append("- No execution asset generated because the current phase is blocked.")
+
+    lines.extend(["", "## After Execution", ""])
+    lines.append(f"- Record the outcome: `{record_result_command(initiative_id, selected_phase)}`")
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -592,6 +600,7 @@ def build_markdown(
         if archived_brief:
             lines.append(f"- Archived brief: `{archived_brief}`")
         lines.append(f"- Run: `./scripts/supernb run --initiative-id {initiative_id}` after phase progress changes")
+    lines.append(f"- Record execution results: `{record_result_command(initiative_id, selected_phase)}`")
     return "\n".join(lines) + "\n"
 
 
