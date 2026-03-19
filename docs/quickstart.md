@@ -63,7 +63,27 @@ After a phase execution, record what happened:
 
 This writes a timestamped result file into `phase-results/`, appends to `run-log.md`, and reruns `supernb run` by default.
 
-## 5. Advance The Gate
+## 5. Certify The Phase
+
+Before advancing, check whether the current phase artifacts still contain empty scaffold fields or placeholder rows:
+
+```bash
+./scripts/supernb certify-phase \
+  --initiative-id <initiative-id> \
+  --phase research
+```
+
+If you want it to advance immediately when the phase passes:
+
+```bash
+./scripts/supernb certify-phase \
+  --initiative-id <initiative-id> \
+  --phase research \
+  --apply \
+  --actor supernb
+```
+
+## 6. Advance The Gate
 
 When the phase really should advance, write the approval/ready/verified state into the artifacts:
 
@@ -77,7 +97,7 @@ When the phase really should advance, write the approval/ready/verified state in
 
 This updates the relevant artifact status fields and reruns `supernb run` by default.
 
-## 6. Pick A Command
+## 7. Pick A Command
 
 The three most useful manual entrypoints are:
 
@@ -93,7 +113,7 @@ See the raw templates:
 ./scripts/supernb show-command ui-ux-upgrade
 ```
 
-## 7. Render A Filled Prompt
+## 8. Render A Filled Prompt
 
 ```bash
 ./scripts/supernb render-command \
@@ -107,7 +127,7 @@ See the raw templates:
   --constraints "no MVP shortcuts; commercial quality"
 ```
 
-## 8. Save The Brief
+## 9. Save The Brief
 
 ```bash
 ./scripts/supernb save-command \
@@ -130,6 +150,7 @@ make bootstrap
 make update
 make init-initiative INITIATIVE=my-product TITLE="My Product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
+make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch completed"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
 make show-command COMMAND=full-product-delivery

@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative record-result advance-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -43,6 +43,10 @@ advance-phase:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make advance-phase INITIATIVE_ID=<id> PHASE=<phase> STATUS=<status> [ACTOR=name] [SUMMARY='...']"; exit 1; fi
 	@if [ -z "$(PHASE)" ] || [ -z "$(STATUS)" ]; then echo "PHASE and STATUS are required."; exit 1; fi
 	./scripts/supernb advance-phase $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) --phase "$(PHASE)" --status "$(STATUS)" $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(DATE),--date "$(DATE)",) $(if $(SUMMARY),--summary "$(SUMMARY)",) $(if $(NO_RERUN),--no-rerun,)
+
+certify-phase:
+	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make certify-phase INITIATIVE_ID=<id> [PHASE=<phase>] [APPLY=1] [ACTOR=name]"; exit 1; fi
+	./scripts/supernb certify-phase $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(APPLY),--apply,) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(DATE),--date "$(DATE)",)
 
 check-copy:
 	./scripts/check-no-hardcoded-copy.sh

@@ -61,6 +61,14 @@ After the phase work is done, record it:
   --summary "Describe the completed batch"
 ```
 
+Before advancing, certify the artifact set:
+
+```bash
+./scripts/supernb certify-phase \
+  --initiative-id <initiative-id> \
+  --phase research
+```
+
 If that work should advance the gate, apply the status update:
 
 ```bash

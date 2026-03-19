@@ -84,6 +84,16 @@ When the phase should really advance, apply the gate update:
 
 That command updates the relevant artifact status fields for the phase, writes a gate-update record into `phase-results/`, and reruns `supernb run` by default.
 
+Before advancing, you can ask `supernb` to inspect the artifacts for unresolved scaffold placeholders:
+
+```bash
+./scripts/supernb certify-phase \
+  --initiative-id <initiative-id> \
+  --phase research
+```
+
+If no issues are found, it recommends the expected gate status. With `--apply`, it also advances the gate automatically.
+
 ## Gate Fields In Artifact Templates
 
 The runner uses explicit status fields from the initiative artifacts instead of guessing from file existence alone.
