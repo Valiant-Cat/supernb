@@ -21,10 +21,10 @@ install-codex:
 	./scripts/install-codex.sh
 
 install-claude-code:
-	./scripts/install-claude-code.sh
+	./scripts/install-claude-code.sh "$(if $(PROJECT_DIR),$(PROJECT_DIR),.)"
 
 install-opencode:
-	./scripts/install-opencode.sh
+	./scripts/install-opencode.sh "$(if $(PROJECT_DIR),$(PROJECT_DIR),.)"
 
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi

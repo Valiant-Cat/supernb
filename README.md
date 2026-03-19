@@ -165,6 +165,12 @@ If you already cloned this repo:
 make bootstrap
 ```
 
+Direct Claude Code install into the current project:
+
+```bash
+./scripts/supernb install-claude-code .
+```
+
 If you need explicit harness/project selection:
 
 ```bash
@@ -193,6 +199,7 @@ Detailed install guides:
 make update
 make update-upstreams
 make bootstrap
+make install-claude-code PROJECT_DIR=/path/to/project
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
@@ -217,6 +224,7 @@ Or use the scripts directly:
 ./scripts/supernb update-upstreams
 ./scripts/supernb update
 ./scripts/supernb bootstrap
+./scripts/supernb install-claude-code /path/to/project
 ./scripts/supernb build-impeccable
 ./scripts/supernb init-initiative my-product "My Product"
 ./scripts/supernb run --initiative-id 2026-03-19-my-product

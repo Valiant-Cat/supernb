@@ -34,6 +34,18 @@ If auto-detection is ambiguous:
 make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/your-project
 ```
 
+Direct project-local install path:
+
+```bash
+./scripts/supernb install-claude-code /path/to/your-project
+```
+
+If you are already inside the target project:
+
+```bash
+/path/to/supernb/scripts/supernb install-claude-code
+```
+
 This path now:
 
 - installs bundled project-local skills when missing
@@ -73,6 +85,8 @@ If you want to install into the current project:
 
 ```bash
 ./scripts/install-claude-code.sh /path/to/your-project
+./scripts/supernb install-claude-code /path/to/your-project
+make install-claude-code PROJECT_DIR=/path/to/your-project
 ```
 
 What the script does:

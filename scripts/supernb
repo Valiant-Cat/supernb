@@ -14,6 +14,9 @@ Commands:
   bootstrap
   update
   update-upstreams
+  install-codex
+  install-claude-code
+  install-opencode
   init-initiative
   run
   execute-next
@@ -41,6 +44,9 @@ case "${SUBCOMMAND}" in
   bootstrap) exec "${ROOT_DIR}/scripts/bootstrap-supernb.sh" "$@" ;;
   update) exec "${ROOT_DIR}/scripts/update-supernb.sh" "$@" ;;
   update-upstreams) exec "${ROOT_DIR}/scripts/update-upstreams.sh" "$@" ;;
+  install-codex) exec "${ROOT_DIR}/scripts/install-codex.sh" "$@" ;;
+  install-claude-code) exec "${ROOT_DIR}/scripts/install-claude-code.sh" "$@" ;;
+  install-opencode) exec "${ROOT_DIR}/scripts/install-opencode.sh" "$@" ;;
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
   execute-next) exec python3 "${ROOT_DIR}/scripts/supernb-execute-next.py" "$@" ;;

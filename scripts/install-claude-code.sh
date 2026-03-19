@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/lib/install-common.sh"
 
-TARGET_DIR="${1:-${ROOT_DIR}}"
+TARGET_DIR="${1:-${PWD}}"
 CLAUDE_DIR="${TARGET_DIR}/.claude"
 IMPECCABLE_CLAUDE_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/claude-code/.claude"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
