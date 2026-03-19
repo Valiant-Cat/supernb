@@ -19,6 +19,7 @@ make render-command COMMAND=ui-ux-upgrade GOAL="Upgrade the checkout UX" REPOSIT
 ```
 
 `supernb execute-next` will still prepare an execution packet for OpenCode initiatives, but direct CLI bridging is not enabled yet because the local OpenCode CLI contract is not standardized in this repo.
+You can still use `./scripts/supernb apply-execution --initiative-id <id> --packet <dir>` after the prompt is run manually.
 
 ## Relationship To Skills
 

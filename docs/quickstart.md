@@ -73,8 +73,37 @@ Use `--dry-run` first if you only want to prepare the packet and inspect the exa
 ```
 
 This writes a timestamped execution packet under `executions/` with the prompt copy, request metadata, response, stdout, stderr, and a summary.
+It also writes `result-suggestion.md` and `result-suggestion.json` so the packet can be converted into a recorded phase result safely.
 
-## 5. Record The Outcome
+## 5. Apply The Execution Packet
+
+After reviewing the packet, convert it into a phase result:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet
+```
+
+If you want it to record the result and then certify the current phase:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet \
+  --certify
+```
+
+If you want it to record, certify, and advance the phase when certification passes:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet \
+  --apply-certification
+```
+
+## 6. Record The Outcome
 
 After a phase execution, record what happened:
 
@@ -87,7 +116,9 @@ After a phase execution, record what happened:
 
 This writes a timestamped result file into `phase-results/`, appends to `run-log.md`, and reruns `supernb run` by default.
 
-## 6. Certify The Phase
+Use this direct path only when you need to override the packet suggestion manually.
+
+## 7. Certify The Phase
 
 Before advancing, check whether the current phase artifacts still contain empty scaffold fields or placeholder rows:
 
@@ -107,7 +138,7 @@ If you want it to advance immediately when the phase passes:
   --actor supernb
 ```
 
-## 7. Advance The Gate
+## 8. Advance The Gate
 
 When the phase really should advance, write the approval/ready/verified state into the artifacts:
 
@@ -121,7 +152,7 @@ When the phase really should advance, write the approval/ready/verified state in
 
 This updates the relevant artifact status fields and reruns `supernb run` by default.
 
-## 8. Pick A Command
+## 9. Pick A Command
 
 The three most useful manual entrypoints are:
 
@@ -137,7 +168,7 @@ See the raw templates:
 ./scripts/supernb show-command ui-ux-upgrade
 ```
 
-## 9. Render A Filled Prompt
+## 10. Render A Filled Prompt
 
 ```bash
 ./scripts/supernb render-command \
@@ -151,7 +182,7 @@ See the raw templates:
   --constraints "no MVP shortcuts; commercial quality"
 ```
 
-## 10. Save The Brief
+## 11. Save The Brief
 
 ```bash
 ./scripts/supernb save-command \
@@ -175,9 +206,7 @@ make update
 make init-initiative INITIATIVE=my-product TITLE="My Product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
-make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
-make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch completed"
-make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
+make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet APPLY_CERTIFICATION=1
 make show-command COMMAND=full-product-delivery
 make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
 make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"

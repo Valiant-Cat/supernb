@@ -50,6 +50,15 @@ For initiatives that already have a `next-command.md`, you can bridge the curren
   --project-dir /path/to/project
 ```
 
+Then apply the resulting packet:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet \
+  --certify
+```
+
 ## Notes
 
 - `supernb` skills are project-local guidance.

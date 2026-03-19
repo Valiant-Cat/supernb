@@ -89,6 +89,7 @@ make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Bui
 ```
 
 `make execute-next` currently prepares the execution packet for OpenCode initiatives, but direct CLI invocation is not enabled here yet.
+After running the prepared prompt manually, use `make apply-execution INITIATIVE_ID=<id> PACKET=/path/to/packet CERTIFY=1`.
 
 - load `supernb/supernb-orchestrator` when the work spans product to delivery
 - load `supernb/product-research-prd` for research-backed product definition

@@ -466,6 +466,10 @@ def execute_next_command(initiative_id: str) -> str:
     return f'./scripts/supernb execute-next --initiative-id {initiative_id}'
 
 
+def apply_execution_command(initiative_id: str) -> str:
+    return f'./scripts/supernb apply-execution --initiative-id {initiative_id} --packet <execution-packet-dir>'
+
+
 def phase_artifact_lines(spec: dict[str, Any], phase: str) -> list[str]:
     artifact_roots = {
         "research": artifact_path(spec, "research_dir"),
@@ -529,6 +533,7 @@ def write_phase_packet(
 
     lines.extend(["", "## After Execution", ""])
     lines.append(f"- Execute the next command in a harness: `{execute_next_command(initiative_id)}`")
+    lines.append(f"- Apply the latest execution packet: `{apply_execution_command(initiative_id)}`")
     lines.append(f"- Certify the artifact set: `{certify_phase_command(initiative_id, selected_phase)}`")
     lines.append(f"- Record the outcome: `{record_result_command(initiative_id, selected_phase)}`")
     lines.append(f"- Advance the gate when ready: `{advance_phase_command(initiative_id, selected_phase)}`")
@@ -645,6 +650,7 @@ def build_markdown(
         if archived_brief:
             lines.append(f"- Archived brief: `{archived_brief}`")
         lines.append(f"- Execute via harness: `{execute_next_command(initiative_id)}`")
+        lines.append(f"- Apply execution packet: `{apply_execution_command(initiative_id)}`")
         lines.append(f"- Run: `./scripts/supernb run --initiative-id {initiative_id}` after phase progress changes")
     lines.append(f"- Certify the current phase: `{certify_phase_command(initiative_id, selected_phase)}`")
     lines.append(f"- Record execution results: `{record_result_command(initiative_id, selected_phase)}`")

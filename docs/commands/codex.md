@@ -31,6 +31,15 @@ For initiatives that already have a `next-command.md`, you can execute the curre
   --project-dir /path/to/repo
 ```
 
+Then apply the resulting packet:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet \
+  --certify
+```
+
 ## Why This Works
 
 - Codex can already discover `supernb` skills through `~/.agents/skills/`

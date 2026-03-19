@@ -12,6 +12,7 @@ The stable cross-harness base is:
 - `./scripts/supernb save-command --command <command> ...` stores a dated command brief in `artifacts/commands/`
 - `./scripts/supernb run --initiative-id <id>` reads `initiative.yaml`, computes gates, and writes the next command brief for the active phase
 - `./scripts/supernb execute-next --initiative-id <id> [--harness ...]` bridges the current `next-command.md` into a supported harness CLI and records an execution packet
+- `./scripts/supernb apply-execution --initiative-id <id> --packet <dir>` converts an execution packet into a recorded phase result and optional certification
 - `render-command.sh` validates that the command exists and now renders research-critical fields for product-definition flows
 - `make show-command COMMAND=<command>` is the shortcut
 - `make render-command COMMAND=<command> GOAL="..." ...` is the structured shortcut

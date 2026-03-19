@@ -273,6 +273,105 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def short_text_excerpt(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        if stripped.startswith("```"):
+            continue
+        if len(stripped) > 220:
+            return stripped[:217] + "..."
+        return stripped
+    return ""
+
+
+def build_result_suggestion(
+    phase: str,
+    harness: str,
+    status: str,
+    dry_run: bool,
+    exit_code: int | None,
+    response_text: str,
+    stderr_text: str,
+    packet_dir: Path,
+) -> dict[str, Any]:
+    excerpt = short_text_excerpt(response_text)
+    stderr_excerpt = short_text_excerpt(stderr_text)
+
+    if dry_run:
+        result_status = "not-run"
+        summary = f"{phase} execution packet prepared for {harness}; no harness run yet."
+        next_step = "rerun execute-next without --dry-run"
+    elif status == "unsupported":
+        result_status = "manual-follow-up"
+        summary = f"{phase} execution requires manual handoff because direct {harness} bridging is unavailable."
+        next_step = "run the prepared prompt manually in the target harness"
+    elif status == "failed":
+        result_status = "blocked"
+        summary = stderr_excerpt or excerpt or f"{phase} execution failed in {harness} with exit code {exit_code}."
+        next_step = "inspect stderr.log and fix the failure before rerunning"
+    else:
+        result_status = "succeeded"
+        summary = excerpt or f"{phase} execution completed successfully in {harness}."
+        next_step = "record the result, then certify the phase"
+
+    return {
+        "phase": phase,
+        "harness": harness,
+        "execution_status": status,
+        "dry_run": dry_run,
+        "exit_code": exit_code,
+        "suggested_result_status": result_status,
+        "suggested_summary": summary,
+        "response_excerpt": excerpt,
+        "stderr_excerpt": stderr_excerpt,
+        "suggested_next_step": next_step,
+        "packet_dir": display_path(packet_dir),
+    }
+
+
+def write_result_suggestion_md(
+    path: Path,
+    initiative_id: str,
+    suggestion: dict[str, Any],
+    packet_dir: Path,
+) -> None:
+    phase = suggestion["phase"]
+    lines = [
+        "# Result Suggestion",
+        "",
+        f"- Initiative ID: `{initiative_id}`",
+        f"- Phase: `{phase}`",
+        f"- Harness: `{suggestion['harness']}`",
+        f"- Execution status: `{suggestion['execution_status']}`",
+        f"- Dry run: `{'yes' if suggestion['dry_run'] else 'no'}`",
+        f"- Suggested result status: `{suggestion['suggested_result_status']}`",
+        f"- Suggested summary: {suggestion['suggested_summary']}",
+        f"- Suggested next step: {suggestion['suggested_next_step']}",
+        "",
+        "## Suggested Commands",
+        "",
+        f"- Record result: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir}`",
+        f"- Record result and certify: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir} --certify`",
+        f"- Record result and certify+apply: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir} --apply-certification`",
+        "",
+        "## Evidence",
+        "",
+        f"- Packet summary: `{display_path(packet_dir / 'summary.md')}`",
+        f"- Response: `{display_path(packet_dir / 'response.md')}`",
+        f"- Stdout: `{display_path(packet_dir / 'stdout.log')}`",
+        f"- Stderr: `{display_path(packet_dir / 'stderr.log')}`",
+    ]
+    if suggestion.get("response_excerpt"):
+        lines.extend(["", "## Response Excerpt", "", suggestion["response_excerpt"]])
+    if suggestion.get("stderr_excerpt"):
+        lines.extend(["", "## Stderr Excerpt", "", suggestion["stderr_excerpt"]])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def append_run_log(
     log_path: Path,
     phase: str,
@@ -283,6 +382,7 @@ def append_run_log(
     packet_dir: Path,
     prompt_path: Path,
     response_path: Path,
+    suggestion_path: Path,
 ) -> None:
     if not log_path.exists():
         log_path.write_text("# Run Log\n\n", encoding="utf-8")
@@ -298,6 +398,7 @@ def append_run_log(
         f"- Execution packet: `{display_path(packet_dir)}`",
         f"- Prompt: `{display_path(prompt_path)}`",
         f"- Response: `{display_path(response_path)}`",
+        f"- Result suggestion: `{display_path(suggestion_path)}`",
         "",
     ]
     with log_path.open("a", encoding="utf-8") as handle:
@@ -318,6 +419,7 @@ def write_summary(
     response_path: Path,
     stdout_path: Path,
     stderr_path: Path,
+    result_suggestion_path: Path,
     command_argv: list[str] | None,
 ) -> None:
     lines = [
@@ -341,6 +443,7 @@ def write_summary(
         f"- Response: `{display_path(response_path)}`",
         f"- Stdout: `{display_path(stdout_path)}`",
         f"- Stderr: `{display_path(stderr_path)}`",
+        f"- Result suggestion: `{display_path(result_suggestion_path)}`",
         "",
         "## Command",
         "",
@@ -354,11 +457,11 @@ def write_summary(
     if dry_run:
         lines.append("- Review the execution packet, then rerun without `--dry-run` when you are ready.")
     elif status == "unsupported":
-        lines.append("- Review the prepared prompt and run it manually in the target harness. Direct bridge support is not available for this harness yet.")
+        lines.append("- Review `result-suggestion.md`, then use `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>` to record the manual-follow-up result.")
     elif status == "failed":
-        lines.append("- Inspect `stderr.log` and the response file, then fix the issue and rerun `./scripts/supernb execute-next ...`.")
+        lines.append("- Review `result-suggestion.md`, then use `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>` to record the blocked result before rerunning if needed.")
     else:
-        lines.append("- Review the response, then record the outcome with `./scripts/supernb record-result --initiative-id <id> --status ... --summary ...`.")
+        lines.append("- Review `result-suggestion.md`, then apply it with `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>`.")
 
     summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -412,6 +515,8 @@ def main() -> int:
     stderr_path = packet_dir / "stderr.log"
     summary_path = packet_dir / "summary.md"
     request_path = packet_dir / "request.json"
+    result_suggestion_json = packet_dir / "result-suggestion.json"
+    result_suggestion_md = packet_dir / "result-suggestion.md"
 
     status = "prepared"
     exit_code: int | None = None
@@ -480,6 +585,12 @@ def main() -> int:
 
         status = "succeeded" if proc.returncode == 0 else "failed"
 
+    response_text = response_path.read_text(encoding="utf-8") if response_path.exists() else ""
+    stderr_text = stderr_path.read_text(encoding="utf-8") if stderr_path.exists() else ""
+    suggestion = build_result_suggestion(phase, harness, status, args.dry_run, exit_code, response_text, stderr_text, packet_dir)
+    write_json(result_suggestion_json, suggestion)
+    write_result_suggestion_md(result_suggestion_md, initiative_id, suggestion, packet_dir)
+
     write_summary(
         summary_path,
         initiative_id,
@@ -494,9 +605,10 @@ def main() -> int:
         response_path,
         stdout_path,
         stderr_path,
+        result_suggestion_md,
         command_argv,
     )
-    append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path)
+    append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md)
 
     print(f"Initiative: {initiative_id}")
     print(f"Phase: {phase}")
@@ -505,6 +617,7 @@ def main() -> int:
     print(f"Execution packet: {packet_dir}")
     print(f"Summary: {summary_path}")
     print(f"Response: {response_path}")
+    print(f"Result suggestion: {result_suggestion_md}")
     if command_argv:
         print(f"Command: {shlex.join(command_argv)}")
     else:

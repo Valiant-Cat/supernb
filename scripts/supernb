@@ -17,6 +17,7 @@ Commands:
   init-initiative
   run
   execute-next
+  apply-execution
   record-result
   advance-phase
   certify-phase
@@ -43,6 +44,7 @@ case "${SUBCOMMAND}" in
   init-initiative) exec "${ROOT_DIR}/scripts/init-initiative.sh" "$@" ;;
   run) exec python3 "${ROOT_DIR}/scripts/supernb-run.py" "$@" ;;
   execute-next) exec python3 "${ROOT_DIR}/scripts/supernb-execute-next.py" "$@" ;;
+  apply-execution) exec python3 "${ROOT_DIR}/scripts/supernb-apply-execution.py" "$@" ;;
   record-result) exec python3 "${ROOT_DIR}/scripts/supernb-record-result.py" "$@" ;;
   advance-phase) exec python3 "${ROOT_DIR}/scripts/supernb-advance-phase.py" "$@" ;;
   certify-phase) exec python3 "${ROOT_DIR}/scripts/supernb-certify-phase.py" "$@" ;;

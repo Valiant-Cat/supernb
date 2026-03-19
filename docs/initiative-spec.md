@@ -75,6 +75,21 @@ To bridge the rendered prompt into a supported harness CLI, use:
 
 That command copies the current prompt into a timestamped execution packet, invokes the harness when supported, and records stdout/stderr/response artifacts under `executions/`.
 
+Each execution packet now also includes:
+
+- `result-suggestion.json`
+- `result-suggestion.md`
+
+You can apply that packet back into the initiative with:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet
+```
+
+That command turns the packet into a recorded phase result, and can optionally run certification or certification+gate apply.
+
 After phase execution, record the outcome with:
 
 ```bash

@@ -62,6 +62,15 @@ Then execute the current phase through a supported harness:
   --project-dir /path/to/repo
 ```
 
+Then apply the generated execution packet:
+
+```bash
+./scripts/supernb apply-execution \
+  --initiative-id <initiative-id> \
+  --packet /path/to/execution-packet \
+  --certify
+```
+
 After the phase work is done, record it:
 
 ```bash

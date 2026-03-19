@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative execute-next record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode init-initiative run-initiative execute-next apply-execution record-result advance-phase certify-phase check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -37,6 +37,10 @@ run-initiative:
 execute-next:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make execute-next INITIATIVE_ID=<id> [HARNESS=codex|claude-code|opencode] [PROJECT_DIR=/path] [DRY_RUN=1]"; exit 1; fi
 	./scripts/supernb execute-next $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",) $(if $(PROMPT_FILE),--prompt-file "$(PROMPT_FILE)",) $(foreach arg,$(subst ,, ,$(CLI_ARGS)),--cli-arg "$(arg)") $(if $(DRY_RUN),--dry-run,)
+
+apply-execution:
+	@if [ -z "$(PACKET)" ]; then echo "Usage: make apply-execution INITIATIVE_ID=<id> PACKET=/path/to/packet [CERTIFY=1] [APPLY_CERTIFICATION=1]"; exit 1; fi
+	./scripts/supernb apply-execution $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) --packet "$(PACKET)" $(if $(STATUS),--status "$(STATUS)",) $(if $(SUMMARY),--summary "$(SUMMARY)",) $(if $(CERTIFY),--certify,) $(if $(APPLY_CERTIFICATION),--apply-certification,) $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(DATE),--date "$(DATE)",) $(if $(NO_RERUN),--no-rerun,)
 
 record-result:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make record-result INITIATIVE_ID=<id> STATUS=<status> SUMMARY='...'; optional PHASE=<phase> NOTES_FILE=/path ARTIFACT_PATHS='a,b'"; exit 1; fi

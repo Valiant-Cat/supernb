@@ -135,6 +135,7 @@ That flow now:
 - creates initiative-local `phase-packet.md`, `run-log.md`, and archived `command-briefs/`
 - creates initiative-local `phase-results/` for recorded execution outcomes
 - creates initiative-local `executions/` packets for bridged harness runs
+- creates per-execution `result-suggestion.md/json` so packet outcomes can be applied safely
 - computes which phase is blocked, ready, or complete
 - generates the next structured command brief when the next phase is ready
 
@@ -196,6 +197,7 @@ make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
+make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
 make certify-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research
 make record-result INITIATIVE_ID=2026-03-19-my-product STATUS=succeeded SUMMARY="Research batch finished"
 make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=approved ACTOR="supernb"
@@ -219,6 +221,7 @@ Or use the scripts directly:
 ./scripts/supernb init-initiative my-product "My Product"
 ./scripts/supernb run --initiative-id 2026-03-19-my-product
 ./scripts/supernb execute-next --initiative-id 2026-03-19-my-product --harness codex --project-dir /path/to/repo --dry-run
+./scripts/supernb apply-execution --initiative-id 2026-03-19-my-product --packet /path/to/packet --certify
 ./scripts/supernb certify-phase --initiative-id 2026-03-19-my-product --phase research
 ./scripts/supernb record-result --initiative-id 2026-03-19-my-product --status succeeded --summary "Research batch finished"
 ./scripts/supernb advance-phase --initiative-id 2026-03-19-my-product --phase research --status approved --actor "supernb"
@@ -258,10 +261,10 @@ For a new product initiative:
 2. Fill `artifacts/initiatives/<initiative-id>/initiative.yaml`.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
-5. Run `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>` to check whether the artifact set still contains scaffold placeholders.
-6. Record the outcome with `./scripts/supernb record-result --initiative-id <initiative-id> --status ... --summary ...`.
-7. Apply the gate update with `./scripts/supernb advance-phase --initiative-id <initiative-id> --phase <phase> --status <status>`.
-8. Re-run `./scripts/supernb run --initiative-id <initiative-id>` after each phase approval or let `record-result` / `advance-phase` rerun automatically.
+5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
+6. Run `./scripts/supernb certify-phase --initiative-id <initiative-id> --phase <phase>` if you need an explicit standalone certification check.
+7. Record the outcome manually with `./scripts/supernb record-result ...` only when you want to override the packet suggestion.
+8. Apply the gate update with `./scripts/supernb advance-phase ...` only when you want to bypass the certification helper.
 
 Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
 Usage scenarios: [docs/usage-scenarios.md](/Users/xiaomiao26_1_26/projects/supernb/docs/usage-scenarios.md)
