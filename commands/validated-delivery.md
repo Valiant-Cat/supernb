@@ -13,5 +13,6 @@ Output:
 - execute exactly one validated batch with tests first
 - update affected initiative artifacts, verification evidence, and release-readiness inputs
 - keep the implementation depth aligned with a 10M-DAU-grade product bar rather than a thin proof of concept
+- for Claude Code prompt-first planning or delivery, start and honor the Ralph Loop contract instead of stopping on self-judged completion
 - commit the verified batch and return evidence for certification
 ```

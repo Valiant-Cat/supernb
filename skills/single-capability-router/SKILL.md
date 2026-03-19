@@ -1,6 +1,6 @@
 ---
 name: single-capability-router
-description: Use when the user wants a focused one-off supernb task rather than a full product workflow, and the request should be routed to the most specific capability available from superpowers, impeccable, sensortower-research, or the optional Frad loop stack.
+description: Use when the user wants a focused one-off supernb task rather than a full product workflow, and the request should be routed to the most specific capability available from superpowers, impeccable, sensortower-research, or the Ralph Loop stack used to prevent self-termination in Claude Code prompt-first execution.
 ---
 
 # Single Capability Router
@@ -80,9 +80,10 @@ Route to `i18n-localization-governance` when the user asks for:
 
 ### Loop Persistence
 
-Route to the optional Frad loop flow only when:
+Route to the Ralph Loop flow when:
 
-- the environment intentionally uses that plugin
+- the current Claude Code session is doing prompt-first planning or delivery and must not self-terminate
+- the environment intentionally uses the stop-hook-enabled dotclaude loop stack
 - the task is bounded
 - honest completion can be verified
 

@@ -1,6 +1,6 @@
 ---
 name: autonomous-delivery
-description: Use when PRD and design are already approved and the next step is autonomous implementation, test-first execution, iterative fixing, and continuous commits using the latest superpowers baseline, with the FradSer loop workflow only as an optional bounded enhancer.
+description: Use when PRD and design are already approved and the next step is autonomous implementation, test-first execution, iterative fixing, and continuous commits using the latest superpowers baseline, while enforcing Ralph Loop for Claude Code prompt-first planning or delivery sessions.
 ---
 
 # Autonomous Delivery
@@ -19,16 +19,19 @@ Do not start if these are missing:
 
 1. Use upstream `superpowers` to refine brainstorming if needed.
 2. Use upstream `superpowers` writing-plans or equivalent planning flow.
-3. Execute in small batches with tests first.
-4. When a task benefits from persistence and you are in a Claude Code environment that intentionally uses the Frad plugin, run the FradSer Superpower Loop with:
+3. In Claude Code prompt-first sessions, run `./scripts/supernb prompt-sync ... --start-loop` before substantive batch execution.
+4. Execute in small batches with tests first.
+5. For Claude Code prompt-first planning or delivery sessions, make sure the Ralph Loop has been started before substantive execution with:
    - an explicit state file
    - a bounded completion promise
    - a realistic max iteration cap
-5. Review the output before marking complete.
-6. Commit each validated batch.
-7. Treat each execution run as one validated batch unless the user explicitly scopes a larger bounded batch.
-8. Record in the execution packet whether brainstorming, writing-plans, TDD, and code review were used in this run.
-9. Keep the delivery artifact trail rich enough for release readiness:
+   - a stop-hook-enabled Claude Code environment
+6. If the stop hook is unavailable, do not claim clean completion. End the batch as `needs-follow-up` and switch to a loop-enabled Claude environment.
+7. Review the output before marking complete.
+8. Commit each validated batch.
+9. Treat each execution run as one validated batch unless the user explicitly scopes a larger bounded batch.
+10. Record in the execution packet whether brainstorming, writing-plans, TDD, code review, and Ralph Loop were used in this run.
+11. Keep the delivery artifact trail rich enough for release readiness:
    - update implementation plan progress
    - update release-readiness inputs when relevant
    - keep evidence at commercial-product depth rather than demo depth
@@ -38,7 +41,8 @@ Do not start if these are missing:
 
 Never use an unbounded loop for vague objectives like "build the whole app perfectly".
 
-Do not assume the loop is always available. The default `supernb` baseline is the latest upstream `superpowers`, not the Frad plugin.
+Do not use Ralph Loop as an excuse for vague goals. The batch still has to be bounded enough to verify honestly.
+If Claude Code prompt-first planning or delivery is the active mode, Ralph Loop is part of the completion contract, not an optional extra.
 
 Good loop tasks:
 

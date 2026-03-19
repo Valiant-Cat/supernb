@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from lib.supernb_common import (
+    append_debug_log as common_append_debug_log,
     load_spec,
     nested_get,
     project_root as common_project_root,
@@ -40,6 +41,10 @@ def project_root(spec: dict[str, Any]) -> Path:
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     return common_resolve_spec_path(args, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-apply-execution", event, payload)
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -95,6 +100,18 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "packet_arg": args.packet,
+            "status_arg": args.status,
+            "certify": args.certify,
+            "apply_certification": args.apply_certification,
+            "no_rerun": args.no_rerun,
+        },
+    )
 
     packet_dir = Path(args.packet).expanduser().resolve()
     if not packet_dir.is_dir():
@@ -119,6 +136,15 @@ def main() -> int:
         return 1
     packet_initiative_id = str(request.get("initiative_id", "")).strip()
     if packet_initiative_id and packet_initiative_id != initiative_id:
+        debug_log(
+            spec,
+            "initiative-mismatch",
+            {
+                "initiative_id": initiative_id,
+                "packet_initiative_id": packet_initiative_id,
+                "packet_dir": str(packet_dir),
+            },
+        )
         print(
             f"Execution packet initiative mismatch: packet belongs to '{packet_initiative_id}', "
             f"but target initiative is '{initiative_id}'.",
@@ -155,6 +181,15 @@ def main() -> int:
     resolved_evidence_paths, missing_evidence_paths = resolve_evidence_paths(spec, packet_dir, evidence_paths)
 
     if missing_evidence_paths:
+        debug_log(
+            spec,
+            "validation-error",
+            {
+                "initiative_id": initiative_id,
+                "phase": phase,
+                "missing_evidence_paths": missing_evidence_paths,
+            },
+        )
         print(
             "Execution packet references evidence artifacts that do not exist: "
             + ", ".join(missing_evidence_paths),
@@ -232,6 +267,22 @@ def main() -> int:
 
     if not args.no_rerun and not args.apply_certification:
         subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)], check=True)
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "packet_dir": str(packet_dir),
+            "recorded_status": status,
+            "suggested_result_status": suggested_result_status,
+            "certify": args.certify,
+            "apply_certification": args.apply_certification,
+            "no_rerun": args.no_rerun,
+            "workflow_issue_count": len(workflow_issues),
+            "phase_ready_for_certification": bool(phase_readiness.get("ready_for_certification")),
+        },
+    )
 
     print(f"Applied execution packet: {packet_dir}")
     print(f"Recorded result status: {status}")

@@ -12,6 +12,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     certification_passed,
     certification_snapshot_matches,
@@ -73,6 +74,10 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
 
 def certification_state_path(spec: dict[str, Any]) -> Path:
     return common_certification_state_path(spec, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-advance-phase", event, payload)
 
 
 def replace_field(path: Path, field: str, value: str) -> None:
@@ -209,6 +214,18 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "initiative_id": initiative_id,
+            "phase": args.phase,
+            "status": args.status,
+            "actor": args.actor,
+            "no_rerun": args.no_rerun,
+        },
+    )
 
     try:
         ensure_certification_gate(spec, args.phase, args.status)
@@ -252,6 +269,19 @@ def main() -> int:
     result_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     append_run_log(run_log_path, args.phase, args.status, args.actor, result_path)
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": args.phase,
+            "status": args.status,
+            "actor": args.actor,
+            "result_path": display_path(result_path),
+            "targets": [display_path(target) for target in targets],
+            "no_rerun": args.no_rerun,
+        },
+    )
 
     print(f"Applied phase status: {args.phase} -> {args.status}")
     print(f"Gate update record: {result_path}")

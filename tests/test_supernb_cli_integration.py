@@ -65,6 +65,9 @@ artifacts:
   run_status_md: ".supernb/initiatives/{initiative_id}/run-status.md"
   run_status_json: ".supernb/initiatives/{initiative_id}/run-status.json"
   run_log_md: ".supernb/initiatives/{initiative_id}/run-log.md"
+  initiative_index: ".supernb/initiatives/{initiative_id}.md"
+  next_command_md: ".supernb/initiatives/{initiative_id}/next-command.md"
+  phase_packet_md: ".supernb/initiatives/{initiative_id}/phase-packet.md"
   command_briefs_dir: ".supernb/initiatives/{initiative_id}/command-briefs"
   phase_results_dir: ".supernb/initiatives/{initiative_id}/phase-results"
   executions_dir: ".supernb/initiatives/{initiative_id}/executions"
@@ -310,6 +313,159 @@ def write_research_artifacts_for_certification(project_dir: Path, initiative_id:
 
 
 class SupernbCliIntegrationTests(unittest.TestCase):
+    def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            run_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(paths["spec_path"]),
+            )
+            self.assertEqual(run_proc.returncode, 0, msg=run_proc.stderr)
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"])],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            session_path = paths["initiative_root"] / "prompt-session.md"
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            self.assertTrue(session_path.is_file())
+            self.assertTrue(report_template.is_file())
+
+            session_text = session_path.read_text(encoding="utf-8")
+            self.assertIn("Prompt Session Contract", session_text)
+            self.assertIn("next-command.md", session_text)
+            self.assertIn("import-execution", session_text)
+
+            template_payload = json.loads(report_template.read_text(encoding="utf-8"))
+            self.assertIn("workflow_trace", template_payload)
+            self.assertEqual(template_payload["recommended_result_status"], "needs-follow-up")
+
+    def test_prompt_sync_generates_ralph_loop_contract_for_delivery_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\n- Execute the current delivery batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            session_path = paths["initiative_root"] / "prompt-session.md"
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            loop_prompt = paths["initiative_root"] / "ralph-loop-delivery.md"
+            loop_manifest = paths["initiative_root"] / "ralph-loop-delivery.json"
+            self.assertTrue(session_path.is_file())
+            self.assertTrue(report_template.is_file())
+            self.assertTrue(loop_prompt.is_file())
+            self.assertTrue(loop_manifest.is_file())
+
+            session_text = session_path.read_text(encoding="utf-8")
+            self.assertIn("Ralph Loop Requirement", session_text)
+            self.assertIn("setup-superpower-loop.sh", session_text)
+
+            loop_prompt_text = loop_prompt.read_text(encoding="utf-8")
+            self.assertIn("<promise>SUPERNB", loop_prompt_text)
+            self.assertIn("stop-hook", loop_prompt_text)
+
+            manifest_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
+            self.assertEqual(manifest_payload["phase"], "delivery")
+            self.assertTrue(manifest_payload["required"])
+            self.assertTrue(manifest_payload["stop_hook_required"])
+            self.assertIn("setup-superpower-loop.sh", manifest_payload["start_command_text"])
+
+            template_payload = json.loads(report_template.read_text(encoding="utf-8"))
+            self.assertTrue(template_payload["loop_execution"]["used"])
+            self.assertEqual(template_payload["loop_execution"]["mode"], "ralph-loop")
+
+    def test_prompt_sync_start_loop_creates_session_bound_state_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\n- Execute the current delivery batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["CLAUDE_CODE_SESSION_ID"] = "session-123"
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run", "--start-loop"],
+                env=env,
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            state_file = paths["project_dir"] / ".claude" / "superpower-loop-2026-03-19-demo-delivery.local.md"
+            self.assertTrue(state_file.is_file())
+            state_text = state_file.read_text(encoding="utf-8")
+            self.assertIn("session_id: session-123", state_text)
+            self.assertIn("completion_promise: \"SUPERNB 2026-03-19-demo delivery batch complete\"", state_text)
+
+    def test_debug_log_toggle_emits_initiative_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+
+            enable_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "debug-log", "on", "--spec", str(paths["spec_path"])],
+            )
+            self.assertEqual(enable_proc.returncode, 0, msg=enable_proc.stderr)
+            self.assertTrue((paths["project_dir"] / ".supernb" / "debug-logging.enabled").is_file())
+
+            record_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-record-result.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "research",
+                "--status",
+                "blocked",
+                "--summary",
+                "Testing debug log capture",
+                "--source",
+                "manual-override",
+                "--override-reason",
+                "Need to inspect lifecycle logging",
+                "--no-rerun",
+            )
+            self.assertEqual(record_proc.returncode, 0, msg=record_proc.stderr)
+
+            debug_logs = sorted((paths["initiative_root"] / "debug-logs").glob("*.ndjson"))
+            self.assertTrue(debug_logs)
+            lines = [json.loads(line) for line in debug_logs[-1].read_text(encoding="utf-8").splitlines() if line.strip()]
+            self.assertTrue(any(line["component"] == "supernb-record-result" and line["event"] == "start" for line in lines))
+            self.assertTrue(any(line["component"] == "supernb-record-result" and line["event"] == "complete" for line in lines))
+
     def test_record_result_requires_override_reason(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))

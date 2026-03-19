@@ -15,6 +15,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
     load_spec,
@@ -30,6 +31,8 @@ SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
 REPORT_END = "SUPERNB_EXECUTION_REPORT_JSON_END"
+LOOP_REQUIRED_PHASES = {"planning", "delivery"}
+CLAUDE_LOOP_HARNESSES = {"claude-code", "claude-code-prompt"}
 METADATA_FIELDS = {
     "Initiative ID",
     "Product",
@@ -291,6 +294,10 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
     return common_resolve_spec_path(args, ROOT_DIR)
 
 
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-execute-next", event, payload)
+
+
 def resolve_run_payload(spec: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
     run_status_json = artifact_path(spec, "run_status_json")
     if not run_status_json.is_file():
@@ -506,6 +513,7 @@ def response_contract(phase: str) -> str:
         '    "using_git_worktrees": {"used": false, "evidence": "not needed this run"},\n'
         '    "subagent_or_executing_plans": {"used": true, "evidence": "..."}\n'
         "  },\n"
+        '  "loop_execution": {"used": false, "mode": "ralph-loop|none", "completion_promise": "", "state_file": "", "max_iterations": 0, "final_iteration": 0, "exit_reason": "", "evidence": ""},\n'
         '  "recommended_result_status": "succeeded|needs-follow-up|blocked|manual-follow-up",\n'
         '  "recommended_gate_action": "none|certify|advance",\n'
         f'  "recommended_gate_status": "{gate_status}|pending|",\n'
@@ -518,6 +526,7 @@ def response_contract(phase: str) -> str:
         "- Only list evidence_artifacts that were actually created, updated, or are central proof of the work.\n"
         "- workflow_trace must include every listed workflow key, even when a workflow was intentionally skipped.\n"
         "- For delivery, validated_batches_completed must reflect the number of verified batches completed in this run, and batch_commits must list the commit(s) created for those batches.\n"
+        "- For Claude Code planning or delivery runs, loop_execution.used must be true and must record the real Ralph Loop state file, completion promise, iteration count, exit reason, and evidence.\n"
         "- Prefer recommended_gate_action=certify unless the phase is truly ready to advance.\n"
     )
 
@@ -570,6 +579,20 @@ def normalize_workflow_trace(value: Any) -> dict[str, dict[str, Any]]:
     return result
 
 
+def normalize_loop_execution(value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        "used": ensure_bool_or_none(raw.get("used")),
+        "mode": ensure_string(raw.get("mode")).lower(),
+        "completion_promise": ensure_string(raw.get("completion_promise")),
+        "state_file": ensure_string(raw.get("state_file")),
+        "max_iterations": max(int(raw.get("max_iterations", 0) or 0), 0),
+        "final_iteration": max(int(raw.get("final_iteration", 0) or 0), 0),
+        "exit_reason": ensure_string(raw.get("exit_reason")),
+        "evidence": ensure_string(raw.get("evidence")),
+    }
+
+
 def extract_report_json(text: str) -> dict[str, Any] | None:
     pattern = re.compile(rf"{REPORT_START}\s*(\{{.*?\}})\s*{REPORT_END}", re.DOTALL)
     match = pattern.search(text)
@@ -604,6 +627,7 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         "validated_batches_completed": max(int(parsed.get("validated_batches_completed", 0) or 0), 0),
         "batch_commits": ensure_list(parsed.get("batch_commits")),
         "workflow_trace": normalize_workflow_trace(parsed.get("workflow_trace")),
+        "loop_execution": normalize_loop_execution(parsed.get("loop_execution")),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": ensure_string(parsed.get("recommended_gate_status")).lower(),
@@ -1851,6 +1875,7 @@ def heuristic_report_from_text(phase: str, status: str, response_text: str, stde
         "validated_batches_completed": 0,
         "batch_commits": [],
         "workflow_trace": normalize_workflow_trace({}),
+        "loop_execution": normalize_loop_execution({}),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": default_gate_status(phase) if recommended_gate_action in {"certify", "advance"} else "",
@@ -1956,6 +1981,44 @@ def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: li
     return issues
 
 
+def loop_execution_findings(phase: str, harness: str, report: dict[str, Any]) -> list[str]:
+    if phase not in LOOP_REQUIRED_PHASES or harness not in CLAUDE_LOOP_HARNESSES:
+        return []
+
+    loop_execution = report.get("loop_execution") or {}
+    issues: list[str] = []
+    used = loop_execution.get("used")
+    mode = ensure_string(loop_execution.get("mode")).lower()
+    completion_promise = ensure_string(loop_execution.get("completion_promise"))
+    state_file = ensure_string(loop_execution.get("state_file"))
+    max_iterations = int(loop_execution.get("max_iterations", 0) or 0)
+    final_iteration = int(loop_execution.get("final_iteration", 0) or 0)
+    exit_reason = ensure_string(loop_execution.get("exit_reason"))
+    evidence = ensure_string(loop_execution.get("evidence"))
+
+    if used is not True:
+        issues.append(
+            f"{phase.capitalize()} runs on Claude Code must use Ralph Loop instead of relying on self-judged completion. "
+            "Switch to a loop-enabled Claude Code environment or treat the packet as needs-follow-up."
+        )
+        return issues
+    if mode not in {"ralph-loop", "frad-superpower-loop", "superpower-loop"}:
+        issues.append("loop_execution.mode must identify Ralph Loop for Claude Code planning and delivery runs.")
+    if not completion_promise:
+        issues.append("loop_execution.completion_promise is required for Claude Code planning and delivery runs.")
+    if not state_file:
+        issues.append("loop_execution.state_file is required for Claude Code planning and delivery runs.")
+    if max_iterations < 1:
+        issues.append("loop_execution.max_iterations must be a positive integer.")
+    if final_iteration < 1:
+        issues.append("loop_execution.final_iteration must record the last completed iteration.")
+    if not exit_reason:
+        issues.append("loop_execution.exit_reason must explain why the loop stopped.")
+    if not evidence:
+        issues.append("loop_execution.evidence must explain the Ralph Loop state or observed stop condition.")
+    return issues
+
+
 def evidence_artifact_findings(project_dir: Path, packet_dir: Path, report: dict[str, Any], response_text: str, stderr_text: str) -> list[str]:
     issues: list[str] = []
     combined_output = "\n".join([response_text, stderr_text])
@@ -2021,6 +2084,7 @@ def build_result_suggestion(
         structured_report["batch_commits"] = created_commits
 
     workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
+    workflow_issues.extend(loop_execution_findings(phase, harness, structured_report))
     if missing_structured_report:
         workflow_issues.insert(0, missing_structured_report_issue(harness))
     workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
@@ -2158,6 +2222,19 @@ def write_result_suggestion_md(
             used = entry.get("used")
             used_text = "yes" if used is True else ("no" if used is False else "missing")
             lines.append(f"- `{key}` used=`{used_text}` evidence=`{entry.get('evidence', '')}`")
+    loop_execution = report.get("loop_execution") or {}
+    if any(loop_execution.values()):
+        lines.extend(["", "## Loop Execution", ""])
+        used = loop_execution.get("used")
+        used_text = "yes" if used is True else ("no" if used is False else "missing")
+        lines.append(f"- Used: `{used_text}`")
+        lines.append(f"- Mode: `{loop_execution.get('mode', '')}`")
+        lines.append(f"- Completion promise: `{loop_execution.get('completion_promise', '')}`")
+        lines.append(f"- State file: `{loop_execution.get('state_file', '')}`")
+        lines.append(f"- Max iterations: `{loop_execution.get('max_iterations', 0)}`")
+        lines.append(f"- Final iteration: `{loop_execution.get('final_iteration', 0)}`")
+        lines.append(f"- Exit reason: {loop_execution.get('exit_reason', '')}")
+        lines.append(f"- Evidence: {loop_execution.get('evidence', '')}")
     commits_created = suggestion.get("commits_created") or report.get("batch_commits") or []
     if commits_created:
         lines.extend(["", "## Batch Commits", ""])
@@ -2395,6 +2472,18 @@ def main() -> int:
     spec = load_spec(spec_path)
     global DISPLAY_ROOTS
     DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "phase_arg": args.phase,
+            "harness_arg": args.harness,
+            "project_dir_arg": args.project_dir or "",
+            "prompt_arg": args.prompt or "",
+            "dry_run": args.dry_run,
+        },
+    )
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
@@ -2407,10 +2496,26 @@ def main() -> int:
         project_dir = resolve_project_dir(args, spec)
         harness = resolve_harness(args, spec, project_dir)
     except (FileNotFoundError, ValueError) as exc:
+        debug_log(
+            spec,
+            "resolve-error",
+            {
+                "error": str(exc),
+            },
+        )
         print(str(exc), file=sys.stderr)
         return 1
 
     if not prompt_source.is_file():
+        debug_log(
+            spec,
+            "prompt-missing",
+            {
+                "prompt_source": str(prompt_source),
+                "phase": phase,
+                "harness": harness,
+            },
+        )
         print(f"Prompt file not found: {prompt_source}", file=sys.stderr)
         return 1
 
@@ -2586,6 +2691,27 @@ def main() -> int:
         created_commits,
     )
     append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md, phase_readiness_md)
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "harness": harness,
+            "dry_run": args.dry_run,
+            "status": status,
+            "exit_code": exit_code,
+            "packet_dir": display_path(packet_dir),
+            "prompt_source": display_path(prompt_source),
+            "result_suggestion": display_path(result_suggestion_md),
+            "phase_readiness_ready": bool(phase_readiness.get("ready_for_certification")),
+            "phase_readiness_missing_sections": int(phase_readiness.get("total_missing_sections", 0)),
+            "phase_readiness_thin_sections": int(phase_readiness.get("total_thin_sections", 0)),
+            "phase_readiness_semantic_issues": int(phase_readiness.get("total_semantic_issues", 0)),
+            "workflow_issues": suggestion.get("workflow_issues", []),
+            "suggested_result_status": suggestion.get("suggested_result_status", ""),
+        },
+    )
 
     print(f"Initiative: {initiative_id}")
     print(f"Phase: {phase}")

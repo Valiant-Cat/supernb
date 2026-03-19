@@ -11,7 +11,7 @@
 1. `superpowers` 负责软件交付方法学。
 2. `sensortower-research` 负责市场与竞品证据。
 3. `impeccable` 负责 UI/UX 方向与质量治理。
-4. `dotclaude/superpowers` 负责可选的 loop 持久执行增强。
+4. `dotclaude/superpowers` 负责 Claude Code prompt-first planning / delivery 所需的 Ralph Loop 持久执行增强。
 5. 本地化 skills 负责把 i18n 变成工程约束，而不是收尾动作。
 
 所以 `supernb` 的设计中心不是“再增加一个更强的 agent”，而是：

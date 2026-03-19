@@ -5,7 +5,7 @@
 `supernb` 是一个编排层，它把 5 类能力组合成一条产品开发工作流：
 
 - 使用最新 `obra/superpowers` 作为默认的规划和交付引擎
-- 使用 `superpowers@frad-dotclaude` 作为 Claude Code 下可选的 loop 执行增强层
+- 使用 `superpowers@frad-dotclaude` 作为 Claude Code prompt-first planning / delivery 的 Ralph Loop 强制执行层
 - 使用 `impeccable` 负责 UI/UX 生成、审查、design system 定义和落地后的质量控制
 - 内置 `sensortower-research` 用于竞品调研、评论挖掘和有证据支撑的 PRD 产出
 - 内置翻译 skills 用于本地化提取、key 同步和多语言补全
@@ -79,7 +79,7 @@
 1. 先做 research。先做竞品、评论、功能机会分析，再写 PRD。
 2. 再做 PRD。每份 PRD 都必须回指 research window 和竞品证据。
 3. 再做 design。用 `impeccable` 定义视觉方向、design system、关键旅程页面，以及对比度、可读性和交互质量规则。
-4. 再做 implementation。用最新 `superpowers` 做规划、测试先行、执行和验证；只有当 Claude Code 任务确实需要有限持久循环时，才启用 Frad loop。
+4. 再做 implementation。用最新 `superpowers` 做规划、测试先行、执行和验证；如果是在 Claude Code 里以 prompt-first 方式做 planning 或 delivery，就必须启用 Ralph Loop，不能让 agent 靠自我判断停下。
 5. 持续提交。每个经过验证的 batch 都应该提交到 git。
 
 架构说明见：[docs/architecture.md](./docs/architecture.md)
@@ -226,7 +226,7 @@ make bootstrap HARNESS=codex
 ## 默认与可选引擎
 
 - 所有支持 harness 的默认基线：最新 `obra/superpowers`
-- Claude Code 下的可选增强层：`superpowers@frad-dotclaude`
+- Claude Code prompt-first planning / delivery 的 Ralph Loop 强制执行层：`superpowers@frad-dotclaude`
 - `execute-next` 目前只对 Codex 和 Claude Code 提供 direct bridge。OpenCode 仍然是“准备 prompt + 手动执行”的路径。
 - 不要在同一个 Claude Code 环境里并列安装两个同名 `superpowers` plugin
 - 在 `supernb` 里，`dotclaude` 被视为执行增强层，而不是主工作流底座
@@ -258,6 +258,7 @@ make bootstrap HARNESS=codex
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
    现在 PRD、design、implementation plan、release readiness 都带有带稳定 `Trace ID` 的 traceability matrix；这些行一旦对不上，certification 会直接拦住 phase 漂移。
+   如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template，并在 planning / delivery 时自动启动 Ralph Loop。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
    `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。
@@ -269,6 +270,16 @@ make bootstrap HARNESS=codex
 8. 只有在你想覆盖 packet 建议时，才手动运行 `./scripts/supernb record-result ...`。
    手工 override 现在必须带 `--override-reason`；来自 packet 的结果继续走 `apply-execution`。
 9. 只有在你想绕过认证助手时，才手动运行 `./scripts/supernb advance-phase ...`。
+10. 如果你要在真实项目里做一轮排查，可以先用 `./scripts/supernb debug-log on --initiative-id <initiative-id>` 打开 initiative 级 debug 日志。
+   日志会落到 `.supernb/initiatives/<initiative-id>/debug-logs/<YYYYMMDD>.ndjson`，直到你执行 `./scripts/supernb debug-log off ...`，或者用 `SUPERNB_DEBUG_LOG=0` 临时覆盖掉。
+
+如果你在 Claude Code 里主要靠 prompt 使用：
+
+- 直接说“使用 supernb”或“用 supernb 完善这个项目”是对的
+- 但 managed `supernb` skill 应该先在底层跑 `./scripts/supernb prompt-sync ... --start-loop`
+- agent 应该先读 `.supernb/initiatives/<initiative-id>/prompt-session.md`
+- 对 planning 和 delivery，上面这条内部命令就应该先把 Ralph Loop 拉起来，并一直执行到 completion promise 真实成立
+- 结束前还要把 `.supernb/initiatives/<initiative-id>/prompt-report-template.json` 填好，再导入并 apply，不能只改代码不回写 control plane
 
 如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：
 
@@ -287,6 +298,7 @@ make bootstrap HARNESS=codex
 - 用 `./scripts/supernb clean-initiative --initiative-id <initiative-id>` 预览旧 command brief、dry-run packet、unsupported packet 和较旧 execution artifact。
 - 确认预览结果后，加 `--apply` 会先归档到 cleanup session，并附带 manifest。
 - 只有明确要硬删除时，才额外加 `--delete`。
+- 正式跑真实链路前，可以先用 `./scripts/supernb debug-log status --initiative-id <initiative-id>` 确认该产品项目的持久 debug 日志是否已打开。
 
 ## 常用命令
 

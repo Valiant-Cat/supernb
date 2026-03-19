@@ -12,6 +12,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     load_spec,
     nested_get,
@@ -59,6 +60,10 @@ def artifact_path(spec: dict[str, Any], key: str) -> Path:
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     return common_resolve_spec_path(args, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-import-execution", event, payload)
 
 
 def load_execute_next_module() -> Any:
@@ -188,6 +193,17 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "phase": args.phase,
+            "harness": args.harness,
+            "report_json": args.report_json,
+            "execution_status": args.execution_status,
+        },
+    )
 
     module = load_execute_next_module()
     project_dir = project_root(spec)
@@ -235,6 +251,14 @@ def main() -> int:
         evidence_search_roots,
     )
     if missing_evidence_artifacts:
+        debug_log(
+            spec,
+            "validation-error",
+            {
+                "phase": args.phase,
+                "missing_evidence_artifacts": missing_evidence_artifacts,
+            },
+        )
         print(
             "Structured report references evidence artifacts that do not exist: "
             + ", ".join(missing_evidence_artifacts),
@@ -246,6 +270,14 @@ def main() -> int:
     response_text = build_response_text(module, merged_report, response_prefix)
     normalized_report = module.extract_report_json(response_text)
     if normalized_report is None:
+        debug_log(
+            spec,
+            "contract-error",
+            {
+                "phase": args.phase,
+                "report_json": str(report_path),
+            },
+        )
         print("Structured report JSON did not pass the supernb REPORT contract validation.", file=sys.stderr)
         return 1
 
@@ -320,6 +352,21 @@ def main() -> int:
     module.write_result_suggestion_md(result_suggestion_md, initiative_id, suggestion, packet_dir)
     module.write_json(phase_readiness_json, phase_readiness)
     module.write_phase_readiness_md(phase_readiness_md, phase_readiness)
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": args.phase,
+            "harness": args.harness,
+            "packet_dir": module.display_path(packet_dir),
+            "result_suggestion": module.display_path(result_suggestion_md),
+            "phase_readiness": module.display_path(phase_readiness_md),
+            "evidence_artifact_count": len(resolved_evidence_artifacts),
+            "suggested_result_status": suggestion.get("suggested_result_status", ""),
+            "workflow_issue_count": len(suggestion.get("workflow_issues", [])),
+        },
+    )
 
     print(f"Initiative: {initiative_id}")
     print(f"Phase: {args.phase}")

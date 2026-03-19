@@ -119,13 +119,13 @@ Why it matters for `supernb`:
 
 1. Research intelligence: `sensortower-research`
 2. Default product planning and software execution: latest `obra/superpowers`
-3. Optional Claude Code persistence layer: `superpowers@frad-dotclaude`
+3. Claude Code Ralph Loop persistence layer for prompt-first planning and delivery: `superpowers@frad-dotclaude`
 4. UI/UX generation and enforcement: `impeccable`
 
 Conflict note:
 
 - both upstreams use the plugin name `superpowers`
 - both define overlapping skills like `brainstorming`, `writing-plans`, `executing-plans`, and `systematic-debugging`
-- because of that, `supernb` treats `dotclaude` as an optional specialist add-on, not a co-equal baseline install
+- because of that, `supernb` does not treat `dotclaude` as a co-equal default baseline install, but it does require its Ralph Loop stop-hook behavior when Claude Code is used for prompt-first planning or delivery
 
 That layering is the basis of the repository structure and skills in this repo.

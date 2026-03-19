@@ -114,7 +114,7 @@ Gate:
 
 ### 5. Autonomous Execution Loop
 
-Primary engine: optional `superpowers@frad-dotclaude`
+Primary engine: latest `superpowers` plus Ralph Loop enforcement when Claude Code runs prompt-first planning or delivery
 
 Loop model:
 
@@ -126,7 +126,7 @@ Loop model:
 Gate:
 
 - completion requires passing verification, not just code generation
-- this layer is optional and should not replace the primary `superpowers` baseline
+- Claude Code prompt-first planning and delivery must not stop on self-judgment alone
 
 ### 6. Release Readiness
 
@@ -153,7 +153,7 @@ Storage target:
 3. Design approval is mandatory before implementation.
 4. `impeccable` is used both before and after frontend implementation.
 5. Latest `superpowers` is the default execution baseline.
-6. The Frad loop is only used as an optional bounded persistence layer on Claude Code.
+6. Claude Code prompt-first planning and delivery use Ralph Loop as the anti-self-termination layer.
 7. Do not install two same-named `superpowers` plugins in one Claude Code environment.
 8. Every verified batch is committed to git.
 9. Hardcoded-copy checks should run before release when UI code is in scope.
@@ -170,7 +170,7 @@ Storage target:
 
 - `sensortower-research` provides evidence
 - `superpowers` provides execution discipline
-- `ralph-loop` provides optional persistence
+- `ralph-loop` provides enforced persistence for Claude Code prompt-first planning and delivery
 - `impeccable` provides design quality control
 
 Each tool covers a real weakness of the others instead of duplicating them.

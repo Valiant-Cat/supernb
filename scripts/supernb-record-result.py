@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lib.supernb_common import (
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
     load_spec,
@@ -63,6 +64,10 @@ def artifact_path(spec: dict[str, Any], key: str) -> Path:
 
 def resolve_spec_path(args: argparse.Namespace) -> Path:
     return common_resolve_spec_path(args, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-record-result", event, payload)
 
 
 def current_phase_from_run_status(spec: dict[str, Any]) -> str:
@@ -131,6 +136,17 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "phase_arg": args.phase or "",
+            "status": args.status,
+            "source": args.source,
+            "no_rerun": args.no_rerun,
+        },
+    )
 
     phase = args.phase or current_phase_from_run_status(spec)
     results_dir = artifact_path(spec, "phase_results_dir")
@@ -222,10 +238,24 @@ def main() -> int:
         source_packet_display,
         args.override_reason or "",
     )
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "status": args.status,
+            "source": args.source,
+            "result_path": display_path(result_path),
+            "source_packet": source_packet_display,
+            "evidence_artifact_count": len(resolved_artifacts),
+            "no_rerun": args.no_rerun,
+        },
+    )
 
     print(f"Recorded phase result: {result_path}")
     if not args.no_rerun:
-        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--initiative-id", initiative_id], check=True)
+        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)], check=True)
     return 0
 
 

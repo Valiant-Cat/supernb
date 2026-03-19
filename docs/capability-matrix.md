@@ -107,7 +107,8 @@ Observed specialist additions:
 
 `supernb` expectation:
 
-- these are optional specialist execution enhancers, not the default baseline
+- these are not the default baseline for every environment
+- but Claude Code prompt-first planning and delivery should use this layer to prevent self-judged stopping
 - route to them only when the environment intentionally supports them and the task is bounded enough to verify honestly
 
 ## Routing Principle

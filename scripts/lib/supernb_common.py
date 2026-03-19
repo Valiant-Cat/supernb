@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
+DEBUG_LOG_ENV_VAR = "SUPERNB_DEBUG_LOG"
 SNAPSHOT_IGNORED_METADATA_FIELDS = {
     "Status",
     "Approval status",
@@ -24,6 +27,10 @@ def try_load_pyyaml(text: str) -> Any:
     except ImportError:
         return None
     return yaml.safe_load(text)
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def parse_scalar(value: str) -> Any:
@@ -194,6 +201,70 @@ def initiative_dir(spec: dict[str, Any], root_dir: Path) -> Path:
         default=project_root(spec, root_dir) / ".supernb" / "initiatives" / f"{nested_get(spec, 'initiative', 'id')}" / "run-status.md",
     )
     return run_status.parent.resolve()
+
+
+def parse_bool_flag(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "disabled"}:
+        return False
+    return None
+
+
+def debug_log_toggle_path(project_dir: Path) -> Path:
+    return project_dir / ".supernb" / "debug-logging.enabled"
+
+
+def debug_log_env_override() -> bool | None:
+    return parse_bool_flag(os.getenv(DEBUG_LOG_ENV_VAR))
+
+
+def debug_log_enabled(project_dir: Path) -> bool:
+    env_override = debug_log_env_override()
+    if env_override is not None:
+        return env_override
+    return debug_log_toggle_path(project_dir).is_file()
+
+
+def debug_log_dir(spec: dict[str, Any], root_dir: Path) -> Path:
+    return initiative_dir(spec, root_dir) / "debug-logs"
+
+
+def append_debug_log(
+    spec: dict[str, Any],
+    root_dir: Path,
+    component: str,
+    event: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    force: bool = False,
+) -> Path | None:
+    project_dir = project_root(spec, root_dir)
+    if not force and not debug_log_enabled(project_dir):
+        return None
+
+    try:
+        log_dir = debug_log_dir(spec, root_dir)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / f"{datetime.now().strftime('%Y%m%d')}.ndjson"
+        record = {
+            "timestamp": utc_now(),
+            "component": component,
+            "event": event,
+            "initiative_id": nested_get(spec, "initiative", "id"),
+            "project_dir": str(project_dir),
+            "cwd": str(Path.cwd()),
+            "pid": os.getpid(),
+            "payload": payload or {},
+        }
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        return log_path
+    except OSError:
+        return None
 
 
 def certification_state_path(spec: dict[str, Any], root_dir: Path) -> Path:

@@ -11,6 +11,25 @@ This skill coordinates the end-to-end `supernb` workflow. It is the top-level ro
 
 `supernb` templates are optional storage scaffolds. Do not force upstream `superpowers` into a weaker or smaller document structure just because a local template exists.
 
+## Prompt-First Rule
+
+When the user invokes `supernb` by prompt in an existing product repo, do not stop at "following supernb principles."
+
+Before substantive work:
+
+1. Resolve the active initiative.
+2. Run `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` or plain `./scripts/supernb prompt-sync --start-loop` when the current repo has a single initiative.
+3. Read the generated `prompt-session.md`, `next-command.md`, and active phase artifacts.
+
+After substantive work:
+
+1. Fill the generated `prompt-report-template.json` with real evidence.
+2. Import it with `import-execution`.
+3. Apply it with `apply-execution`.
+
+This is mandatory for prompt-first usage because otherwise the codebase drifts away from `run-status`, `execution` packets, certification, and debug logs.
+For Claude Code planning and delivery, `--start-loop` is also the anti-self-termination step and should happen before substantive execution.
+
 ## Mandatory Phase Order
 
 1. Research

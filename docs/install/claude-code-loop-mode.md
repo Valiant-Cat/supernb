@@ -1,14 +1,15 @@
-# Claude Code Loop Mode
+# Claude Code Ralph Loop Mode
 
-Use this mode only when you explicitly want the FradSer Superpower Loop on Claude Code.
+Use this mode when you want Claude Code planning or delivery sessions to keep iterating until a real completion promise is satisfied.
+For prompt-first `supernb` planning and delivery on Claude Code, this is the required enforcement layer.
 
 ## When To Use It
 
-- you already have a written plan
+- you already have a written plan or current delivery batch
 - the task batch is bounded
 - you want the session to keep iterating until a completion promise is true
 
-Do not use this as your default `supernb` baseline.
+Do not use this for vague "finish the whole product" prompts. Use it for bounded planning or delivery batches.
 
 ## Install
 
@@ -24,8 +25,8 @@ The Frad plugin and the latest upstream plugin are both named `superpowers`.
 Because they overlap in command and skill names:
 
 - do not keep both installed side by side in one Claude Code environment
-- use the latest upstream plugin as your default
-- switch to the Frad plugin only for sessions that need loop behavior
+- use the latest upstream plugin as your default baseline environment
+- use a separate Claude Code environment or switch the current one when you need enforced Ralph Loop behavior
 
 ## Safe Usage Pattern
 
@@ -49,3 +50,15 @@ The actual loop implementation inspected in `dotclaude` is based on:
 - `hooks/stop-hook.sh`
 
 That is the mechanism `supernb` refers to when it mentions `ralph-loop`.
+
+## How `supernb` Uses It
+
+For Claude Code prompt-first planning and delivery:
+
+1. Run `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` inside the active Claude Code session.
+2. Read `.supernb/initiatives/<initiative-id>/prompt-session.md`.
+3. That command writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json` and starts the Ralph Loop for the current session.
+4. Work the bounded batch until the completion promise is honestly true.
+5. Fill `prompt-report-template.json` with real loop evidence, then import and apply it.
+
+Without the stop hook, the loop contract is not enforceable. In that case, do not treat the batch as cleanly complete.

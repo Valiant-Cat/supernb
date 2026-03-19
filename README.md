@@ -5,7 +5,7 @@
 `supernb` is an orchestration layer that combines five capabilities into one product-building workflow:
 
 - the latest `obra/superpowers` as the default planning and delivery engine
-- `superpowers@frad-dotclaude` as an optional Claude Code loop executor for bounded long-running tasks
+- `superpowers@frad-dotclaude` as the Ralph Loop enforcement layer for Claude Code prompt-first planning and delivery
 - `impeccable` for UI/UX generation, critique, design-system definition, and post-implementation quality control
 - bundled `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
 - bundled translation skills for localization extraction, key sync, and multi-language completion
@@ -79,7 +79,7 @@ More detail: [docs/upstream-analysis.md](./docs/upstream-analysis.md)
 1. Research first. Run competitor lookup, reviews, and feature opportunity analysis before writing PRD.
 2. PRD second. Every PRD must cite the research window and the competitor evidence used.
 3. Design third. Use `impeccable` to define visual direction, design-system rules, key journey surfaces, and contrast/readability/interaction quality checks.
-4. Implementation fourth. Use the latest `superpowers` to plan, write tests first, execute tasks, and verify outputs. Use the Frad loop only when a Claude Code task genuinely benefits from bounded persistence.
+4. Implementation fourth. Use the latest `superpowers` to plan, write tests first, execute tasks, and verify outputs. For Claude Code prompt-first planning and delivery, use Ralph Loop so the agent cannot stop on self-judged completion.
 5. Commit continuously. Every validated batch should be committed to git.
 
 Architecture: [docs/architecture.md](./docs/architecture.md)
@@ -225,7 +225,7 @@ Detailed install guides:
 ## Default And Optional Engines
 
 - Default baseline for all supported harnesses: latest `obra/superpowers`
-- Optional Claude Code-only enhancer: `superpowers@frad-dotclaude`
+- Claude Code Ralph Loop enforcement layer for prompt-first planning and delivery: `superpowers@frad-dotclaude`
 - `execute-next` direct bridging is currently implemented for Codex and Claude Code. OpenCode remains a prepared-prompt/manual-handoff path.
 - Do not install both `superpowers` plugins side by side in the same Claude Code environment. They share the same plugin name and overlapping skill names.
 - In `supernb`, `dotclaude` is treated as an execution add-on, not the primary workflow base.
@@ -257,6 +257,7 @@ For a new product initiative:
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
    PRD, design, implementation plan, and release readiness now each carry traceability matrices with stable `Trace ID` rows. Certification blocks phase drift when those rows stop lining up.
+   If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, and auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
@@ -268,6 +269,16 @@ For a new product initiative:
 8. Record the outcome manually with `./scripts/supernb record-result ...` only when you want to override the packet suggestion.
    Manual overrides now require `--override-reason`; packet-sourced results should continue to flow through `apply-execution`.
 9. Apply the gate update with `./scripts/supernb advance-phase ...` only when you want to bypass the certification helper.
+10. If you want initiative-scoped debug traces while testing on a real project, turn them on with `./scripts/supernb debug-log on --initiative-id <initiative-id>`.
+    Debug events are written to `.supernb/initiatives/<initiative-id>/debug-logs/<YYYYMMDD>.ndjson` and stay enabled until you run `./scripts/supernb debug-log off ...` or override with `SUPERNB_DEBUG_LOG=0`.
+
+For prompt-first sessions in Claude Code:
+
+- say "use supernb" or "use supernb to improve this project"
+- the managed `supernb` skill should first run `./scripts/supernb prompt-sync ... --start-loop` under the hood
+- the agent should read `.supernb/initiatives/<initiative-id>/prompt-session.md`
+- for planning and delivery, that internal command should start the Ralph Loop and keep iterating until the completion promise is honestly true
+- before ending the session, the agent should fill `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then import and apply it so execution packets and certification stay aligned
 
 For an existing initiative created before the deeper templates and stricter gates were added:
 
@@ -286,6 +297,7 @@ For housekeeping after many previews and retries:
 - Run `./scripts/supernb clean-initiative --initiative-id <initiative-id>` to preview stale command briefs, dry-run packets, unsupported packets, and older execution artifacts.
 - Re-run with `--apply` to archive the selected artifacts into a cleanup session with a manifest.
 - Add `--delete` only when you explicitly want hard deletion instead of archival.
+- Run `./scripts/supernb debug-log status --initiative-id <initiative-id>` to confirm whether persistent debug logging is enabled for the product project before a real-world smoke pass.
 
 ## Handy Commands
 

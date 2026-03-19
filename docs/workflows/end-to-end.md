@@ -190,10 +190,11 @@ Default path:
 - commit validated work continuously instead of waiting for a final all-at-once push
 - record whether brainstorming, writing-plans, TDD, and code review were used in the execution packet
 
-Optional Claude Code loop path:
+Claude Code prompt-first planning or delivery path:
 
-- switch to the Frad plugin
+- switch to a Ralph Loop-enabled Claude Code environment
 - use bounded completion promises
+- start the generated `ralph-loop-<phase>` contract before substantive work
 - never run an unbounded vague loop
 
 ## 9. Final Verification

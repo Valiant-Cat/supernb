@@ -51,6 +51,14 @@ This writes:
 - `.supernb/initiatives/<initiative-id>/phase-results/`
 - `.supernb/initiatives/<initiative-id>/executions/`
 
+If you want to inspect a real-world run in detail, turn on persistent debug logging first:
+
+```bash
+./scripts/supernb debug-log on --initiative-id <initiative-id>
+```
+
+That writes structured event traces to `.supernb/initiatives/<initiative-id>/debug-logs/<YYYYMMDD>.ndjson` until you turn it off again.
+
 ## 4. Execute The Phase
 
 Run the rendered `next-command.md` through a supported harness CLI:

@@ -14,6 +14,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     certification_passed,
     certification_snapshot_matches,
@@ -78,6 +79,10 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
 
 def certification_state_path(spec: dict[str, Any]) -> Path:
     return common_certification_state_path(spec, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-run", event, payload)
 
 
 def read_markdown_field(path: Path, field_name: str) -> str:
@@ -697,6 +702,15 @@ def main() -> int:
     spec = load_spec(spec_path)
     global DISPLAY_ROOTS
     DISPLAY_ROOTS = [project_root(spec), ROOT_DIR]
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "phase_arg": args.phase,
+            "no_next_command": args.no_next_command,
+        },
+    )
     initiative_id = nested_get(spec, "initiative", "id") or args.initiative_id
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
@@ -747,6 +761,21 @@ def main() -> int:
         "next_command": next_command,
     }
     run_status_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "selected_phase": selected_phase,
+            "selected_phase_status": results[selected_phase].status,
+            "phase_statuses": {phase: results[phase].status for phase in PHASES},
+            "phase_blockers": {phase: results[phase].blockers for phase in PHASES if results[phase].blockers},
+            "next_command_generated": bool(next_command),
+            "run_status_json": display_path(run_status_json),
+            "phase_packet_md": display_path(phase_packet_md),
+            "archived_brief": archived_brief or "",
+        },
+    )
 
     print(f"Initiative: {initiative_id}")
     print(f"Selected phase: {selected_phase} ({results[selected_phase].status})")

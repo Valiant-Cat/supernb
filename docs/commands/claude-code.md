@@ -66,5 +66,5 @@ For certifiable packets, Claude Code responses must include the structured `REPO
 
 - `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.
 - upstream `superpowers` remains the main workflow engine
-- the Frad plugin remains optional for bounded loop sessions
+- for prompt-first planning and delivery, Claude Code should run in a Ralph Loop-enabled environment instead of relying on self-judged completion
 - this mapping intentionally avoids inventing a fake native Claude Code command system for `supernb`

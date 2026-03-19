@@ -308,6 +308,75 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertTrue(any("changes primary surfaces" in issue for issue in issues))
             self.assertTrue(any("Welcome tour" in issue for issue in issues))
 
+    def test_claude_delivery_without_loop_evidence_is_not_certifiable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Completed one delivery batch.",
+                        "completed_items": ["Implemented the requested delivery batch."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": [],
+                        "commands_run": [],
+                        "tests_run": [],
+                        "validated_batches_completed": 1,
+                        "batch_commits": ["abc123 delivery batch"],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Wrote and ran the delivery test first."},
+                            "code_review": {"used": True, "evidence": "Reviewed the completed batch."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed for this batch."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed a single bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="claude-code-prompt",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before={"is_repo": False},
+                git_after={"is_repo": False},
+                created_commits=[],
+            )
+
+            self.assertEqual(suggestion["suggested_result_status"], "needs-follow-up")
+            self.assertTrue(any("Ralph Loop" in issue for issue in suggestion["workflow_issues"]))
+
 
 if __name__ == "__main__":
     unittest.main()

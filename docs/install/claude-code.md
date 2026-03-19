@@ -6,7 +6,7 @@
 - local `supernb` skills for orchestration
 - bundled `sensortower-research` and translation skills as managed Claude Code skills in the selected install scope
 - built `impeccable` Claude Code bundle for UI/UX work
-- optional `superpowers@frad-dotclaude` only when you specifically need the loop workflow
+- `superpowers@frad-dotclaude` when you need Ralph Loop enforcement for Claude Code prompt-first planning or delivery
 
 ## 1. Bootstrap
 
@@ -130,9 +130,9 @@ What the script does:
 - repairs previously copied generated `impeccable` skill directories into managed symlinks
 - repairs the older aggregate `supernb` symlink layout into per-skill links that Claude Code can actually list
 
-## 4. Optional Frad Loop Mode
+## 4. Ralph Loop Mode For Prompt-First Planning And Delivery
 
-Only use this mode if you need the loop executor and are willing to replace the default Claude Code `superpowers` plugin for that environment.
+Use this mode when Claude Code is going to run prompt-first `supernb` planning or delivery and you need the session to keep iterating until the completion promise is actually true.
 
 ```bash
 claude plugin marketplace add FradSer/dotclaude
@@ -142,8 +142,9 @@ claude plugin install superpowers@frad-dotclaude
 Rules:
 
 - do not keep both same-named `superpowers` plugins installed side by side in one Claude Code environment
-- prefer the latest `obra/superpowers` as the default baseline
-- use the Frad plugin only for bounded loop-oriented execution sessions
+- keep the latest `obra/superpowers` as the default baseline in environments that do not need Ralph Loop
+- use the Frad plugin in the Claude Code environment that will run the bounded prompt-first planning or delivery batch
+- do not use this mode for vague unbounded prompts
 
 ## 5. Recommended Session Flow
 
@@ -151,7 +152,28 @@ Rules:
 2. Write or refine the PRD.
 3. Use `ui-ux-governance`.
 4. Run the latest `superpowers` planning and execution flow.
-5. Switch to the Frad plugin only if you explicitly need Superpower Loop behavior for a bounded task.
+5. If the active Claude Code session will execute planning or delivery by prompt-first `supernb`, switch to the Ralph Loop-enabled environment before starting the batch.
+
+## 5A. Prompt-First Flow
+
+If you mainly use Claude Code by saying things like "use supernb" or "使用 supernb 完善这个项目", that is valid, but the skill should still drive the control plane under the hood.
+
+Expected behavior:
+
+1. The `supernb` skill resolves the current initiative.
+2. It runs:
+
+```bash
+./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop
+```
+
+3. It reads `.supernb/initiatives/<initiative-id>/prompt-session.md`.
+4. For planning and delivery on Claude Code, that same command also starts the generated Ralph Loop contract in the current Claude session.
+5. It performs the requested phase work.
+6. Before stopping, it fills `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then runs `import-execution` and `apply-execution`.
+
+Without that closeout, Claude Code may have changed code while leaving `run-status`, execution packets, certification, and debug logs stale.
+Without Ralph Loop in planning or delivery, Claude Code can still self-terminate early, so those runs should not be treated as clean certification evidence.
 
 ## 6. Command Templates
 

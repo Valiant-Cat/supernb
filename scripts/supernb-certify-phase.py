@@ -15,6 +15,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     certification_snapshot_matches,
     certification_state_path as common_certification_state_path,
@@ -97,6 +98,10 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
 
 def certification_state_path(spec: dict[str, Any]) -> Path:
     return common_certification_state_path(spec, ROOT_DIR)
+
+
+def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
+    common_append_debug_log(spec, ROOT_DIR, "supernb-certify-phase", event, payload)
 
 
 def load_execute_next_module() -> Any:
@@ -500,6 +505,16 @@ def main() -> int:
         return 1
 
     phase = args.phase or current_phase_from_run_status(spec)
+    debug_log(
+        spec,
+        "start",
+        {
+            "spec_path": str(spec_path),
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "apply": args.apply,
+        },
+    )
     issues: list[Issue] = []
     for target in phase_targets(spec, phase):
         if not target.is_file():
@@ -540,6 +555,24 @@ def main() -> int:
     write_report(spec, phase, issues, execution_findings, readiness, report_path, applied)
     write_certification_state(spec, phase, passed, recommended_gate_status(phase), readiness, report_path)
     append_run_log(run_log_path, phase, recommended_gate_status(phase), passed, applied, report_path)
+    debug_log(
+        spec,
+        "complete",
+        {
+            "initiative_id": initiative_id,
+            "phase": phase,
+            "passed": passed,
+            "applied": applied,
+            "recommended_gate_status": recommended_gate_status(phase),
+            "line_issue_count": len(issues),
+            "execution_finding_count": len(execution_findings),
+            "phase_readiness_ready": bool(readiness.get("ready_for_certification")),
+            "phase_readiness_missing_sections": int(readiness.get("total_missing_sections", 0)),
+            "phase_readiness_thin_sections": int(readiness.get("total_thin_sections", 0)),
+            "phase_readiness_semantic_issues": int(readiness.get("total_semantic_issues", 0)),
+            "report_path": display_path(report_path),
+        },
+    )
 
     print(f"Phase certification report: {report_path}")
     print(f"Passed: {'yes' if passed else 'no'}")

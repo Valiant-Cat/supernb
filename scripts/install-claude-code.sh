@@ -105,11 +105,12 @@ Installed Claude Code ${INSTALL_SCOPE_LABEL} assets into ${TARGET_DIR}
 
 Default superpowers plugin is auto-installed when missing and auto-enabled when previously disabled.
 
-Optional loop-oriented alternative:
+Ralph Loop-enabled alternative for Claude Code prompt-first planning or delivery:
   claude plugin marketplace add FradSer/dotclaude
   claude plugin install superpowers@frad-dotclaude
 
 Do not use both same-named superpowers plugins side by side.
+Use a Ralph Loop-enabled Claude Code environment for prompt-first planning or delivery sessions that must not self-terminate.
 
 Restart Claude Code after bootstrap if the plugin was newly installed.
 EOF
