@@ -105,8 +105,8 @@ Then use one of the three main command entrypoints:
 
 ```bash
 ./scripts/show-command-template.sh full-product-delivery
-./scripts/render-command.sh --command full-product-delivery --goal "Build a commercial-grade product" --stack "your stack"
-./scripts/save-command-brief.sh --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --stack "your stack"
+./scripts/render-command.sh --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
+./scripts/save-command-brief.sh --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
 ```
 
 New-user guide: [docs/quickstart.md](/Users/xiaomiao26_1_26/projects/supernb/docs/quickstart.md)
@@ -116,6 +116,7 @@ What bootstrap now does:
 - syncs `superpowers`, `dotclaude`, and `impeccable`
 - installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
 - skips already installed skills instead of overwriting them
+- builds `impeccable` into an isolated local cache instead of mutating the upstream clone
 - auto-installs the default Claude Code `superpowers` plugin when needed
 - auto-ensures the OpenCode `superpowers` plugin entry in project config
 
@@ -178,8 +179,8 @@ make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a finance app" STACK="flutter"
-make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app"
+make render-command COMMAND=full-product-delivery GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="flutter"
+make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -196,8 +197,8 @@ Or use the scripts directly:
 ./scripts/check-no-hardcoded-copy.sh
 ./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/show-command-template.sh full-product-delivery
-./scripts/render-command.sh --command full-product-delivery --goal "Build a finance app" --stack flutter
-./scripts/save-command-brief.sh --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app"
+./scripts/render-command.sh --command full-product-delivery --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --stack flutter
+./scripts/save-command-brief.sh --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days"
 ./scripts/install-codex.sh
 ```
 
@@ -243,5 +244,5 @@ Harness mapping: [docs/commands/README.md](/Users/xiaomiao26_1_26/projects/super
 
 - bundled `sensortower-research` still expects a configured Sensor Tower token.
 - User-facing copy should be externalized into localization resources rather than hardcoded in code.
-- `impeccable` bundles are generated from source and are not committed here.
+- `impeccable` bundles are generated from source into `.supernb-cache/impeccable-dist` and are not committed here.
 - `upstreams/` is intentionally a local cache so `supernb` can track latest upstream code without vendoring entire repositories into git.

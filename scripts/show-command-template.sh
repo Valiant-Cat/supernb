@@ -16,9 +16,8 @@ if [[ ! -f "${COMMAND_FILE}" ]]; then
   echo "Unknown command: ${COMMAND_NAME}" >&2
   echo "" >&2
   echo "Available commands:" >&2
-  find "${ROOT_DIR}/commands" -maxdepth 1 -type f -name '*.md' -exec basename {} .md \; | sort >&2
+  find "${ROOT_DIR}/commands" -maxdepth 1 -type f -name '*.md' ! -name 'README.md' -exec basename {} .md \; | sort >&2
   exit 1
 fi
 
 cat "${COMMAND_FILE}"
-

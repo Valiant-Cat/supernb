@@ -81,9 +81,8 @@ OUTPUT_FILE="${BRIEF_DIR}/${TIMESTAMP}-${SLUG}.md"
   echo "## Prompt"
   echo
   echo '```text'
-  "${ROOT_DIR}/scripts/render-command.sh" "${FORWARD_ARGS[@]}"
+  bash "${ROOT_DIR}/scripts/render-command.sh" "${FORWARD_ARGS[@]}"
   echo '```'
 } > "${OUTPUT_FILE}"
 
 echo "Saved command brief: ${OUTPUT_FILE}"
-

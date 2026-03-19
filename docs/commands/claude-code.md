@@ -9,7 +9,13 @@ Example:
 ```text
 Use supernb command: full-product-delivery
 Goal: Build a commercial-grade product.
-Context: <repo, stack, market, constraints>
+Context:
+- repository: <repo>
+- stack: <stack>
+- product category: <category>
+- markets: <market or countries>
+- research window: <date window>
+- constraints: <constraints>
 Output: <artifacts and implementation expectations>
 ```
 
@@ -32,7 +38,7 @@ Then paste the template into Claude Code and fill the placeholders.
 For a pre-filled prompt:
 
 ```bash
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="nextjs"
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="nextjs"
 ```
 
 ## Notes

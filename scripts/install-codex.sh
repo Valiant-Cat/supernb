@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${ROOT_DIR}/scripts/lib/install-common.sh"
 
 AGENTS_SKILLS_DIR="${HOME}/.agents/skills"
-IMPECCABLE_SKILLS_DIR="${ROOT_DIR}/upstreams/impeccable/dist/codex/.codex/skills"
+IMPECCABLE_SKILLS_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/codex/.codex/skills"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
 
 mkdir -p "${AGENTS_SKILLS_DIR}"

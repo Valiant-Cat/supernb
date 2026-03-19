@@ -16,9 +16,13 @@ Output: <what should be saved, implemented, or returned>
 ## Available Commands
 
 - [full-product-delivery.md](/Users/xiaomiao26_1_26/projects/supernb/commands/full-product-delivery.md)
+- [supernb-orchestrator.md](/Users/xiaomiao26_1_26/projects/supernb/commands/supernb-orchestrator.md)
+- [product-research-prd.md](/Users/xiaomiao26_1_26/projects/supernb/commands/product-research-prd.md)
 - [single-capability-router.md](/Users/xiaomiao26_1_26/projects/supernb/commands/single-capability-router.md)
 - [brainstorm-and-save.md](/Users/xiaomiao26_1_26/projects/supernb/commands/brainstorm-and-save.md)
+- [ui-ux-governance.md](/Users/xiaomiao26_1_26/projects/supernb/commands/ui-ux-governance.md)
 - [ui-ux-upgrade.md](/Users/xiaomiao26_1_26/projects/supernb/commands/ui-ux-upgrade.md)
+- [autonomous-delivery.md](/Users/xiaomiao26_1_26/projects/supernb/commands/autonomous-delivery.md)
 - [implementation-execution.md](/Users/xiaomiao26_1_26/projects/supernb/commands/implementation-execution.md)
 - [i18n-localization-governance.md](/Users/xiaomiao26_1_26/projects/supernb/commands/i18n-localization-governance.md)
 
@@ -36,6 +40,11 @@ Output: <what should be saved, implemented, or returned>
 ```text
 Use supernb command: full-product-delivery
 Goal: Build a commercial-grade personal finance product.
-Context: Web + iOS, global launch, remote repo https://github.com/example/repo.git
+Context:
+- repository: https://github.com/example/repo.git
+- platform: Web + iOS
+- product category: personal finance
+- markets: global launch
+- research window: last 90 days
 Output: Research artifacts, PRD, UI/UX spec, implementation plan, validated code commits.
 ```

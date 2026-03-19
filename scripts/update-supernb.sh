@@ -96,7 +96,20 @@ update_self_repo() {
   SELF_BEFORE_COMMIT="${before_head}"
   SELF_BRANCH="${current_branch}"
 
-  git -C "${repo_dir}" fetch --all --prune
+  if [[ -n "$(git -C "${repo_dir}" status --porcelain)" ]]; then
+    SELF_STATUS="skipped_dirty"
+    SELF_MESSAGE="working tree is dirty"
+    echo "supernb self-update skipped: ${SELF_MESSAGE}."
+    return 0
+  fi
+
+  if ! git -C "${repo_dir}" fetch --all --prune; then
+    SELF_STATUS="skipped_fetch_failed"
+    SELF_MESSAGE="failed to fetch remote metadata"
+    echo "supernb self-update skipped: ${SELF_MESSAGE}."
+    return 0
+  fi
+
   default_branch="$(determine_default_branch "${repo_dir}")" || {
     SELF_STATUS="skipped_no_default_branch"
     SELF_MESSAGE="could not determine default branch"
@@ -104,13 +117,6 @@ update_self_repo() {
     return 0
   }
   SELF_DEFAULT_BRANCH="${default_branch}"
-
-  if [[ -n "$(git -C "${repo_dir}" status --porcelain)" ]]; then
-    SELF_STATUS="skipped_dirty"
-    SELF_MESSAGE="working tree is dirty"
-    echo "supernb self-update skipped: ${SELF_MESSAGE}."
-    return 0
-  fi
 
   if [[ "${current_branch}" != "${default_branch}" ]]; then
     SELF_STATUS="skipped_non_default_branch"
@@ -159,7 +165,7 @@ if [[ "${SKIP_UPSTREAMS}" -eq 0 ]]; then
     upstream_args+=(--skip-impeccable-build)
   fi
   upstream_args+=(--report-file "${UPSTREAM_REPORT_FILE}")
-  "${ROOT_DIR}/scripts/update-upstreams.sh" "${upstream_args[@]}"
+  bash "${ROOT_DIR}/scripts/update-upstreams.sh" "${upstream_args[@]}"
 else
   python3 - "${UPSTREAM_REPORT_FILE}" <<'PY'
 import json

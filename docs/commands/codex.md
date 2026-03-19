@@ -19,7 +19,7 @@ Then use the rendered template in Codex.
 For a pre-filled prompt:
 
 ```bash
-make render-command COMMAND=implementation-execution GOAL="Implement the billing module" STACK="go + react"
+make render-command COMMAND=implementation-execution GOAL="Implement the billing module" REPOSITORY="/path/to/repo" STACK="go + react"
 ```
 
 ## Why This Works

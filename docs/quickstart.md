@@ -48,6 +48,9 @@ See the raw templates:
   --command full-product-delivery \
   --goal "Build a commercial-grade product" \
   --repository "https://github.com/example/repo.git" \
+  --product-category "finance" \
+  --markets "SEA" \
+  --research-window "last 90 days" \
   --stack "your stack" \
   --constraints "no MVP shortcuts; commercial quality"
 ```
@@ -60,6 +63,9 @@ See the raw templates:
   --title "Commercial Product Delivery Brief" \
   --goal "Build a commercial-grade product" \
   --repository "https://github.com/example/repo.git" \
+  --product-category "finance" \
+  --markets "SEA" \
+  --research-window "last 90 days" \
   --stack "your stack"
 ```
 
@@ -71,8 +77,8 @@ This stores the prompt in `artifacts/commands/` for reuse and auditability.
 make bootstrap
 make update
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
 ```
 
 Update shortcuts:

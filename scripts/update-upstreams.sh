@@ -64,6 +64,42 @@ record_repo_status() {
   fi
 }
 
+repair_impeccable_generated_dirty_state() {
+  local target="$1"
+  local backup_dir="${ROOT_DIR}/.supernb-cache/upstream-repair"
+  local backup_file
+  local dirty_files=()
+  local line path
+
+  while IFS= read -r line; do
+    path="${line:3}"
+    [[ -n "${path}" ]] && dirty_files+=("${path}")
+  done < <(git -C "${target}" status --porcelain)
+
+  if [[ ${#dirty_files[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local dirty_file
+  for dirty_file in "${dirty_files[@]}"; do
+    case "${dirty_file}" in
+      .claude/skills/*/SKILL.md|public/css/styles.css) ;;
+      *)
+        return 1
+        ;;
+    esac
+  done
+
+  mkdir -p "${backup_dir}"
+  backup_file="${backup_dir}/impeccable-generated-dirty-$(date +%Y%m%d-%H%M%S).patch"
+  git -C "${target}" diff -- "${dirty_files[@]}" > "${backup_file}"
+  git -C "${target}" restore --worktree --staged -- "${dirty_files[@]}"
+
+  echo "impeccable: repaired old generated dirty state."
+  echo "impeccable: backup patch saved to ${backup_file}."
+  return 0
+}
+
 update_repo() {
   local name="$1"
   local url="$2"
@@ -73,6 +109,12 @@ update_repo() {
 
   if [[ -d "${target}/.git" ]]; then
     echo "Updating ${name}..."
+
+    if [[ -n "$(git -C "${target}" status --porcelain)" ]]; then
+      if [[ "${name}" == "impeccable" ]]; then
+        repair_impeccable_generated_dirty_state "${target}" || true
+      fi
+    fi
 
     if [[ -n "$(git -C "${target}" status --porcelain)" ]]; then
       echo "${name}: skipped because the upstream cache has local changes."
@@ -123,7 +165,7 @@ update_repo "dotclaude" "https://github.com/FradSer/dotclaude.git"
 update_repo "impeccable" "https://github.com/pbakaus/impeccable.git"
 
 if [[ "${BUILD_IMPECCABLE}" -eq 1 ]]; then
-  "${ROOT_DIR}/scripts/build-impeccable-dist.sh"
+  bash "${ROOT_DIR}/scripts/build-impeccable-dist.sh"
   IMPECCABLE_BUILD_STATUS="built"
   IMPECCABLE_BUILD_MESSAGE="impeccable dist rebuilt"
 else

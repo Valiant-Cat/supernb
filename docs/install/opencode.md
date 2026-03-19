@@ -36,7 +36,7 @@ make bootstrap HARNESS=opencode PROJECT_DIR=/path/to/your-project
 This path now:
 
 - installs bundled project-local skills when missing
-- skips already present skill paths instead of overwriting them
+- keeps already-installed managed skills aligned through symlinks
 - auto-creates or updates project `opencode.json` so upstream `superpowers` is installed
 
 Manual path:
@@ -63,8 +63,8 @@ This script:
 
 - symlinks `supernb/skills` into `<project>/.opencode/skills/supernb`
 - symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.opencode/skills/`
-- copies the built `impeccable` OpenCode bundle into `<project>/.opencode/`
-- skips existing paths instead of overwriting them
+- symlinks `impeccable` skills from the isolated local build cache into `<project>/.opencode/skills/`
+- repairs previously copied generated `impeccable` skill directories into managed symlinks
 
 ## 3. Ensure upstream `superpowers` in `opencode.json`
 
@@ -84,8 +84,8 @@ Shortest usage path after install:
 
 ```bash
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
 ```
 
 - load `supernb/supernb-orchestrator` when the work spans product to delivery

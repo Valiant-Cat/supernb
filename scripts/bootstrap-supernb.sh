@@ -114,9 +114,7 @@ mkdir -p "$(dirname "${REPO_DIR}")"
 
 if [[ -d "${REPO_DIR}/.git" ]]; then
   echo "Updating supernb repo at ${REPO_DIR}..."
-  git -C "${REPO_DIR}" fetch --all --prune
-  git -C "${REPO_DIR}" checkout main >/dev/null 2>&1 || true
-  git -C "${REPO_DIR}" pull --ff-only origin main
+  bash "${REPO_DIR}/scripts/update-supernb.sh" --skip-upstreams
 else
   echo "Cloning supernb into ${REPO_DIR}..."
   git clone https://github.com/WayJerry/supernb.git "${REPO_DIR}"
@@ -153,4 +151,4 @@ if [[ "${HARNESS}" == "claude-code" || "${HARNESS}" == "opencode" ]]; then
   next_steps_args+=(--project-dir "${PROJECT_DIR:-${PWD}}")
 fi
 
-"${REPO_DIR}/scripts/print-next-steps.sh" "${next_steps_args[@]}"
+bash "${REPO_DIR}/scripts/print-next-steps.sh" "${next_steps_args[@]}"

@@ -15,7 +15,7 @@ Paste the result into OpenCode and fill the placeholders.
 For a pre-filled prompt:
 
 ```bash
-make render-command COMMAND=ui-ux-upgrade GOAL="Upgrade the checkout UX" STACK="react"
+make render-command COMMAND=ui-ux-upgrade GOAL="Upgrade the checkout UX" REPOSITORY="/path/to/repo" STACK="react"
 ```
 
 ## Relationship To Skills

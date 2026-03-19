@@ -61,10 +61,11 @@ The script wires these paths into `~/.agents/skills/` when missing:
 - `supernb`
 - `superpowers`
 - `impeccable`
-
 - `sensortower-research`
 - `flutter-l10n-translation`
 - `android-i18n-translation`
+
+`impeccable` now points at the isolated local build cache under `.supernb-cache/impeccable-dist` rather than depending on mutable files inside the upstream clone.
 
 ## 3. Restart Codex
 
@@ -76,8 +77,8 @@ Shortest usage path after install:
 
 ```bash
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
 ```
 
 Ask for one of these flows:
