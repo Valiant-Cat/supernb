@@ -28,6 +28,33 @@ export SENSORTOWER_AUTH_TOKEN_BACKUP='st_your_backup_token'
 
 The CLI also accepts `SENSORTOWER_API_TOKEN` and `SENSOR_TOWER_API_TOKEN` naming and can retry with bearer auth if query auth fails.
 
+Resolve the installed skill directory once before running the CLI:
+
+```bash
+resolve_skill_dir() {
+  local skill_name="$1"
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    for base in "$dir/.claude/skills" "$dir/.opencode/skills"; do
+      if [[ -f "$base/$skill_name/SKILL.md" ]]; then
+        printf '%s\n' "$base/$skill_name"
+        return 0
+      fi
+    done
+    dir="$(dirname "$dir")"
+  done
+  for base in "$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.codex/skills"; do
+    if [[ -f "$base/$skill_name/SKILL.md" ]]; then
+      printf '%s\n' "$base/$skill_name"
+      return 0
+    fi
+  done
+  return 1
+}
+
+SENSORTOWER_SKILL_DIR="$(resolve_skill_dir sensortower-research)"
+```
+
 ## Core Workflow
 
 ### 1. Resolve IDs
@@ -35,7 +62,7 @@ The CLI also accepts `SENSORTOWER_API_TOKEN` and `SENSOR_TOWER_API_TOKEN` naming
 Use `search` before any deep pull when the request starts from an app name or publisher name.
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   search \
   --term "TikTok" \
   --store unified \
@@ -63,7 +90,7 @@ Prefer writing JSON or CSV into the current workspace, then summarize from that 
 Examples:
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   sales \
   --os unified \
   --app-id 55c527c302ac64f9c0002b18 \
@@ -75,7 +102,7 @@ python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cl
 ```
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   reviews \
   --os ios \
   --app-id 284882215 \
@@ -92,7 +119,7 @@ python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cl
 Run the heuristic review analyzer after exporting reviews or point it directly at the API.
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   review-insights \
   --input /tmp/reviews.csv \
   --report /tmp/review-insights.md
@@ -107,7 +134,7 @@ Use `raw` when the official or mirrored docs show an endpoint that is not wrappe
 Example: top creatives.
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   raw \
   --endpoint /v1/unified/ad_intel/creatives/top \
   --param date=2026-02-01 \
@@ -125,18 +152,18 @@ Use repeated `--param key=value` when a parameter should be repeated. Use comma-
 The official docs are gated. Before assuming a path changed, run:
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py docs
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" docs
 ```
 
 If a token is configured, the same command can save retrieved docs:
 
 ```bash
-python3 /Users/jerryhu/.codex/skills/sensortower-research/scripts/sensortower_cli.py \
+python3 "$SENSORTOWER_SKILL_DIR/scripts/sensortower_cli.py" \
   docs \
   --save-dir /tmp/sensortower-docs
 ```
 
-Use `/Users/jerryhu/.codex/skills/sensortower-research/references/api-surface.md` when you need the verified endpoint map and `/Users/jerryhu/.codex/skills/sensortower-research/references/review-analysis.md` when the task is specifically review mining.
+Use `"$SENSORTOWER_SKILL_DIR/references/api-surface.md"` when you need the verified endpoint map and `"$SENSORTOWER_SKILL_DIR/references/review-analysis.md"` when the task is specifically review mining.
 
 ## Research Rules
 

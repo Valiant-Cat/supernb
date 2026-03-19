@@ -43,25 +43,52 @@ metadata:
 
 ## 直接可用的脚本（从项目根目录运行）
 
+先解析当前安装的 skill 目录：
+
+```bash
+resolve_skill_dir() {
+  local skill_name="$1"
+  local dir="$PWD"
+  while [[ "$dir" != "/" ]]; do
+    for base in "$dir/.claude/skills" "$dir/.opencode/skills"; do
+      if [[ -f "$base/$skill_name/SKILL.md" ]]; then
+        printf '%s\n' "$base/$skill_name"
+        return 0
+      fi
+    done
+    dir="$(dirname "$dir")"
+  done
+  for base in "$HOME/.claude/skills" "$HOME/.agents/skills" "$HOME/.codex/skills"; do
+    if [[ -f "$base/$skill_name/SKILL.md" ]]; then
+      printf '%s\n' "$base/$skill_name"
+      return 0
+    fi
+  done
+  return 1
+}
+
+FLUTTER_L10N_SKILL_DIR="$(resolve_skill_dir flutter-l10n-translation)"
+```
+
 安装依赖：
 ```bash
-python3 -m pip install -r ~/.codex/skills/flutter-l10n-translation/scripts/requirements_translation.txt
+python3 -m pip install -r "$FLUTTER_L10N_SKILL_DIR/scripts/requirements_translation.txt"
 ```
 
 同步缺失 key（把缺失 key 用英文占位补齐）：
 ```bash
-python3 ~/.codex/skills/flutter-l10n-translation/scripts/sync_arb_placeholders.py --l10n-dir path/to/lib/l10n
+python3 "$FLUTTER_L10N_SKILL_DIR/scripts/sync_arb_placeholders.py" --l10n-dir path/to/lib/l10n
 ```
 
 检查缺口：
 ```bash
-python3 ~/.codex/skills/flutter-l10n-translation/scripts/check_arb_translation_gaps.py --l10n-dir path/to/lib/l10n
+python3 "$FLUTTER_L10N_SKILL_DIR/scripts/check_arb_translation_gaps.py" --l10n-dir path/to/lib/l10n
 ```
 
 AI 补全翻译（写回 ARB）：
 ```bash
 export OPENAI_API_KEY="sk-..."  # 或在 shell 环境里配置
-python3 ~/.codex/skills/flutter-l10n-translation/scripts/complete_arb_translations_direct.py \
+python3 "$FLUTTER_L10N_SKILL_DIR/scripts/complete_arb_translations_direct.py" \
   --l10n-dir path/to/lib/l10n \
   --model gpt-4o-mini
 ```
@@ -69,14 +96,14 @@ python3 ~/.codex/skills/flutter-l10n-translation/scripts/complete_arb_translatio
 （可选）Android strings.xml：
 ```bash
 export OPENAI_API_KEY="sk-..."
-python3 ~/.codex/skills/flutter-l10n-translation/scripts/complete_android_strings_translations.py \
+python3 "$FLUTTER_L10N_SKILL_DIR/scripts/complete_android_strings_translations.py" \
   --res-dir path/to/android/app/src/main/res
 ```
 
 （可选）iOS Localizable.strings：
 ```bash
 export OPENAI_API_KEY="sk-..."
-python3 ~/.codex/skills/flutter-l10n-translation/scripts/complete_ios_localizable_strings_translations.py \
+python3 "$FLUTTER_L10N_SKILL_DIR/scripts/complete_ios_localizable_strings_translations.py" \
   --runner-dir path/to/ios/Runner
 ```
 
@@ -87,4 +114,3 @@ python3 ~/.codex/skills/flutter-l10n-translation/scripts/complete_ios_localizabl
 - **禁止翻译 key / 元数据 key**：只改字符串 value，不动 `@...`、`@@...`。
 - **先检查再写回**：先跑 gap 检查，翻译后再跑一次检查做回归。
 - **低风险优先**：默认只翻译缺失/未翻译（与英文相同）的条目；如要覆盖已有翻译必须征得用户确认。
-
