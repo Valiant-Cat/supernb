@@ -74,7 +74,20 @@ Architecture: [docs/architecture.md](/Users/xiaomiao26_1_26/projects/supernb/doc
 
 ## Quick Start
 
-Clone this repo and then run:
+Fastest install path:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
+```
+
+Or for Claude Code / OpenCode project installs:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir /path/to/project
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness opencode --project-dir /path/to/project
+```
+
+If you already cloned this repo, run:
 
 ```bash
 make update
@@ -92,6 +105,12 @@ Then install for the harness you use:
 - Codex: [docs/install/codex.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/codex.md)
 - OpenCode: [docs/install/opencode.md](/Users/xiaomiao26_1_26/projects/supernb/docs/install/opencode.md)
 
+One-command local shortcut:
+
+```bash
+make bootstrap HARNESS=codex
+```
+
 ## Default And Optional Engines
 
 - Default baseline for all supported harnesses: latest `obra/superpowers`
@@ -103,6 +122,7 @@ Then install for the harness you use:
 
 ```bash
 make update
+make bootstrap HARNESS=codex
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
@@ -119,6 +139,7 @@ Or use the scripts directly:
 
 ```bash
 ./scripts/update-upstreams.sh
+./scripts/bootstrap-supernb.sh --harness codex
 ./scripts/build-impeccable-dist.sh
 ./scripts/init-initiative.sh my-product "My Product"
 ./scripts/check-no-hardcoded-copy.sh

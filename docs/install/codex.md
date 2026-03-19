@@ -9,6 +9,20 @@ Codex is the cleanest environment for the full `supernb` stack because it can us
 
 ## 1. Sync upstreams and build `impeccable`
 
+One-command install:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
+```
+
+Or from a local clone:
+
+```bash
+make bootstrap HARNESS=codex
+```
+
+Manual path:
+
 ```bash
 make update
 ```
@@ -19,12 +33,17 @@ make update
 ./scripts/install-codex.sh
 ```
 
-The script wires these paths into `~/.agents/skills/`:
+The script always wires these paths into `~/.agents/skills/`:
 
 - `supernb`
 - `superpowers`
 - `impeccable`
+
+If local optional skills exist, it also links:
+
 - `sensortower-research`
+- `flutter-l10n-translation`
+- `android-i18n-translation`
 
 ## 3. Restart Codex
 

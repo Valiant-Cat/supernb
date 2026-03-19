@@ -9,6 +9,20 @@
 
 ## 1. Sync upstreams and build `impeccable`
 
+One-command install:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir /path/to/your-project
+```
+
+Or from a local clone:
+
+```bash
+make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/your-project
+```
+
+Manual path:
+
 From this repo:
 
 ```bash
