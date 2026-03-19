@@ -133,6 +133,7 @@ Storage target:
 6. The Frad loop is only used as an optional bounded persistence layer on Claude Code.
 7. Do not install two same-named `superpowers` plugins in one Claude Code environment.
 8. Every verified batch is committed to git.
+9. Hardcoded-copy checks should run before release when UI code is in scope.
 
 ## Cross-Cutting Localization Rule
 

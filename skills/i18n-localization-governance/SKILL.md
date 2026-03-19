@@ -35,8 +35,8 @@ That includes:
 4. Sync target locales.
 5. Fill translations with the relevant local translation workflow when available.
 6. Verify that the implementation reads strings from localization resources, not inline literals.
+7. Run the hardcoded-copy check when the workspace provides it.
 
 ## Shipping Rule
 
 Localization readiness is part of release readiness. Missing extraction or untranslated core flows should block completion for multi-language products.
-

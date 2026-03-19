@@ -153,6 +153,7 @@ What `supernb` should do:
 - add source-locale keys
 - sync and complete target locales
 - verify the UI reads from localization resources
+- run the hardcoded-copy check before release
 
 ## Operating Principle
 

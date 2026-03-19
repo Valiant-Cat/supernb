@@ -50,6 +50,7 @@ Use Frad loop mode only for bounded tasks.
 
 ```bash
 # add project-specific verification commands here
+./scripts/check-no-hardcoded-copy.sh
 ```
 
 ## Commit Strategy

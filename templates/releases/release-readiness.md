@@ -22,6 +22,7 @@
 - Hardcoded copy audit:
 - Locale coverage:
 - Translation validation:
+- Hardcoded copy check command/result:
 
 ## Release Checklist
 

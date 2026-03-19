@@ -102,6 +102,7 @@ Then install for the harness you use:
 make update
 make build-impeccable
 make init-initiative INITIATIVE=my-product TITLE="My Product"
+make check-copy
 make install-codex
 make install-claude-code
 make install-opencode
@@ -113,6 +114,7 @@ Or use the scripts directly:
 ./scripts/update-upstreams.sh
 ./scripts/build-impeccable-dist.sh
 ./scripts/init-initiative.sh my-product "My Product"
+./scripts/check-no-hardcoded-copy.sh
 ./scripts/install-codex.sh
 ```
 

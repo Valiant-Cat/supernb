@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative
+.PHONY: update build-impeccable install-codex install-claude-code install-opencode init-initiative check-copy
 
 update:
 	./scripts/update-upstreams.sh
@@ -20,3 +20,6 @@ install-opencode:
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi
 	./scripts/init-initiative.sh "$(INITIATIVE)" "$(TITLE)"
+
+check-copy:
+	./scripts/check-no-hardcoded-copy.sh
