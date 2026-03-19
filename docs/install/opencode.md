@@ -56,6 +56,7 @@ make update-upstreams
 ## 2. Install local project skills and the `impeccable` bundle
 
 ```bash
+./scripts/build-impeccable-dist.sh
 ./scripts/install-opencode.sh /path/to/your-project
 ```
 
@@ -93,8 +94,8 @@ Shortest usage path after install:
 
 ```bash
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
+make save-command COMMAND=full-product-delivery TITLE="10M DAU Delivery Brief" GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
 ```
 
 `make execute-next` currently prepares the execution packet for OpenCode initiatives, but direct CLI invocation is not enabled here yet.

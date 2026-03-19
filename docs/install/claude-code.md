@@ -4,7 +4,7 @@
 
 - latest `obra/superpowers` as the default planning and delivery plugin
 - local `supernb` skills for orchestration
-- bundled `sensortower-research` and translation skills as project-local skills
+- bundled `sensortower-research` and translation skills as managed Claude Code skills in the selected install scope
 - built `impeccable` Claude Code bundle for UI/UX work
 - optional `superpowers@frad-dotclaude` only when you specifically need the loop workflow
 
@@ -37,6 +37,7 @@ make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/your-project
 Direct project-local install path:
 
 ```bash
+./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code /path/to/your-project
 ```
 
@@ -49,15 +50,17 @@ If you are already inside the target project:
 Direct user-global install into `~/.claude`:
 
 ```bash
+./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code "$HOME"
 ```
 
 This path now:
 
-- installs bundled project-local skills when missing
+- installs bundled managed skills into the selected Claude Code scope
 - keeps already-installed managed skills aligned through symlinks
 - auto-installs the default Claude Code `superpowers` plugin when it is not already installed
 - auto-enables the plugin when it is already installed but currently disabled
+- if you target `"$HOME"`, the skills live in `~/.claude/skills/` and target projects do not need their own `.claude/` directory
 
 Manual path:
 
@@ -91,6 +94,7 @@ If your Claude Code setup does not use the official marketplace path, use the up
 If you want to install into the current project:
 
 ```bash
+./scripts/build-impeccable-dist.sh
 ./scripts/install-claude-code.sh /path/to/your-project
 ./scripts/supernb install-claude-code /path/to/your-project
 make install-claude-code PROJECT_DIR=/path/to/your-project
@@ -99,6 +103,7 @@ make install-claude-code PROJECT_DIR=/path/to/your-project
 If you want a user-global install instead of a per-project install:
 
 ```bash
+./scripts/build-impeccable-dist.sh
 ./scripts/install-claude-code.sh "$HOME"
 ./scripts/supernb install-claude-code "$HOME"
 ```
@@ -154,8 +159,8 @@ Shortest usage path after install:
 
 ```bash
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack"
+make render-command COMMAND=full-product-delivery GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
+make save-command COMMAND=full-product-delivery TITLE="10M DAU Delivery Brief" GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=claude-code PROJECT_DIR=/path/to/project DRY_RUN=1
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet CERTIFY=1
 ```

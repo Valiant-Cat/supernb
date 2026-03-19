@@ -43,7 +43,7 @@ Output: <what should be saved, implemented, or returned>
 
 ```text
 Use supernb command: full-product-delivery
-Goal: Build a commercial-grade personal finance product.
+Goal: Build a 10M-DAU-grade personal finance product.
 Context:
 - repository: https://github.com/example/repo.git
 - platform: Web + iOS

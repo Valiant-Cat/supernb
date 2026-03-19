@@ -9,7 +9,7 @@ Examples here are illustrative only. `supernb` is not tied to Flutter, Android, 
 Example:
 
 ```text
-Use supernb to build me a commercial-grade expense tracking product.
+Use supernb to build me a 10M-DAU-grade expense tracking product.
 Target platform, framework, and stack are described in the task itself.
 It must support the required languages and markets I specify.
 Do not stop at MVP quality.
@@ -67,7 +67,7 @@ Example:
 
 ```text
 Use supernb to upgrade the full UI/UX of my local project.
-Keep the product intent, but make the interface commercial-grade and fix current readability and contrast issues.
+Keep the product intent, but make the interface feel 10M-DAU-grade and fix current readability and contrast issues.
 ```
 
 Expected mode:

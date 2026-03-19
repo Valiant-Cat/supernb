@@ -102,8 +102,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 
 ```bash
 ./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
-./scripts/supernb save-command --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a 1000W DAU 级产品" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
+./scripts/supernb save-command --command full-product-delivery --title "1000W DAU 交付 Brief" --goal "Build a 1000W DAU 级产品" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
 ```
 
 新手指南见：[docs/quickstart.md](./docs/quickstart.md)
@@ -202,8 +202,11 @@ make bootstrap
 当前项目下直接安装 Claude Code 资产：
 
 ```bash
+./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code .
 ```
+
+如果你安装到 `"$HOME"`，那受管的 Claude Code skills 会放在 `~/.claude/skills/`。这种用户全局安装模式下，具体业务项目里没有自己的 `.claude/` 目录也是正常的。
 
 如果你要显式指定 harness / project：
 
@@ -287,8 +290,8 @@ make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=app
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade" STACK="flutter"
-make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade"
+make render-command COMMAND=full-product-delivery GOAL="Build a 1000W DAU 级 finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="10m-dau-grade" STACK="flutter"
+make save-command COMMAND=full-product-delivery TITLE="1000W DAU Finance App Brief" GOAL="Build a 1000W DAU 级 finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="10m-dau-grade"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -314,8 +317,8 @@ make install-opencode
 ./scripts/supernb check-copy
 ./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade" --stack flutter
-./scripts/supernb save-command --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a 1000W DAU 级 finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "10m-dau-grade" --stack flutter
+./scripts/supernb save-command --command full-product-delivery --title "1000W DAU Finance App Brief" --goal "Build a 1000W DAU 级 finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "10m-dau-grade"
 ```
 
 ## 仓库结构

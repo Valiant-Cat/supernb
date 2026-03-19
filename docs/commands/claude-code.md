@@ -8,7 +8,7 @@ Example:
 
 ```text
 Use supernb command: full-product-delivery
-Goal: Build a commercial-grade product.
+Goal: Build a 10M-DAU-grade product.
 Context:
 - repository: <repo>
 - stack: <stack>
@@ -38,7 +38,7 @@ Then paste the template into Claude Code and fill the placeholders.
 For a pre-filled prompt:
 
 ```bash
-./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "nextjs"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a 10M-DAU-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "nextjs" --quality-bar "10m-dau-grade"
 ```
 
 For initiatives that already have a `next-command.md`, you can bridge the current phase directly into Claude Code:
@@ -61,7 +61,7 @@ Then apply the resulting packet:
 
 ## Notes
 
-- `supernb` skills are project-local guidance.
+- `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.
 - upstream `superpowers` remains the main workflow engine
 - the Frad plugin remains optional for bounded loop sessions
 - this mapping intentionally avoids inventing a fake native Claude Code command system for `supernb`

@@ -102,8 +102,8 @@ Then use one of the three main command entrypoints:
 
 ```bash
 ./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
-./scripts/supernb save-command --command full-product-delivery --title "Delivery Brief" --goal "Build a commercial-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a 10M-DAU-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
+./scripts/supernb save-command --command full-product-delivery --title "10M DAU Delivery Brief" --goal "Build a 10M-DAU-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
 ```
 
 New-user guide: [docs/quickstart.md](./docs/quickstart.md)
@@ -201,8 +201,11 @@ make bootstrap
 Direct Claude Code install into the current project:
 
 ```bash
+./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code .
 ```
+
+If you install into `"$HOME"` instead, the managed Claude Code skills live under `~/.claude/skills/`. In that user-global mode, target projects do not need their own `.claude/` directory.
 
 If you need explicit harness or project selection:
 
@@ -286,8 +289,8 @@ make advance-phase INITIATIVE_ID=2026-03-19-my-product PHASE=research STATUS=app
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade" STACK="flutter"
-make save-command COMMAND=full-product-delivery TITLE="Finance App Brief" GOAL="Build a finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="commercial-grade"
+make render-command COMMAND=full-product-delivery GOAL="Build a 10M-DAU-grade finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="10m-dau-grade" STACK="flutter"
+make save-command COMMAND=full-product-delivery TITLE="10M DAU Finance App Brief" GOAL="Build a 10M-DAU-grade finance app" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" QUALITY_BAR="10m-dau-grade"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -313,8 +316,8 @@ Or use the scripts directly:
 ./scripts/supernb check-copy
 ./scripts/supernb init-i18n --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade" --stack flutter
-./scripts/supernb save-command --command full-product-delivery --title "Finance App Brief" --goal "Build a finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "commercial-grade"
+./scripts/supernb render-command --command full-product-delivery --goal "Build a 10M-DAU-grade finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "10m-dau-grade" --stack flutter
+./scripts/supernb save-command --command full-product-delivery --title "10M DAU Finance App Brief" --goal "Build a 10M-DAU-grade finance app" --product-category finance --markets SEA --research-window "last 90 days" --quality-bar "10m-dau-grade"
 ```
 
 ## Repository Layout

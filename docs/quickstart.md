@@ -174,13 +174,14 @@ See the raw templates:
 ```bash
 ./scripts/supernb render-command \
   --command full-product-delivery \
-  --goal "Build a commercial-grade product" \
+  --goal "Build a 10M-DAU-grade product" \
   --repository "https://github.com/example/repo.git" \
   --product-category "finance" \
   --markets "SEA" \
   --research-window "last 90 days" \
   --stack "your stack" \
-  --constraints "no MVP shortcuts; commercial quality"
+  --quality-bar "10m-dau-grade" \
+  --constraints "no MVP shortcuts; 10M-DAU-grade quality"
 ```
 
 ## 11. Save The Brief
@@ -188,13 +189,14 @@ See the raw templates:
 ```bash
 ./scripts/supernb save-command \
   --command full-product-delivery \
-  --title "Commercial Product Delivery Brief" \
-  --goal "Build a commercial-grade product" \
+  --title "10M DAU Product Delivery Brief" \
+  --goal "Build a 10M-DAU-grade product" \
   --repository "https://github.com/example/repo.git" \
   --product-category "finance" \
   --markets "SEA" \
   --research-window "last 90 days" \
-  --stack "your stack"
+  --stack "your stack" \
+  --quality-bar "10m-dau-grade"
 ```
 
 This stores the prompt in `artifacts/commands/` for reuse and auditability.
@@ -209,8 +211,8 @@ make run-initiative INITIATIVE_ID=2026-03-19-my-product
 make execute-next INITIATIVE_ID=2026-03-19-my-product HARNESS=codex PROJECT_DIR=/path/to/repo DRY_RUN=1
 make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet APPLY_CERTIFICATION=1
 make show-command COMMAND=full-product-delivery
-make render-command COMMAND=full-product-delivery GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
-make save-command COMMAND=full-product-delivery TITLE="Delivery Brief" GOAL="Build a commercial-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="commercial-grade"
+make render-command COMMAND=full-product-delivery GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
+make save-command COMMAND=full-product-delivery TITLE="10M DAU Delivery Brief" GOAL="Build a 10M-DAU-grade product" PRODUCT_CATEGORY="finance" MARKETS="SEA" RESEARCH_WINDOW="last 90 days" STACK="your stack" QUALITY_BAR="10m-dau-grade"
 ```
 
 Update shortcuts:

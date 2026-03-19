@@ -1,6 +1,6 @@
 ---
 name: supernb-orchestrator
-description: Use when the goal is either full product delivery from idea to commercial-grade release or correct routing to any single capability exposed by the integrated upstream systems, without assuming a fixed framework or stack.
+description: Use when the goal is either full product delivery from idea to a 10M-DAU-grade release or correct routing to any single capability exposed by the integrated upstream systems, without assuming a fixed framework or stack.
 ---
 
 # supernb Orchestrator
@@ -24,7 +24,7 @@ Never skip straight to coding when the product direction is still unclear.
 
 ## Routing Rules
 
-- For a request to build a complete product from idea to shippable commercial-grade release, use `full-product-delivery`.
+- For a request to build a complete product from idea to shippable 10M-DAU-grade release, use `full-product-delivery`.
 - Unless the user explicitly narrows the ambition, treat the target as a 10M-DAU-class product and preserve that depth through every routed phase.
 - For a request to use any one specific upstream capability without running the full product flow, use `single-capability-router`.
 - For brainstorming with local document output, use `brainstorm-and-save`.
