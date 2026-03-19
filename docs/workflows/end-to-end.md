@@ -50,6 +50,7 @@ Before planning and delivery, also fill:
 ```
 
 This computes the first incomplete phase, writes `run-status.md`, and generates `next-command.md` when the phase is ready.
+It also archives a timestamped phase brief, writes `phase-packet.md`, and appends to `run-log.md`.
 
 ## 4. Run Research Before PRD
 

@@ -37,6 +37,9 @@ When you run:
 - `artifacts/initiatives/<initiative-id>/initiative.yaml`
 - `artifacts/initiatives/<initiative-id>/run-status.md`
 - `artifacts/initiatives/<initiative-id>/next-command.md`
+- `artifacts/initiatives/<initiative-id>/phase-packet.md`
+- `artifacts/initiatives/<initiative-id>/run-log.md`
+- `artifacts/initiatives/<initiative-id>/command-briefs/`
 
 ## Runner Behavior
 
@@ -53,6 +56,9 @@ The runner will:
 - compute which phase is blocked, ready, or complete
 - write `run-status.md` and `run-status.json`
 - generate `next-command.md` when the next phase is ready
+- archive a timestamped brief for the selected phase
+- write `phase-packet.md`
+- append execution history to `run-log.md`
 
 ## Gate Fields In Artifact Templates
 

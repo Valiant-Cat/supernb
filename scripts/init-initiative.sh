@@ -44,8 +44,11 @@ INDEX_FILE="${INDEX_DIR}/${INIT_ID}.md"
 SPEC_FILE="${INITIATIVE_DIR}/initiative.yaml"
 RUN_STATUS_FILE="${INITIATIVE_DIR}/run-status.md"
 NEXT_COMMAND_FILE="${INITIATIVE_DIR}/next-command.md"
+PHASE_PACKET_FILE="${INITIATIVE_DIR}/phase-packet.md"
+RUN_LOG_FILE="${INITIATIVE_DIR}/run-log.md"
+COMMAND_BRIEFS_DIR="${INITIATIVE_DIR}/command-briefs"
 
-mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}"
+mkdir -p "${RESEARCH_DIR}" "${PRD_DIR}" "${DESIGN_DIR}" "${PLANS_DIR}" "${RELEASE_DIR}" "${INDEX_DIR}" "${INITIATIVE_DIR}" "${COMMAND_BRIEFS_DIR}"
 
 yaml_escape() {
   printf '%s' "$1" | perl -0pe 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g'
@@ -119,6 +122,18 @@ cat > "${NEXT_COMMAND_FILE}" <<EOF
 Run \`./scripts/supernb run --initiative-id ${INIT_ID}\` to generate the next structured command brief for this initiative.
 EOF
 
+cat > "${PHASE_PACKET_FILE}" <<EOF
+# Phase Packet
+
+Run \`./scripts/supernb run --initiative-id ${INIT_ID}\` to generate the current phase execution packet.
+EOF
+
+cat > "${RUN_LOG_FILE}" <<EOF
+# Run Log
+
+This file records each \`supernb run\` evaluation for \`${INIT_ID}\`.
+EOF
+
 cat <<EOF
 Initialized initiative scaffold: ${INIT_ID}
 
@@ -127,6 +142,9 @@ Created:
   ${SPEC_FILE}
   ${RUN_STATUS_FILE}
   ${NEXT_COMMAND_FILE}
+  ${PHASE_PACKET_FILE}
+  ${RUN_LOG_FILE}
+  ${COMMAND_BRIEFS_DIR}
   ${RESEARCH_DIR}/01-competitor-landscape.md
   ${RESEARCH_DIR}/02-review-insights.md
   ${RESEARCH_DIR}/03-feature-opportunities.md

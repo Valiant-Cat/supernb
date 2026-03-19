@@ -132,6 +132,7 @@ That flow now:
 
 - creates `artifacts/initiatives/<initiative-id>/initiative.yaml`
 - creates initiative-local `run-status.md` and `next-command.md`
+- creates initiative-local `phase-packet.md`, `run-log.md`, and archived `command-briefs/`
 - computes which phase is blocked, ready, or complete
 - generates the next structured command brief when the next phase is ready
 

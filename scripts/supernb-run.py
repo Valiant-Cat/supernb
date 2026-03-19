@@ -118,6 +118,17 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
     return value
 
 
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT_DIR))
+    except ValueError:
+        return str(path)
+
+
+def artifact_path(spec: dict[str, Any], key: str) -> Path:
+    return ROOT_DIR / nested_get(spec, "artifacts", key)
+
+
 def read_markdown_field(path: Path, field_name: str) -> str:
     if not path.is_file():
         return ""
@@ -321,7 +332,7 @@ def command_for_phase(phase: str) -> tuple[str, str, str]:
     return ("supernb-orchestrator", "Run final verification and release readiness checks", "release-readiness + verification-before-completion + ui audit")
 
 
-def render_next_command(spec: dict[str, Any], phase: str, output_path: Path) -> dict[str, str] | None:
+def build_command_args(spec: dict[str, Any], phase: str) -> tuple[str, list[str]]:
     command_name, default_goal, capability_hint = command_for_phase(phase)
     constraints = nested_get(spec, "delivery", "constraints")
     quality_bar = nested_get(spec, "delivery", "quality_bar")
@@ -329,7 +340,6 @@ def render_next_command(spec: dict[str, Any], phase: str, output_path: Path) -> 
         constraints = f"{constraints}; quality bar: {quality_bar}" if constraints else f"quality bar: {quality_bar}"
 
     args = [
-        str(ROOT_DIR / "scripts" / "render-command.sh"),
         "--command",
         command_name,
         "--goal",
@@ -346,8 +356,6 @@ def render_next_command(spec: dict[str, Any], phase: str, output_path: Path) -> 
         constraints,
         "--initiative-id",
         nested_get(spec, "initiative", "id"),
-        "--output-file",
-        str(output_path),
     ]
 
     if command_name in {"product-research-prd", "full-product-delivery"}:
@@ -367,8 +375,161 @@ def render_next_command(spec: dict[str, Any], phase: str, output_path: Path) -> 
         args.extend(["--context-line", f"source locale: {nested_get(spec, 'delivery', 'source_locale') or '<fill source locale>'}"])
         args.extend(["--context-line", f"target locales: {nested_get(spec, 'delivery', 'target_locales') or '<fill target locales>'}"])
 
-    subprocess.run(args, check=True)
-    return {"command": command_name, "path": str(output_path.relative_to(ROOT_DIR))}
+    return command_name, args
+
+
+def render_next_command(spec: dict[str, Any], phase: str, output_path: Path) -> dict[str, str]:
+    command_name, args = build_command_args(spec, phase)
+    subprocess.run([str(ROOT_DIR / "scripts" / "render-command.sh"), *args, "--output-file", str(output_path)], check=True)
+    return {"command": command_name, "path": display_path(output_path)}
+
+
+def save_archived_brief(spec: dict[str, Any], phase: str, brief_dir: Path) -> str:
+    command_name, args = build_command_args(spec, phase)
+    proc = subprocess.run(
+        [
+            str(ROOT_DIR / "scripts" / "save-command-brief.sh"),
+            *args,
+            "--title",
+            f"{nested_get(spec, 'initiative', 'title') or nested_get(spec, 'initiative', 'id')} {phase} brief",
+            "--brief-dir",
+            str(brief_dir),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    marker = "Saved command brief: "
+    for line in proc.stdout.splitlines():
+        if line.startswith(marker):
+            return display_path(Path(line[len(marker) :].strip()))
+    raise RuntimeError(f"Could not determine archived brief path from save-command-brief output: {proc.stdout}")
+
+
+def phase_objectives(phase: str) -> list[str]:
+    mapping = {
+        "research": [
+            "Fill the competitor landscape, review insights, and feature opportunities artifacts.",
+            "Keep evidence tied to markets, date window, and reviewed apps.",
+            "Set each research artifact status to approved when it is ready to gate PRD work.",
+        ],
+        "prd": [
+            "Convert approved research into an evidence-backed PRD.",
+            "Separate proven conclusions from open hypotheses.",
+            "Set PRD approval status to approved when it is ready to gate design work.",
+        ],
+        "design": [
+            "Produce approved UI/UX direction and i18n strategy artifacts.",
+            "Use impeccable-driven audit criteria for contrast, readability, and state coverage.",
+            "Set both design approval fields to approved before planning starts.",
+        ],
+        "planning": [
+            "Break delivery into validated batches with tests first.",
+            "Populate loop candidates only for bounded tasks with explicit completion promises.",
+            "Set Ready for execution to yes when the plan is safe to execute.",
+        ],
+        "delivery": [
+            "Execute the approved plan in small verified batches.",
+            "Commit each validated batch and keep localization externalized.",
+            "Set Delivery status to verified when implementation evidence is complete.",
+        ],
+        "release": [
+            "Complete release verification and final UX audit.",
+            "Document residual risks and release notes.",
+            "Set Release decision to ready only when ship criteria are satisfied.",
+        ],
+    }
+    return mapping[phase]
+
+
+def phase_artifact_lines(spec: dict[str, Any], phase: str) -> list[str]:
+    artifact_roots = {
+        "research": artifact_path(spec, "research_dir"),
+        "prd": artifact_path(spec, "prd_dir"),
+        "design": artifact_path(spec, "design_dir"),
+        "planning": artifact_path(spec, "plan_dir"),
+        "delivery": artifact_path(spec, "plan_dir"),
+        "release": artifact_path(spec, "release_dir"),
+    }
+    lines = [f"- Primary artifact root: `{display_path(artifact_roots[phase])}`"]
+    lines.append(f"- Initiative index: `{display_path(artifact_path(spec, 'initiative_index'))}`")
+    lines.append(f"- Initiative spec: `{display_path(artifact_path(spec, 'run_status_md').parent / 'initiative.yaml')}`")
+    return lines
+
+
+def write_phase_packet(
+    spec: dict[str, Any],
+    selected_phase: str,
+    phase_result: PhaseResult,
+    next_command: dict[str, str] | None,
+    archived_brief: str | None,
+    output_path: Path,
+) -> None:
+    title = nested_get(spec, "initiative", "title") or nested_get(spec, "initiative", "id")
+    lines = [
+        f"# Phase Packet: {selected_phase}",
+        "",
+        f"- Initiative: `{title}`",
+        f"- Generated: `{utc_now()}`",
+        f"- Phase status: `{phase_result.status}`",
+        "",
+        "## Objective",
+        "",
+    ]
+    for item in phase_objectives(selected_phase):
+        lines.append(f"- {item}")
+
+    lines.extend(["", "## Artifacts", ""])
+    lines.extend(phase_artifact_lines(spec, selected_phase))
+
+    lines.extend(["", "## Gate State", ""])
+    if phase_result.blockers:
+        for blocker in phase_result.blockers:
+            lines.append(f"- Blocker: {blocker}")
+    else:
+        lines.append("- No blocking gate found for this phase.")
+
+    lines.extend(["", "## Evidence Snapshot", ""])
+    for evidence in phase_result.evidence:
+        lines.append(f"- {evidence}")
+
+    lines.extend(["", "## Execution Assets", ""])
+    if next_command:
+        lines.append(f"- Next command: `{next_command['path']}`")
+    if archived_brief:
+        lines.append(f"- Archived brief: `{archived_brief}`")
+    if not next_command and not archived_brief:
+        lines.append("- No execution asset generated because the current phase is blocked.")
+
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def append_run_log(
+    spec: dict[str, Any],
+    selected_phase: str,
+    phase_result: PhaseResult,
+    archived_brief: str | None,
+    phase_packet_path: Path,
+    log_path: Path,
+) -> None:
+    if not log_path.exists():
+        log_path.write_text("# Run Log\n\n", encoding="utf-8")
+
+    lines = [
+        f"## {utc_now()}",
+        "",
+        f"- Phase: `{selected_phase}`",
+        f"- Status: `{phase_result.status}`",
+        f"- Blocker count: `{len(phase_result.blockers)}`",
+        f"- Phase packet: `{display_path(phase_packet_path)}`",
+    ]
+    if archived_brief:
+        lines.append(f"- Archived brief: `{archived_brief}`")
+    else:
+        lines.append("- Archived brief: not generated")
+    lines.append("")
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
 
 
 def build_markdown(
@@ -378,6 +539,9 @@ def build_markdown(
     results: dict[str, PhaseResult],
     meta: dict[str, str],
     next_command: dict[str, str] | None,
+    archived_brief: str | None,
+    phase_packet_path: Path,
+    run_log_path: Path,
 ) -> str:
     title = nested_get(spec, "initiative", "title")
     initiative_id = nested_get(spec, "initiative", "id")
@@ -386,8 +550,10 @@ def build_markdown(
         "",
         f"- Initiative ID: `{initiative_id}`",
         f"- Generated: `{utc_now()}`",
-        f"- Initiative spec: `{spec_path.relative_to(ROOT_DIR)}`",
+        f"- Initiative spec: `{display_path(spec_path)}`",
         f"- Selected phase: `{selected_phase}`",
+        f"- Phase packet: `{display_path(phase_packet_path)}`",
+        f"- Run log: `{display_path(run_log_path)}`",
         "",
         "## Completion Snapshot",
         "",
@@ -423,6 +589,8 @@ def build_markdown(
     else:
         lines.append(f"- Command: `{next_command['command']}`")
         lines.append(f"- Rendered brief: `{next_command['path']}`")
+        if archived_brief:
+            lines.append(f"- Archived brief: `{archived_brief}`")
         lines.append(f"- Run: `./scripts/supernb run --initiative-id {initiative_id}` after phase progress changes")
     return "\n".join(lines) + "\n"
 
@@ -452,23 +620,34 @@ def main() -> int:
     results, meta = build_phase_results(spec, spec_path)
     selected_phase = args.phase if args.phase != "auto" else auto_phase(results)
 
-    run_status_md = ROOT_DIR / nested_get(spec, "artifacts", "run_status_md")
-    run_status_json = ROOT_DIR / nested_get(spec, "artifacts", "run_status_json")
-    next_command_md = ROOT_DIR / nested_get(spec, "artifacts", "next_command_md")
+    run_status_md = artifact_path(spec, "run_status_md")
+    run_status_json = artifact_path(spec, "run_status_json")
+    next_command_md = artifact_path(spec, "next_command_md")
+    phase_packet_md = artifact_path(spec, "phase_packet_md")
+    run_log_md = artifact_path(spec, "run_log_md")
+    command_briefs_dir = artifact_path(spec, "command_briefs_dir")
     run_status_md.parent.mkdir(parents=True, exist_ok=True)
+    command_briefs_dir.mkdir(parents=True, exist_ok=True)
 
     next_command = None
+    archived_brief = None
     if not args.no_next_command and results[selected_phase].status != "blocked":
         next_command = render_next_command(spec, selected_phase, next_command_md)
+        archived_brief = save_archived_brief(spec, selected_phase, command_briefs_dir)
 
-    markdown = build_markdown(spec, spec_path, selected_phase, results, meta, next_command)
+    write_phase_packet(spec, selected_phase, results[selected_phase], next_command, archived_brief, phase_packet_md)
+    append_run_log(spec, selected_phase, results[selected_phase], archived_brief, phase_packet_md, run_log_md)
+
+    markdown = build_markdown(spec, spec_path, selected_phase, results, meta, next_command, archived_brief, phase_packet_md, run_log_md)
     run_status_md.write_text(markdown, encoding="utf-8")
 
     payload = {
         "initiative_id": initiative_id,
         "selected_phase": selected_phase,
         "generated_at": utc_now(),
-        "spec_path": str(spec_path.relative_to(ROOT_DIR)),
+        "spec_path": display_path(spec_path),
+        "phase_packet": display_path(phase_packet_md),
+        "run_log": display_path(run_log_md),
         "phases": {
             phase: {
                 "status": results[phase].status,
@@ -485,8 +664,12 @@ def main() -> int:
     print(f"Selected phase: {selected_phase} ({results[selected_phase].status})")
     print(f"Run status: {run_status_md}")
     print(f"Run status JSON: {run_status_json}")
+    print(f"Phase packet: {phase_packet_md}")
+    print(f"Run log: {run_log_md}")
     if next_command:
         print(f"Next command: {next_command_md}")
+        if archived_brief:
+            print(f"Archived brief: {ROOT_DIR / archived_brief}")
     else:
         print("Next command: not generated because the selected phase is blocked.")
     return 0

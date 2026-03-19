@@ -46,6 +46,8 @@ This writes:
 - `artifacts/initiatives/<initiative-id>/run-status.md`
 - `artifacts/initiatives/<initiative-id>/run-status.json`
 - `artifacts/initiatives/<initiative-id>/next-command.md`
+- `artifacts/initiatives/<initiative-id>/phase-packet.md`
+- `artifacts/initiatives/<initiative-id>/run-log.md`
 
 ## 4. Pick A Command
 

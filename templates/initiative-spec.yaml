@@ -29,6 +29,9 @@ artifacts:
   run_status_md: "artifacts/initiatives/{{INIT_ID}}/run-status.md"
   run_status_json: "artifacts/initiatives/{{INIT_ID}}/run-status.json"
   next_command_md: "artifacts/initiatives/{{INIT_ID}}/next-command.md"
+  phase_packet_md: "artifacts/initiatives/{{INIT_ID}}/phase-packet.md"
+  run_log_md: "artifacts/initiatives/{{INIT_ID}}/run-log.md"
+  command_briefs_dir: "artifacts/initiatives/{{INIT_ID}}/command-briefs"
 
 gates:
   research_required: "yes"
