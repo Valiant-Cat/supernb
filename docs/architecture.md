@@ -22,6 +22,7 @@ Required outputs:
 Storage target:
 
 - `artifacts/research/`
+- `artifacts/initiatives/`
 
 Gate:
 
@@ -43,6 +44,7 @@ Required outputs:
 Storage target:
 
 - `artifacts/prd/`
+- `artifacts/initiatives/`
 
 Gate:
 
@@ -63,6 +65,7 @@ Required outputs:
 Storage target:
 
 - `artifacts/design/`
+- `artifacts/initiatives/`
 
 Gate:
 
@@ -82,6 +85,7 @@ Required outputs:
 Storage target:
 
 - `artifacts/plans/`
+- `artifacts/initiatives/`
 
 Gate:
 
@@ -117,6 +121,7 @@ Required outputs:
 Storage target:
 
 - `artifacts/releases/`
+- `artifacts/initiatives/`
 
 ## Coordination Rules
 

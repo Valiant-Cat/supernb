@@ -42,3 +42,7 @@ Good loop tasks:
 ## Completion Rule
 
 Code generation is not completion. Completion requires verification evidence.
+
+## Template Rule
+
+If an initiative scaffold exists, record plan progress and release readiness in the corresponding plan and release artifacts.

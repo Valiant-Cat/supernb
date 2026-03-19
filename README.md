@@ -88,6 +88,7 @@ Then install for the harness you use:
 ```bash
 make update
 make build-impeccable
+make init-initiative INITIATIVE=my-product TITLE="My Product"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -98,6 +99,7 @@ Or use the scripts directly:
 ```bash
 ./scripts/update-upstreams.sh
 ./scripts/build-impeccable-dist.sh
+./scripts/init-initiative.sh my-product "My Product"
 ./scripts/install-codex.sh
 ```
 
@@ -107,6 +109,7 @@ Or use the scripts directly:
 supernb/
 ├── artifacts/
 │   ├── design/
+│   ├── initiatives/
 │   ├── plans/
 │   ├── prd/
 │   ├── releases/
@@ -121,10 +124,13 @@ supernb/
 
 For a new product initiative:
 
-1. Start with the `product-research-prd` skill.
-2. Move to `ui-ux-governance` only after the PRD is evidence-backed.
-3. Use `autonomous-delivery` after design approval.
-4. Keep `supernb-orchestrator` active when the goal is end-to-end product delivery.
+1. Run `make init-initiative INITIATIVE=my-product TITLE="My Product"`.
+2. Start with the `product-research-prd` skill and fill the research templates.
+3. Move to `ui-ux-governance` only after the PRD is evidence-backed.
+4. Use `autonomous-delivery` after design approval.
+5. Keep `supernb-orchestrator` active when the goal is end-to-end product delivery.
+
+Workflow guide: [docs/workflows/end-to-end.md](/Users/xiaomiao26_1_26/projects/supernb/docs/workflows/end-to-end.md)
 
 ## Notes
 

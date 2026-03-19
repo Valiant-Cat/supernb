@@ -37,3 +37,6 @@ Use `impeccable`:
 
 Frontend work is not complete until a final `impeccable` review pass is done after code implementation.
 
+## Template Rule
+
+If an initiative scaffold exists, write UI/UX decisions and audits into the corresponding design artifacts instead of scattering them across unrelated notes.

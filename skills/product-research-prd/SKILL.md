@@ -40,3 +40,6 @@ The final PRD must separate:
 
 If the evidence is weak, say so explicitly instead of pretending certainty.
 
+## Template Rule
+
+If this repo contains an initiative scaffold under `artifacts/`, write into those files instead of inventing an ad hoc document layout.
