@@ -22,6 +22,13 @@ Output: <what should be saved, implemented, or returned>
 - [implementation-execution.md](/Users/xiaomiao26_1_26/projects/supernb/commands/implementation-execution.md)
 - [i18n-localization-governance.md](/Users/xiaomiao26_1_26/projects/supernb/commands/i18n-localization-governance.md)
 
+## Helpers
+
+- `./scripts/show-command-template.sh <command>` prints the raw template
+- `./scripts/render-command.sh --command <command> ...` renders a filled prompt
+- `make show-command COMMAND=<command>` is the shortcut
+- `make render-command COMMAND=<command> GOAL="..." ...` is the machine-fill shortcut
+
 ## Example
 
 ```text
@@ -30,4 +37,3 @@ Goal: Build a commercial-grade personal finance product.
 Context: Web + iOS, global launch, remote repo https://github.com/example/repo.git
 Output: Research artifacts, PRD, UI/UX spec, implementation plan, validated code commits.
 ```
-

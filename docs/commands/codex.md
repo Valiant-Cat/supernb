@@ -16,6 +16,12 @@ make show-command COMMAND=implementation-execution
 
 Then use the rendered template in Codex.
 
+For a pre-filled prompt:
+
+```bash
+make render-command COMMAND=implementation-execution GOAL="Implement the billing module" STACK="go + react"
+```
+
 ## Why This Works
 
 - Codex can already discover `supernb` skills through `~/.agents/skills/`
@@ -28,4 +34,3 @@ Then use the rendered template in Codex.
 - `single-capability-router`
 - `implementation-execution`
 - `i18n-localization-governance`
-

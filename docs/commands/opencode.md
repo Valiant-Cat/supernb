@@ -12,6 +12,12 @@ make show-command COMMAND=ui-ux-upgrade
 
 Paste the result into OpenCode and fill the placeholders.
 
+For a pre-filled prompt:
+
+```bash
+make render-command COMMAND=ui-ux-upgrade GOAL="Upgrade the checkout UX" STACK="react"
+```
+
 ## Relationship To Skills
 
 - OpenCode project skills still come from `.opencode/skills/supernb`
@@ -24,4 +30,3 @@ Paste the result into OpenCode and fill the placeholders.
 - `ui-ux-upgrade`
 - `brainstorm-and-save`
 - `full-product-delivery`
-

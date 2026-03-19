@@ -106,6 +106,7 @@ make init-initiative INITIATIVE=my-product TITLE="My Product"
 make check-copy
 make init-i18n STACK=web TARGET_LOCALES="zh-CN,ja"
 make show-command COMMAND=full-product-delivery
+make render-command COMMAND=full-product-delivery GOAL="Build a finance app" STACK="flutter"
 make install-codex
 make install-claude-code
 make install-opencode
@@ -120,6 +121,7 @@ Or use the scripts directly:
 ./scripts/check-no-hardcoded-copy.sh
 ./scripts/init-i18n-foundation.sh --stack web --target-dir . --target-locales "zh-CN,ja"
 ./scripts/show-command-template.sh full-product-delivery
+./scripts/render-command.sh --command full-product-delivery --goal "Build a finance app" --stack flutter
 ./scripts/install-codex.sh
 ```
 
