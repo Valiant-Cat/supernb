@@ -29,6 +29,8 @@ It has two jobs:
 - single-capability routing across all integrated upstream abilities
 - reusable command entrypoints for predictable invocation
 
+Its templates and artifact scaffolds are additive. They are meant to capture and organize outputs, not to replace or shrink the native documentation behavior of upstream `superpowers`.
+
 ## Upstream Projects
 
 As inspected locally on 2026-03-19:

@@ -4,6 +4,8 @@
 
 `supernb` is a phase-gated orchestration system for full-product delivery. It coordinates research, PRD generation, design, implementation, and verification. Each phase has a designated upstream engine and a required artifact set.
 
+The `supernb` artifact templates are optional scaffolding. They provide a stable place to save outputs, but they do not override the native plan, design, or execution documentation formats that upstream `superpowers` may generate when a richer structure is warranted.
+
 ## Phases
 
 ### 1. Research

@@ -42,4 +42,6 @@ If the evidence is weak, say so explicitly instead of pretending certainty.
 
 ## Template Rule
 
-If this repo contains an initiative scaffold under `artifacts/`, write into those files instead of inventing an ad hoc document layout.
+If this repo contains an initiative scaffold under `artifacts/`, prefer saving research and PRD outputs there for organization.
+
+Do not discard or compress richer upstream-generated documents just to fit the local scaffold. The scaffold is a storage convention, not a cap on detail.

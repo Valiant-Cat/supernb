@@ -39,4 +39,6 @@ Frontend work is not complete until a final `impeccable` review pass is done aft
 
 ## Template Rule
 
-If an initiative scaffold exists, write UI/UX decisions and audits into the corresponding design artifacts instead of scattering them across unrelated notes.
+If an initiative scaffold exists, prefer saving UI/UX decisions and audits into the corresponding design artifacts.
+
+Do not reduce the depth of `impeccable` or upstream design outputs merely to fit a smaller local template. Preserve full detail when it adds value.

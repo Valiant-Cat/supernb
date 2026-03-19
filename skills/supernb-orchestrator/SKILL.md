@@ -9,6 +9,8 @@ This skill coordinates the end-to-end `supernb` workflow. It is the top-level ro
 
 `supernb` is framework-agnostic. Flutter, React Native, native Android, iOS, web, backend, Python, Go, or other stacks are request parameters, not routing determinants by themselves.
 
+`supernb` templates are optional storage scaffolds. Do not force upstream `superpowers` into a weaker or smaller document structure just because a local template exists.
+
 ## Mandatory Phase Order
 
 1. Research
@@ -57,6 +59,8 @@ Before release, the workspace should contain:
 - verification evidence
 - final design audit notes
 - a clean commit trail
+
+These outputs may be stored in `supernb` artifacts, in richer upstream-generated documents, or both. Prefer preserving upstream detail rather than flattening it into a smaller local template.
 
 ## Commit Rule
 

@@ -46,3 +46,5 @@ Code generation is not completion. Completion requires verification evidence.
 ## Template Rule
 
 If an initiative scaffold exists, record plan progress and release readiness in the corresponding plan and release artifacts.
+
+But do not replace upstream `superpowers` planning or execution documents with a thinner local version. Use the local scaffold as an index or landing zone, not as a restriction on capability.
