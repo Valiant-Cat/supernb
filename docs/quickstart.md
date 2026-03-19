@@ -73,7 +73,7 @@ Use `--dry-run` first if you only want to prepare the packet and inspect the exa
 ```
 
 This writes a timestamped execution packet under `executions/` with the prompt copy, `prompt-with-report.md`, request metadata, response, stdout, stderr, and a summary.
-It also writes `result-suggestion.md/json` and `phase-readiness.md/json` with completed items, remaining items, evidence artifacts, gate suggestions, and phase-specific readiness checks.
+It also writes `result-suggestion.md/json` and `phase-readiness.md/json` with completed items, remaining items, evidence artifacts, gate suggestions, and phase-specific structural plus semantic readiness checks.
 
 ## 5. Apply The Execution Packet
 
@@ -120,7 +120,7 @@ Use this direct path only when you need to override the packet suggestion manual
 
 ## 7. Certify The Phase
 
-Before advancing, check whether the current phase artifacts still contain empty scaffold fields or placeholder rows:
+Before advancing, check whether the current phase artifacts still contain structural gaps or semantic completeness problems:
 
 ```bash
 ./scripts/supernb certify-phase \

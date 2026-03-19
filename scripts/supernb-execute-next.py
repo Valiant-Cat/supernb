@@ -619,6 +619,332 @@ def useful_content_count(lines: list[str], phase: str) -> int:
     return count
 
 
+def bullet_field_map(lines: list[str]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in lines:
+        match = re.match(r"^\s*-\s+([^:]+):\s*(.*)$", line.strip())
+        if match:
+            values[match.group(1).strip()] = match.group(2).strip().strip("`")
+    return values
+
+
+def numbered_item_values(lines: list[str]) -> list[str]:
+    values: list[str] = []
+    for line in lines:
+        match = re.match(r"^\s*\d+\.\s+(.*)$", line.strip())
+        if not match:
+            continue
+        value = match.group(1).strip().strip("`")
+        if value and not line_is_placeholder_numbered(line.strip()):
+            values.append(value)
+    return values
+
+
+def table_data_rows(lines: list[str], phase: str) -> list[list[str]]:
+    rows: list[list[str]] = []
+    in_table = False
+    header_skipped = False
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            in_table = False
+            header_skipped = False
+            continue
+        if not in_table:
+            in_table = True
+            header_skipped = False
+        if re.fullmatch(r"\|\s*-+\s*(\|\s*-+\s*)+\|?", stripped):
+            continue
+        if line_is_empty_table_row(stripped):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if all(not cell for cell in cells):
+            continue
+        if any("{{" in cell and "}}" in cell for cell in cells):
+            continue
+        if not header_skipped:
+            header_skipped = True
+            continue
+        rows.append(cells)
+    return rows
+
+
+def code_block_commands(lines: list[str]) -> list[str]:
+    commands: list[str] = []
+    in_block = False
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if stripped.startswith("```"):
+            in_block = not in_block
+            continue
+        if not in_block:
+            continue
+        if not stripped or stripped.startswith("#"):
+            continue
+        commands.append(stripped)
+    return commands
+
+
+def checkbox_counts(lines: list[str]) -> tuple[int, int]:
+    checked = 0
+    total = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- [x] "):
+            checked += 1
+            total += 1
+        elif stripped.startswith("- [ ] "):
+            total += 1
+    return checked, total
+
+
+def count_filled_fields(values: dict[str, str], labels: list[str]) -> int:
+    count = 0
+    for label in labels:
+        value = values.get(label, "").strip()
+        if value and not re.fullmatch(r"\{\{[^}]+\}\}", value):
+            count += 1
+    return count
+
+
+def complete_page_blocks(lines: list[str]) -> int:
+    blocks: list[list[str]] = []
+    current: list[str] = []
+    for raw_line in lines:
+        if raw_line.strip().startswith("### "):
+            if current:
+                blocks.append(current)
+            current = [raw_line]
+            continue
+        if current:
+            current.append(raw_line)
+    if current:
+        blocks.append(current)
+
+    completed = 0
+    for block in blocks:
+        values = bullet_field_map(block)
+        if count_filled_fields(values, ["Purpose", "Core modules", "Primary CTA", "Empty/loading/error/success states"]) == 4:
+            completed += 1
+    return completed
+
+
+def semantic_checks_for_artifact(path: Path, phase: str, sections: dict[str, list[str]]) -> tuple[list[str], dict[str, Any]]:
+    issues: list[str] = []
+    metrics: dict[str, Any] = {}
+    name = path.name
+
+    if phase == "research" and name == "01-competitor-landscape.md":
+        research_window = bullet_field_map(sections.get("Research Window", []))
+        metrics["research_window_fields"] = count_filled_fields(research_window, ["Stores", "Countries", "Start date", "End date"])
+        metrics["competitor_rows"] = len(table_data_rows(sections.get("Competitor Shortlist", []), phase))
+        metrics["metadata_rows"] = len(table_data_rows(sections.get("Metadata Snapshot", []), phase))
+        metrics["strategic_patterns_filled"] = count_filled_fields(bullet_field_map(sections.get("Observed Strategic Patterns", [])), ["Pattern 1", "Pattern 2", "Pattern 3"])
+        metrics["gaps_filled"] = count_filled_fields(bullet_field_map(sections.get("Gaps To Investigate", [])), ["Gap 1", "Gap 2"])
+        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Sensor Tower export", "Notes"])
+        if metrics["research_window_fields"] < 4:
+            issues.append("Research Window still lacks filled stores/countries/date bounds.")
+        if metrics["competitor_rows"] < 1:
+            issues.append("Competitor Shortlist needs at least one populated competitor row.")
+        if metrics["metadata_rows"] < 1:
+            issues.append("Metadata Snapshot needs at least one populated metadata row.")
+        if metrics["strategic_patterns_filled"] < 2:
+            issues.append("Observed Strategic Patterns should capture at least two concrete patterns.")
+        if metrics["raw_refs_filled"] < 1:
+            issues.append("Raw Data References should include at least one concrete source path or note.")
+
+    if phase == "research" and name == "02-review-insights.md":
+        query_context = bullet_field_map(sections.get("Query Context", []))
+        metrics["query_context_fields"] = count_filled_fields(query_context, ["Apps reviewed", "Countries", "Date window", "Total reviews"])
+        metrics["complaint_rows"] = len(table_data_rows(sections.get("Top Complaint Clusters", []), phase))
+        metrics["delight_rows"] = len(table_data_rows(sections.get("Top Delight Clusters", []), phase))
+        metrics["request_rows"] = len(table_data_rows(sections.get("Explicit Feature Requests", []), phase))
+        metrics["anti_feature_rows"] = len(table_data_rows(sections.get("Anti-Features", []), phase))
+        metrics["hotspots_filled"] = count_filled_fields(bullet_field_map(sections.get("Version Or Country Hotspots", [])), ["Hotspot 1", "Hotspot 2"])
+        metrics["raw_refs_filled"] = count_filled_fields(bullet_field_map(sections.get("Raw Data References", [])), ["Review export", "Review insight report"])
+        if metrics["query_context_fields"] < 4:
+            issues.append("Query Context should identify reviewed apps, countries, date window, and review volume.")
+        if metrics["complaint_rows"] < 1 or metrics["delight_rows"] < 1:
+            issues.append("Review insights need at least one complaint cluster and one delight cluster.")
+        if metrics["request_rows"] < 1 or metrics["anti_feature_rows"] < 1:
+            issues.append("Review insights need explicit feature requests and anti-features captured.")
+        if metrics["raw_refs_filled"] < 1:
+            issues.append("Review insights should reference raw review exports or a derived report.")
+
+    if phase == "research" and name == "03-feature-opportunities.md":
+        metrics["must_have_rows"] = len(table_data_rows(sections.get("Must-Have Features", []), phase))
+        metrics["differentiator_rows"] = len(table_data_rows(sections.get("Differentiators", []), phase))
+        metrics["avoidance_rows"] = len(table_data_rows(sections.get("Avoidances", []), phase))
+        metrics["hypothesis_rows"] = len(table_data_rows(sections.get("Open Hypotheses", []), phase))
+        metrics["recommendation_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Recommendation", [])),
+            ["Core feature set", "First premium lever", "Biggest UX risk", "Biggest market risk"],
+        )
+        if min(metrics["must_have_rows"], metrics["differentiator_rows"], metrics["avoidance_rows"], metrics["hypothesis_rows"]) < 1:
+            issues.append("Feature opportunities should cover must-haves, differentiators, avoidances, and open hypotheses.")
+        if metrics["recommendation_fields"] < 4:
+            issues.append("Recommendation should summarize feature set, premium lever, UX risk, and market risk.")
+
+    if phase == "prd" and name == "product-requirements.md":
+        metrics["journey_count"] = len(numbered_item_values(sections.get("Core User Journeys", [])))
+        metrics["functional_requirement_rows"] = len(table_data_rows(sections.get("Functional Requirements", []), phase))
+        metrics["risk_rows"] = len(table_data_rows(sections.get("Risks", []), phase))
+        metrics["goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Product Goals", [])), ["Goal 1", "Goal 2", "Goal 3"])
+        metrics["non_goal_fields"] = count_filled_fields(bullet_field_map(sections.get("Non-Goals", [])), ["Non-goal 1", "Non-goal 2"])
+        metrics["localization_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization Requirements", [])),
+            ["Source language", "Target locales", "Localization system", "Translation workflow"],
+        )
+        metrics["evidence_appendix_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Evidence Appendix", [])),
+            ["Competitor landscape", "Review insights", "Feature opportunities"],
+        )
+        if metrics["journey_count"] < 2:
+            issues.append("PRD should describe at least two concrete user journeys.")
+        if metrics["functional_requirement_rows"] < 1:
+            issues.append("Functional Requirements needs at least one populated requirement row.")
+        if metrics["risk_rows"] < 1:
+            issues.append("Risks needs at least one populated risk row.")
+        if metrics["goal_fields"] < 2:
+            issues.append("Product Goals should include at least two concrete goals.")
+        if metrics["localization_fields"] < 4:
+            issues.append("Localization Requirements should fill source language, target locales, system, and workflow.")
+        if metrics["evidence_appendix_fields"] < 3:
+            issues.append("Evidence Appendix should point back to all three research artifacts.")
+
+    if phase == "design" and name == "ui-ux-spec.md":
+        metrics["readability_rule_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Accessibility And Readability Rules", [])),
+            ["Minimum contrast expectations", "CTA readability rules", "Disabled/loading state rules", "Focus state rules"],
+        )
+        metrics["localization_rule_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization And Copy Rules", [])),
+            ["Source locale", "Target locales", "Long-text expansion and multi-locale layout considerations"],
+        )
+        metrics["component_rule_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Component Rules", [])),
+            ["Buttons", "Forms", "Cards", "Lists", "Modals"],
+        )
+        metrics["page_blocks_completed"] = complete_page_blocks(sections.get("Page Specs", []))
+        metrics["impeccable_review_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Impeccable Review Notes", [])),
+            ["Audit findings", "Critique findings", "Polish actions"],
+        )
+        if metrics["readability_rule_fields"] < 4:
+            issues.append("UI UX spec should define all readability and accessibility rules.")
+        if metrics["page_blocks_completed"] < 2:
+            issues.append("UI UX spec should contain at least two fully filled page specs.")
+        if metrics["component_rule_fields"] < 4:
+            issues.append("Component Rules should cover most core component families.")
+        if metrics["impeccable_review_fields"] < 3:
+            issues.append("Impeccable Review Notes should capture audit, critique, and polish actions.")
+
+    if phase == "design" and name == "i18n-strategy.md":
+        metrics["scope_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization Scope", [])),
+            ["Product surfaces in scope", "Source locale", "Required target locales"],
+        )
+        metrics["stack_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Stack And Resource Model", [])),
+            ["Primary stack", "Localization resource location", "Translation helper or accessor"],
+        )
+        metrics["source_of_truth_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Source Of Truth", [])),
+            ["Who owns source copy", "Key naming convention", "Placeholder and formatting rules", "Brand terms that must not be translated"],
+        )
+        metrics["delivery_rule_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Delivery Rules", [])),
+            ["Locale sync workflow", "Translation completion workflow", "Hardcoded copy check command"],
+        )
+        metrics["validation_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Validation", [])),
+            ["Required locale coverage before release", "Manual QA locales", "Automated checks"],
+        )
+        if metrics["scope_fields"] < 3:
+            issues.append("I18n Strategy should define scope, source locale, and required target locales.")
+        if metrics["stack_fields"] < 3:
+            issues.append("I18n Strategy should define the stack resource location and translation accessor.")
+        if metrics["delivery_rule_fields"] < 3:
+            issues.append("I18n Strategy should define locale sync, translation workflow, and hardcoded copy checks.")
+        if metrics["validation_fields"] < 3:
+            issues.append("I18n Strategy should define locale coverage, manual QA, and automated checks.")
+
+    if phase in {"planning", "delivery"} and name == "implementation-plan.md":
+        metrics["milestone_rows"] = len(table_data_rows(sections.get("Milestones", []), phase))
+        metrics["completed_batches"] = 0
+        batch_lines = sections.get("Task Batches", [])
+        batch_blocks: list[list[str]] = []
+        current: list[str] = []
+        for raw_line in batch_lines:
+            if raw_line.strip().startswith("### "):
+                if current:
+                    batch_blocks.append(current)
+                current = [raw_line]
+                continue
+            if current:
+                current.append(raw_line)
+        if current:
+            batch_blocks.append(current)
+        for block in batch_blocks:
+            values = bullet_field_map(block)
+            if count_filled_fields(values, ["Goal", "Dependencies", "Test-first tasks", "Verification"]) == 4:
+                metrics["completed_batches"] += 1
+        metrics["localization_work_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization Work", [])),
+            ["Hardcoded string extraction tasks", "Source locale key creation", "Target locale sync", "Translation completion workflow"],
+        )
+        verification_commands = code_block_commands(sections.get("Verification Commands", []))
+        metrics["verification_command_count"] = len(verification_commands)
+        metrics["custom_verification_command_count"] = len([cmd for cmd in verification_commands if cmd != "./scripts/check-no-hardcoded-copy.sh"])
+        metrics["commit_strategy_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Commit Strategy", [])),
+            ["Commit frequency", "Branch strategy", "PR strategy"],
+        )
+        if metrics["milestone_rows"] < 1:
+            issues.append("Implementation plan needs at least one milestone row.")
+        if metrics["completed_batches"] < 1:
+            issues.append("Implementation plan should contain at least one fully filled task batch.")
+        if metrics["localization_work_fields"] < 4:
+            issues.append("Implementation plan should define all localization work lanes.")
+        if metrics["custom_verification_command_count"] < 1:
+            issues.append("Verification Commands should include at least one project-specific command beyond the default copy check.")
+        if metrics["commit_strategy_fields"] < 3:
+            issues.append("Commit Strategy should define commit frequency, branch strategy, and PR strategy.")
+
+    if phase == "release" and name == "release-readiness.md":
+        metrics["verification_summary_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Verification Summary", [])),
+            ["Test status", "Build status", "Lint status", "Manual QA status"],
+        )
+        metrics["ux_audit_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("UX Audit Summary", [])),
+            ["Final impeccable audit", "Contrast and readability checks", "Responsive checks"],
+        )
+        metrics["localization_summary_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Localization Summary", [])),
+            ["Hardcoded copy audit", "Locale coverage", "Translation validation", "Hardcoded copy check command/result"],
+        )
+        checked, total = checkbox_counts(sections.get("Release Checklist", []))
+        metrics["release_checklist_checked"] = checked
+        metrics["release_checklist_total"] = total
+        metrics["release_notes_fields"] = count_filled_fields(
+            bullet_field_map(sections.get("Release Notes Draft", [])),
+            ["Added", "Improved", "Fixed"],
+        )
+        if metrics["verification_summary_fields"] < 4:
+            issues.append("Release readiness should fill test/build/lint/manual QA status.")
+        if metrics["ux_audit_fields"] < 3:
+            issues.append("Release readiness should summarize final UX audit results.")
+        if metrics["localization_summary_fields"] < 4:
+            issues.append("Release readiness should summarize locale coverage and hardcoded-copy validation.")
+        if total > 0 and checked < total:
+            issues.append("Release checklist is not fully checked yet.")
+        if metrics["release_notes_fields"] < 1:
+            issues.append("Release notes draft should contain at least one concrete added/improved/fixed item.")
+
+    return issues, metrics
+
+
 def level2_sections(text: str) -> dict[str, list[str]]:
     sections: dict[str, list[str]] = {}
     current: str | None = None
@@ -641,6 +967,8 @@ def inspect_artifact_readiness(path: Path, phase: str, expected_sections: list[s
             "missing_sections": expected_sections,
             "thin_sections": [],
             "placeholder_count": 0,
+            "semantic_issues": [],
+            "semantic_metrics": {},
             "ready": False,
         }
 
@@ -662,13 +990,17 @@ def inspect_artifact_readiness(path: Path, phase: str, expected_sections: list[s
         if useful_content_count(sections[section], phase) == 0:
             thin_sections.append(section)
 
+    semantic_issues, semantic_metrics = semantic_checks_for_artifact(path, phase, sections)
+
     return {
         "path": display_path(path),
         "exists": True,
         "missing_sections": missing_sections,
         "thin_sections": thin_sections,
         "placeholder_count": placeholder_count,
-        "ready": not missing_sections and not thin_sections and placeholder_count == 0,
+        "semantic_issues": semantic_issues,
+        "semantic_metrics": semantic_metrics,
+        "ready": not missing_sections and not thin_sections and placeholder_count == 0 and not semantic_issues,
     }
 
 
@@ -681,14 +1013,16 @@ def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
     total_missing = sum(len(check["missing_sections"]) for check in checks)
     total_thin = sum(len(check["thin_sections"]) for check in checks)
     total_placeholders = sum(int(check["placeholder_count"]) for check in checks)
+    total_semantic_issues = sum(len(check.get("semantic_issues", [])) for check in checks)
     ready = all(bool(check["ready"]) for check in checks)
 
     if ready:
-        summary = f"{phase} artifacts appear structurally ready for certification."
+        summary = f"{phase} artifacts appear structurally and semantically ready for certification."
     else:
         summary = (
             f"{phase} artifacts still have {total_missing} missing sections, "
-            f"{total_thin} thin sections, and {total_placeholders} unresolved placeholder lines."
+            f"{total_thin} thin sections, {total_placeholders} unresolved placeholder lines, "
+            f"and {total_semantic_issues} semantic readiness issues."
         )
 
     return {
@@ -698,6 +1032,7 @@ def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
         "total_missing_sections": total_missing,
         "total_thin_sections": total_thin,
         "total_placeholders": total_placeholders,
+        "total_semantic_issues": total_semantic_issues,
         "summary": summary,
     }
 
@@ -895,6 +1230,7 @@ def write_result_suggestion_md(
     lines.extend(["", "## Phase Readiness", ""])
     lines.append(f"- Ready for certification: `{'yes' if readiness.get('ready_for_certification') else 'no'}`")
     lines.append(f"- Summary: {readiness.get('summary', 'No readiness summary.')}")
+    lines.append(f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`")
     if readiness.get("artifact_checks"):
         for check in readiness["artifact_checks"]:
             lines.append(f"- `{check['path']}` ready=`{'yes' if check.get('ready') else 'no'}` placeholders=`{check.get('placeholder_count', 0)}`")
@@ -902,11 +1238,27 @@ def write_result_suggestion_md(
                 lines.append(f"  missing sections: {', '.join(check['missing_sections'])}")
             if check.get("thin_sections"):
                 lines.append(f"  thin sections: {', '.join(check['thin_sections'])}")
+            if check.get("semantic_issues"):
+                lines.append(f"  semantic issues: {len(check['semantic_issues'])}")
+                for issue in check["semantic_issues"]:
+                    lines.append(f"  - {issue}")
+            if check.get("semantic_metrics"):
+                lines.append("  semantic metrics:")
+                for key in sorted(check["semantic_metrics"]):
+                    lines.append(f"  - {key}: {format_metric_value(check['semantic_metrics'][key])}")
     if suggestion.get("response_excerpt"):
         lines.extend(["", "## Response Excerpt", "", suggestion["response_excerpt"]])
     if suggestion.get("stderr_excerpt"):
         lines.extend(["", "## Stderr Excerpt", "", suggestion["stderr_excerpt"]])
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def format_metric_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
 
 
 def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
@@ -919,6 +1271,7 @@ def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
         f"- Missing sections: `{readiness.get('total_missing_sections', 0)}`",
         f"- Thin sections: `{readiness.get('total_thin_sections', 0)}`",
         f"- Placeholder lines: `{readiness.get('total_placeholders', 0)}`",
+        f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`",
         "",
         "## Artifact Checks",
         "",
@@ -929,6 +1282,14 @@ def write_phase_readiness_md(path: Path, readiness: dict[str, Any]) -> None:
             lines.append(f"  missing sections: {', '.join(check['missing_sections'])}")
         if check.get("thin_sections"):
             lines.append(f"  thin sections: {', '.join(check['thin_sections'])}")
+        if check.get("semantic_issues"):
+            lines.append(f"  semantic issues: {len(check['semantic_issues'])}")
+            for issue in check["semantic_issues"]:
+                lines.append(f"  - {issue}")
+        if check.get("semantic_metrics"):
+            lines.append("  semantic metrics:")
+            for key in sorted(check["semantic_metrics"]):
+                lines.append(f"  - {key}: {format_metric_value(check['semantic_metrics'][key])}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

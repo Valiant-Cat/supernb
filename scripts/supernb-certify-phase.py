@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
@@ -27,6 +28,8 @@ METADATA_FIELDS = {
     "Approved by",
     "Approved on",
 }
+
+_EXECUTE_NEXT_MODULE: Any | None = None
 
 
 @dataclass
@@ -158,6 +161,26 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
     if args.initiative_id:
         return ROOT_DIR / "artifacts" / "initiatives" / args.initiative_id / "initiative.yaml"
     raise ValueError("Pass --initiative-id or --spec.")
+
+
+def load_execute_next_module() -> Any:
+    global _EXECUTE_NEXT_MODULE
+    if _EXECUTE_NEXT_MODULE is not None:
+        return _EXECUTE_NEXT_MODULE
+
+    module_path = ROOT_DIR / "scripts" / "supernb-execute-next.py"
+    module_spec = importlib.util.spec_from_file_location("supernb_execute_next", module_path)
+    if module_spec is None or module_spec.loader is None:
+        raise RuntimeError(f"Could not load execute-next module from {module_path}")
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    _EXECUTE_NEXT_MODULE = module
+    return module
+
+
+def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
+    module = load_execute_next_module()
+    return module.build_phase_readiness(spec, phase)
 
 
 def current_phase_from_run_status(spec: dict[str, Any]) -> str:
@@ -296,17 +319,19 @@ def write_report(
     spec: dict[str, Any],
     phase: str,
     issues: list[Issue],
+    readiness: dict[str, Any],
     report_path: Path,
     applied: bool,
 ) -> None:
     recommendation = recommended_gate_status(phase)
+    readiness_ok = bool(readiness.get("ready_for_certification"))
     lines = [
         "# Phase Certification",
         "",
         f"- Initiative ID: `{nested_get(spec, 'initiative', 'id')}`",
         f"- Phase: `{phase}`",
         f"- Recorded: `{utc_now()}`",
-        f"- Passed: `{'yes' if not issues else 'no'}`",
+        f"- Passed: `{'yes' if not issues and readiness_ok else 'no'}`",
         f"- Recommended gate status: `{recommendation}`",
         f"- Applied automatically: `{'yes' if applied else 'no'}`",
         "",
@@ -316,15 +341,36 @@ def write_report(
     for target in phase_targets(spec, phase):
         lines.append(f"- `{display_path(target)}`")
 
+    lines.extend(
+        [
+            "",
+            "## Phase Readiness",
+            "",
+            f"- Ready for certification: `{'yes' if readiness_ok else 'no'}`",
+            f"- Summary: {readiness.get('summary', '')}",
+            f"- Missing sections: `{readiness.get('total_missing_sections', 0)}`",
+            f"- Thin sections: `{readiness.get('total_thin_sections', 0)}`",
+            f"- Placeholder lines: `{readiness.get('total_placeholders', 0)}`",
+            f"- Semantic issues: `{readiness.get('total_semantic_issues', 0)}`",
+        ]
+    )
+
     lines.extend(["", "## Findings", ""])
-    if not issues:
-        lines.append("- No unresolved template placeholders or empty scaffold rows were detected.")
-    else:
+    if issues:
         for issue in issues:
             lines.append(f"- `{display_path(issue.path)}:{issue.line_no}` {issue.message}: `{issue.line_text}`")
+    for check in readiness.get("artifact_checks", []):
+        if check.get("missing_sections"):
+            lines.append(f"- `{check['path']}` missing sections: {', '.join(check['missing_sections'])}")
+        if check.get("thin_sections"):
+            lines.append(f"- `{check['path']}` thin sections: {', '.join(check['thin_sections'])}")
+        for semantic_issue in check.get("semantic_issues", []):
+            lines.append(f"- `{check['path']}` semantic gap: {semantic_issue}")
+    if not issues and readiness_ok:
+        lines.append("- No unresolved template placeholders, missing sections, thin sections, or semantic readiness gaps were detected.")
 
     lines.extend(["", "## Next Action", ""])
-    if issues:
+    if issues or not readiness_ok:
         lines.append(f"- Resolve the findings above, then rerun `./scripts/supernb certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase}`.")
     elif applied:
         lines.append(f"- The gate was advanced automatically to `{recommendation}`.")
@@ -359,6 +405,8 @@ def main() -> int:
             print(f"Artifact not found for phase {phase}: {target}", file=sys.stderr)
             return 1
         issues.extend(collect_issues(target, phase))
+    readiness = build_phase_readiness(spec, phase)
+    passed = not issues and bool(readiness.get("ready_for_certification"))
 
     results_dir = artifact_path(spec, "phase_results_dir")
     run_log_path = artifact_path(spec, "run_log_md")
@@ -366,7 +414,7 @@ def main() -> int:
     report_path = results_dir / f"{timestamp_slug()}-{phase}-certification.md"
 
     applied = False
-    if args.apply and not issues:
+    if args.apply and passed:
         subprocess.run(
             [
                 sys.executable,
@@ -386,14 +434,21 @@ def main() -> int:
         )
         applied = True
 
-    write_report(spec, phase, issues, report_path, applied)
-    append_run_log(run_log_path, phase, recommended_gate_status(phase), not issues, applied, report_path)
+    write_report(spec, phase, issues, readiness, report_path, applied)
+    append_run_log(run_log_path, phase, recommended_gate_status(phase), passed, applied, report_path)
 
     print(f"Phase certification report: {report_path}")
-    print(f"Passed: {'yes' if not issues else 'no'}")
+    print(f"Passed: {'yes' if passed else 'no'}")
     print(f"Recommended gate status: {recommended_gate_status(phase)}")
-    if issues:
-        print(f"Issue count: {len(issues)}")
+    if not passed:
+        print(f"Line issue count: {len(issues)}")
+        print(
+            "Readiness gaps: "
+            f"missing={readiness.get('total_missing_sections', 0)} "
+            f"thin={readiness.get('total_thin_sections', 0)} "
+            f"placeholders={readiness.get('total_placeholders', 0)} "
+            f"semantic={readiness.get('total_semantic_issues', 0)}"
+        )
         return 1
     return 0
 

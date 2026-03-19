@@ -80,7 +80,7 @@ After the phase work is done, record it:
   --summary "Describe the completed batch"
 ```
 
-Before advancing, certify the artifact set:
+Before advancing, certify the artifact set against both structural and semantic readiness:
 
 ```bash
 ./scripts/supernb certify-phase \

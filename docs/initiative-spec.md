@@ -113,7 +113,7 @@ When the phase should really advance, apply the gate update:
 
 That command updates the relevant artifact status fields for the phase, writes a gate-update record into `phase-results/`, and reruns `supernb run` by default.
 
-Before advancing, you can ask `supernb` to inspect the artifacts for unresolved scaffold placeholders:
+Before advancing, you can ask `supernb` to inspect the artifacts for unresolved scaffold placeholders, missing sections, thin sections, and phase-specific semantic gaps:
 
 ```bash
 ./scripts/supernb certify-phase \
