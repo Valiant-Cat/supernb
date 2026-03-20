@@ -186,7 +186,7 @@ Project-local installs also maintain a managed CLAUDE.md block so simple prompts
   use supernb to improve this project
 still route through the full supernb prompt-first workflow.
 
-The managed Ralph Loop provider is the bundled `supernb-loop@supernb` plugin from:
+The managed Ralph Loop provider is the bundled supernb-loop@supernb plugin from:
   ${RALPH_LOOP_MARKETPLACE_DIR}
 
 Use that managed Claude Code environment for prompt-first planning or delivery sessions that must not self-terminate.
