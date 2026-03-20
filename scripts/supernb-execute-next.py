@@ -891,6 +891,23 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
     if recommended_gate_action not in {"none", "certify", "advance"}:
         recommended_gate_action = "none"
 
+    if completion_status == "partial":
+        recommended_result_status = "needs-follow-up"
+        recommended_gate_action = "none"
+    elif completion_status == "blocked":
+        recommended_result_status = "blocked"
+        recommended_gate_action = "none"
+    elif completion_status == "needs-input":
+        recommended_result_status = "manual-follow-up"
+        recommended_gate_action = "none"
+    elif completion_status == "completed":
+        if not recommended_result_status:
+            recommended_result_status = "succeeded"
+        if recommended_result_status in {"blocked", "manual-follow-up"}:
+            recommended_gate_action = "none"
+        elif recommended_result_status == "needs-follow-up" and recommended_gate_action == "advance":
+            recommended_gate_action = "certify"
+
     return {
         "completion_status": completion_status,
         "summary": ensure_string(parsed.get("summary")),
@@ -906,7 +923,11 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         "loop_execution": normalize_loop_execution(parsed.get("loop_execution")),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
-        "recommended_gate_status": ensure_string(parsed.get("recommended_gate_status")).lower(),
+        "recommended_gate_status": (
+            ensure_string(parsed.get("recommended_gate_status")).lower()
+            if recommended_gate_action in {"certify", "advance"}
+            else ""
+        ),
         "follow_up": ensure_list(parsed.get("follow_up")),
     }
 

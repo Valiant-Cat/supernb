@@ -220,6 +220,77 @@ class SupernbControlPlaneTests(unittest.TestCase):
                 any("did not modify any product workspace files" in issue for issue in suggestion["workflow_issues"])
             )
 
+    def test_partial_completion_cannot_remain_succeeded_or_advance(self) -> None:
+        report = execute_next.extract_report_json(
+            f"{execute_next.REPORT_START}\n"
+            + json.dumps(
+                {
+                    "completion_status": "partial",
+                    "summary": "Only part of the batch is done.",
+                    "completed_items": ["Completed one subtask."],
+                    "remaining_items": ["Still need to implement the rest."],
+                    "evidence_artifacts": [],
+                    "artifacts_updated": [],
+                    "commands_run": [],
+                    "tests_run": [],
+                    "validated_batches_completed": 1,
+                    "batch_commits": ["abc123 feat: partial batch"],
+                    "workflow_trace": {
+                        "brainstorming": {"used": False, "evidence": "Not needed."},
+                        "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                        "test_driven_development": {"used": True, "evidence": "Wrote the failing test first."},
+                        "code_review": {"used": True, "evidence": "Reviewed the partial batch."},
+                        "using_git_worktrees": {"used": False, "evidence": "Not needed."},
+                        "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded batch."},
+                    },
+                    "recommended_result_status": "succeeded",
+                    "recommended_gate_action": "advance",
+                    "recommended_gate_status": "verified",
+                    "follow_up": ["Finish the remaining work."],
+                },
+                indent=2,
+            )
+            + f"\n{execute_next.REPORT_END}\n"
+        )
+
+        self.assertIsNotNone(report)
+        self.assertEqual(report["completion_status"], "partial")
+        self.assertEqual(report["recommended_result_status"], "needs-follow-up")
+        self.assertEqual(report["recommended_gate_action"], "none")
+        self.assertEqual(report["recommended_gate_status"], "")
+
+    def test_needs_input_completion_cannot_request_certification(self) -> None:
+        report = execute_next.extract_report_json(
+            f"{execute_next.REPORT_START}\n"
+            + json.dumps(
+                {
+                    "completion_status": "needs-input",
+                    "summary": "Need human input before proceeding.",
+                    "completed_items": [],
+                    "remaining_items": ["Waiting on clarification."],
+                    "evidence_artifacts": [],
+                    "artifacts_updated": [],
+                    "commands_run": [],
+                    "tests_run": [],
+                    "validated_batches_completed": 0,
+                    "batch_commits": [],
+                    "workflow_trace": {},
+                    "recommended_result_status": "succeeded",
+                    "recommended_gate_action": "certify",
+                    "recommended_gate_status": "ready",
+                    "follow_up": ["Need product clarification."],
+                },
+                indent=2,
+            )
+            + f"\n{execute_next.REPORT_END}\n"
+        )
+
+        self.assertIsNotNone(report)
+        self.assertEqual(report["completion_status"], "needs-input")
+        self.assertEqual(report["recommended_result_status"], "manual-follow-up")
+        self.assertEqual(report["recommended_gate_action"], "none")
+        self.assertEqual(report["recommended_gate_status"], "")
+
     def test_run_command_strings_use_absolute_supernb_cli_path(self) -> None:
         initiative_id = "2026-03-19-demo"
         expected_prefix = str((ROOT_DIR / "scripts" / "supernb").resolve())

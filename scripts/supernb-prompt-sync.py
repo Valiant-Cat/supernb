@@ -546,7 +546,44 @@ def write_direct_bridge_handoff(
     return json_path, md_path
 
 
-def run_direct_claude_bridge_fallback(spec: dict[str, Any], spec_path: Path, phase: str, cwd: Path, initiative_root: Path) -> int:
+def run_direct_claude_bridge_fallback(
+    spec: dict[str, Any],
+    spec_path: Path,
+    phase: str,
+    cwd: Path,
+    initiative_root: Path,
+    no_run: bool,
+) -> int:
+    if no_run:
+        print(
+            "Direct bridge fallback activated because Ralph Loop could not bind to the current Claude session."
+        )
+        print(
+            "The current Claude session must switch to observer mode. "
+            "Do not continue editing or committing in parallel while the direct bridge run is active."
+        )
+        print(
+            "Direct bridge fallback was requested but prompt-sync is running with --no-run, "
+            "so no live execute-next batch will be launched."
+        )
+        print(
+            f"Next step: rerun prompt-sync without --no-run, or run "
+            f"`{supernb_cli_prefix(ROOT_DIR)} execute-next --spec {spec_path} --phase {phase} --harness claude-code` "
+            "from the current Claude session after reviewing the generated prompt artifacts."
+        )
+        append_debug_log(
+            spec,
+            ROOT_DIR,
+            "supernb-prompt-sync",
+            "direct-bridge-fallback-skipped",
+            {
+                "spec_path": str(spec_path),
+                "phase": phase,
+                "reason": "no-run",
+            },
+        )
+        return 0
+
     command = [
         sys.executable,
         str(EXECUTE_NEXT_SCRIPT),
@@ -721,7 +758,14 @@ def main() -> int:
             loop_started, loop_start_summary = start_loop_in_current_session(spec, loop_config)
         except (FileNotFoundError, RuntimeError) as exc:
             if args.direct_bridge_fallback and loop_config["required"]:
-                return run_direct_claude_bridge_fallback(spec, spec_path, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
+                return run_direct_claude_bridge_fallback(
+                    spec,
+                    spec_path,
+                    selected_phase,
+                    project_root(spec, ROOT_DIR),
+                    initiative_root,
+                    args.no_run,
+                )
             print(str(exc), file=sys.stderr)
             return 1
 

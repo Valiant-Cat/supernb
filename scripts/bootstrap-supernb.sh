@@ -137,7 +137,7 @@ case "${HARNESS}" in
     "${REPO_DIR}/scripts/install-codex.sh"
     ;;
   claude-code)
-    "${REPO_DIR}/scripts/install-claude-code.sh" "${PROJECT_DIR:-${PWD}}"
+    "${REPO_DIR}/scripts/install-claude-code.sh" "${PROJECT_DIR:-${HOME}}"
     ;;
   opencode)
     "${REPO_DIR}/scripts/install-opencode.sh" "${PROJECT_DIR:-${PWD}}"

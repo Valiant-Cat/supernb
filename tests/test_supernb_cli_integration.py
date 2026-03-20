@@ -165,6 +165,44 @@ def write_fake_claude_for_install(bin_dir: Path, log_path: Path) -> Path:
     return script_path
 
 
+def write_fake_claude_for_prompt_first(bin_dir: Path, log_path: Path) -> Path:
+    script_path = bin_dir / "claude"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import os
+            import sys
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            log_path = Path(os.environ["FAKE_CLAUDE_INSTALL_LOG"])
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(" ".join(args) + "\\n")
+
+            if args[:3] == ["plugin", "marketplace", "add"]:
+                sys.exit(0)
+            if args[:3] == ["plugin", "enable", "supernb-loop@supernb"]:
+                sys.exit(0)
+            if args[:3] == ["plugin", "install", "supernb-loop@supernb"]:
+                sys.exit(0)
+            if args[:2] == ["plugin", "list"]:
+                print("supernb-loop@supernb")
+                print("  Version: 1.0.0")
+                print("  Scope: User")
+                print("  Status: enabled")
+                sys.exit(0)
+
+            print("unsupported fake prompt-first claude invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return script_path
+
+
 def write_spec(root: Path, initiative_id: str = "2026-03-19-demo") -> dict[str, Path]:
     project_dir = root / "product"
     initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
@@ -233,12 +271,13 @@ artifacts:
 def write_report_json(
     path: Path,
     evidence_artifacts: list[str] | None = None,
+    completion_status: str = "completed",
     recommended_result_status: str = "succeeded",
     recommended_gate_action: str = "certify",
     recommended_gate_status: str = "ready",
 ) -> None:
     payload = {
-        "completion_status": "completed",
+        "completion_status": completion_status,
         "summary": "Imported execution completed.",
         "completed_items": ["Finished the requested work."],
         "remaining_items": [],
@@ -262,6 +301,191 @@ def write_report_json(
         "follow_up": [],
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def write_planning_traceability_artifacts(paths: dict[str, Path], initiative_id: str) -> None:
+    prd_path = paths["prd_dir"] / "product-requirements.md"
+    design_path = paths["design_dir"] / "ui-ux-spec.md"
+    plan_path = paths["plan_dir"] / "implementation-plan.md"
+    for path in [prd_path, design_path, plan_path]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+    prd_path.write_text(
+        textwrap.dedent(
+            f"""\
+            # Product Requirements
+
+            - Initiative ID: `{initiative_id}`
+            - Product: `Demo Product`
+            - Prepared: `2026-03-20`
+            - Approval status: approved
+            - Approved by: `supernb`
+            - Approved on: `2026-03-20`
+
+            ## Cross-Phase Traceability Matrix
+
+            | Trace ID | PRD capability | Primary design surface | Research insight or review theme |
+            | --- | --- | --- | --- |
+            | TR-001 | Guided onboarding | Onboarding flow | Setup friction |
+            | TR-002 | Trust-first paywall timing | Premium upsell | Premium value clarity |
+            | TR-003 | Daily return reminder loop | Home dashboard | Repeat usage habit |
+            | TR-004 | Recovery and error guidance | Error recovery | Trust and support |
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    design_path.write_text(
+        textwrap.dedent(
+            f"""\
+            # UI UX Spec
+
+            - Initiative ID: `{initiative_id}`
+            - Product: `Demo Product`
+            - Prepared: `2026-03-20`
+            - Approval status: approved
+            - Approved by: `supernb`
+            - Approved on: `2026-03-20`
+
+            ## Traceability To Research And PRD
+
+            | Trace ID | PRD capability | Primary design surface | Research insight reference |
+            | --- | --- | --- | --- |
+            | TR-001 | Guided onboarding | Onboarding flow | Setup friction |
+            | TR-002 | Trust-first paywall timing | Premium upsell | Premium value clarity |
+            | TR-003 | Daily return reminder loop | Home dashboard | Repeat usage habit |
+            | TR-004 | Recovery and error guidance | Error recovery | Trust and support |
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    plan_path.write_text(
+        textwrap.dedent(
+            f"""\
+            # Implementation Plan
+
+            - Initiative ID: `{initiative_id}`
+            - Product: `Demo Product`
+            - Prepared: `2026-03-20`
+            - Ready for execution: yes
+            - Delivery status: pending
+            - Approved by: `supernb`
+            - Approved on: `2026-03-20`
+
+            ## Scope For This Plan
+
+            - Included: Guided onboarding hardening, premium timing rules, habit loop instrumentation, and recovery UX.
+            - Excluded: New pricing experiments outside the approved scope.
+
+            ## Architecture And Technical Strategy
+
+            - Core implementation approach: Extend the existing onboarding and dashboard flows in bounded batches with test-first updates.
+            - Key modules or services involved: onboarding controller, paywall presenter, home dashboard state, and error recovery components.
+            - Data model or contract impact: Add onboarding completion, reminder eligibility, and recovery telemetry fields.
+            - Technical risks to control early: Session state drift, localization regressions, and incomplete trust instrumentation.
+
+            ## Milestones
+
+            | Milestone | Outcome | Exit criteria |
+            | --- | --- | --- |
+            | Planning complete | Delivery can start from bounded batches | Batches, verification, and traceability are all filled |
+
+            ## Dependency And Risk Map
+
+            | Area | Dependency or risk | Why it matters | Mitigation |
+            | --- | --- | --- | --- |
+            | Onboarding state | Existing session restore logic | Can regress activation continuity | Add regression tests before wiring new fields |
+            | Paywall timing | Existing premium trigger rules | Wrong trigger harms trust | Gate with scenario tests and review copy timing |
+
+            ## Task Batches
+
+            ### Batch 1
+
+            - Goal: Harden the onboarding path and activation telemetry.
+            - Dependencies: Existing onboarding controller and session restore hooks.
+            - Test-first tasks: Add failing onboarding activation and persistence tests before implementation.
+            - Verification: Run onboarding unit tests and activation flow smoke checks.
+
+            ### Batch 2
+
+            - Goal: Align premium timing and dashboard habit loop prompts with the approved design surfaces.
+            - Dependencies: Premium presenter, dashboard cards, and reminder scheduler.
+            - Test-first tasks: Add failing paywall timing and reminder eligibility tests before implementation.
+            - Verification: Run paywall rule tests, dashboard integration tests, and lint checks.
+
+            ### Batch 3
+
+            - Goal: Finalize recovery UX and release-facing evidence capture.
+            - Dependencies: Error recovery surfaces and release readiness updates.
+            - Test-first tasks: Add failing recovery state and retry affordance tests before implementation.
+            - Verification: Run recovery UI tests and release-readiness consistency checks.
+
+            ## Localization Work
+
+            - Hardcoded string extraction tasks: Move onboarding, paywall, reminder, and recovery copy into localization resources.
+            - Source locale key creation: Add stable source keys for every new user-facing string.
+            - Target locale sync: Sync translated keys for required launch locales before merge.
+            - Translation completion workflow: Use the managed localization workflow before final batch closeout.
+
+            ## Review And Verification Cadence
+
+            - When code review runs: Review every validated batch before commit.
+            - Required verification before each commit: Run unit, integration, and copy-governance checks for the touched surfaces.
+            - Batch completion evidence format: Record commands, tests, commits, and artifact updates in the execution report.
+            - When to update initiative artifacts: Refresh plan and release evidence after each validated batch.
+
+            ## Loop Candidates
+
+            Use Frad loop mode only for bounded tasks.
+
+            | Task | Why loop helps | Completion promise | Max iterations |
+            | --- | --- | --- | --- |
+            | Planning closeout | Prevents self-judged stop before certification | SUPERNB {initiative_id} planning batch complete | 6 |
+
+            ## Verification Commands
+
+            ```bash
+            ./scripts/check-no-hardcoded-copy.sh
+            npm test -- --runInBand
+            npm run lint
+            ```
+
+            ## Commit Strategy
+
+            - Commit frequency: One commit per validated batch.
+            - Branch strategy: Stay on the active feature branch for the bounded delivery stream.
+            - PR strategy: Keep one reviewable PR that aggregates the validated planning-to-delivery batches.
+
+            ## Rollout And Recovery Plan
+
+            - Release unit for this work: Onboarding, premium timing, dashboard reminders, and recovery UX ship together.
+            - Rollback or recovery strategy: Disable the new timing rules behind the existing configuration toggle if regressions appear.
+            - Observability or monitoring checks: Track onboarding completion, paywall conversion, reminder acceptance, and retry success.
+            - Post-merge validation: Run smoke validation across onboarding, dashboard, premium, and recovery entry points.
+
+            ## Scale And Reliability Workstreams
+
+            - Performance and capacity work: Keep onboarding and dashboard interactions within current frame-budget targets.
+            - Analytics and experimentation work: Instrument activation, premium timing, reminder, and recovery funnel checkpoints.
+            - Abuse / fraud / trust safeguards: Preserve billing trust cues and avoid misleading premium timing behavior.
+            - Observability and incident readiness: Add dashboard and recovery alerts for broken activation or retry flows.
+            - Growth surface instrumentation: Measure reminder-driven return behavior and premium conversion entry points.
+
+            ## Delivery Traceability Map
+
+            Carry the same launch-critical capabilities from the PRD/design traceability matrix into concrete delivery batches and verification. Reuse the same Trace ID values so delivery can be audited row by row.
+
+            | Trace ID | PRD capability | Design surface | Delivery batch | Verification evidence | Release dependency |
+            | --- | --- | --- | --- | --- | --- |
+            | TR-001 | Guided onboarding | Onboarding flow | Batch 1 | onboarding activation tests | Activation smoke pass |
+            | TR-002 | Trust-first paywall timing | Premium upsell | Batch 2 | paywall timing tests | Billing trust review |
+            | TR-003 | Daily return reminder loop | Home dashboard | Batch 2 | dashboard reminder tests | Reminder analytics check |
+            | TR-004 | Recovery and error guidance | Error recovery | Batch 3 | retry and recovery tests | Incident readiness review |
+            """
+        ),
+        encoding="utf-8",
+    )
 
 
 def write_research_artifacts_for_certification(project_dir: Path, initiative_id: str) -> None:
@@ -515,6 +739,169 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("plugin marketplace add", logged_calls)
             self.assertIn("bundles/claude-loop-marketplace", logged_calls)
             self.assertIn("plugin install supernb-loop@supernb --scope user", logged_calls)
+
+    def test_prompt_first_smoke_flow_from_managed_claude_md_to_closeout_promise(self) -> None:
+        impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
+        if not impeccable_dir.is_dir():
+            self.skipTest("built impeccable Claude Code bundle is not available in this checkout")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            paths = write_spec(root)
+            initiative_id = paths["initiative_root"].name
+            write_planning_traceability_artifacts(paths, initiative_id)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Planning is ready for bounded execution.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            temp_home = root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            fake_bin = root / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            log_path = root / "claude-install.log"
+            write_fake_claude_for_prompt_first(fake_bin, log_path)
+
+            env = dict(os.environ)
+            env["HOME"] = str(temp_home)
+            env["FAKE_CLAUDE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+            env["CLAUDE_CODE_SESSION_ID"] = "session-prompt-first-smoke"
+
+            install_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "install-claude-code.sh"), str(temp_home)],
+                env=env,
+            )
+            self.assertEqual(install_proc.returncode, 0, install_proc.stderr or install_proc.stdout)
+
+            managed_claude_md = temp_home / ".claude" / "CLAUDE.md"
+            self.assertTrue(managed_claude_md.is_file())
+            managed_text = managed_claude_md.read_text(encoding="utf-8")
+            self.assertIn("prompt-bootstrap --start-loop --direct-bridge-fallback", managed_text)
+
+            bootstrap_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-bootstrap",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--project-dir",
+                    str(paths["project_dir"]),
+                    "--no-run",
+                    "--start-loop",
+                ],
+                cwd=paths["project_dir"],
+                env=env,
+            )
+            self.assertEqual(bootstrap_proc.returncode, 0, bootstrap_proc.stderr or bootstrap_proc.stdout)
+            self.assertIn("Ralph Loop started in current Claude session", bootstrap_proc.stdout)
+
+            session_path = paths["initiative_root"] / "prompt-session.md"
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            loop_manifest = paths["initiative_root"] / "ralph-loop-planning.json"
+            audit_summary_path = paths["initiative_root"] / "ralph-loop-planning-audit.json"
+            self.assertTrue(session_path.is_file())
+            self.assertTrue(report_template.is_file())
+            self.assertTrue(loop_manifest.is_file())
+
+            loop_manifest_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
+            state_file = Path(loop_manifest_payload["state_file"])
+            self.assertTrue(state_file.is_file())
+
+            deadline = time.time() + 3
+            while time.time() < deadline and not audit_summary_path.is_file():
+                time.sleep(0.2)
+            self.assertTrue(audit_summary_path.is_file())
+
+            state_file.unlink()
+            deadline = time.time() + 3
+            audit_payload = None
+            while time.time() < deadline:
+                try:
+                    audit_payload = json.loads(audit_summary_path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    time.sleep(0.1)
+                    continue
+                if audit_payload.get("final_status") == "state_removed":
+                    break
+                time.sleep(0.2)
+            self.assertIsNotNone(audit_payload)
+            if audit_payload.get("final_status") != "state_removed":
+                audit_payload = json.loads(audit_summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(audit_payload.get("final_status"), "state_removed")
+
+            report_payload = json.loads(report_template.read_text(encoding="utf-8"))
+            report_payload["summary"] = "Completed the bounded planning batch through the managed prompt-first workflow."
+            report_payload["completed_items"] = [
+                "Validated the planning traceability set.",
+                "Prepared the planning batch for execution.",
+            ]
+            report_payload["remaining_items"] = []
+            report_payload["artifacts_updated"] = [str((paths["plan_dir"] / "implementation-plan.md").resolve())]
+            report_payload["commands_run"] = ["./scripts/supernb prompt-bootstrap --start-loop", "./scripts/supernb prompt-closeout"]
+            report_payload["tests_run"] = ["npm test -- --runInBand", "npm run lint"]
+            report_payload["validated_batches_completed"] = 1
+            report_payload["batch_commits"] = ["abc123 plan: certify prompt-first planning batch"]
+            report_payload["workflow_trace"] = {
+                "brainstorming": {"used": False, "evidence": "Planning refinement did not need a separate brainstorming pass."},
+                "writing_plans": {"used": True, "evidence": "Completed the implementation-plan planning batch and traceability update."},
+                "test_driven_development": {"used": False, "evidence": "Planning closeout did not execute code changes."},
+                "code_review": {"used": False, "evidence": "Planning closeout reviewed the plan artifact rather than code."},
+                "using_git_worktrees": {"used": False, "evidence": "The smoke test stayed in one temporary workspace."},
+                "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded planning batch through prompt-first closeout."},
+            }
+            report_payload["loop_execution"] = {
+                "used": True,
+                "mode": "ralph-loop",
+                "completion_promise": loop_manifest_payload["completion_promise"],
+                "state_file": loop_manifest_payload["state_file"],
+                "max_iterations": loop_manifest_payload["max_iterations"],
+                "final_iteration": max(int(audit_payload.get("last_iteration", 0) or 0), 1),
+                "exit_reason": "completion promise became true after managed prompt closeout",
+                "evidence": str(audit_summary_path),
+            }
+            report_payload["recommended_result_status"] = "succeeded"
+            report_payload["recommended_gate_action"] = "certify"
+            report_payload["recommended_gate_status"] = "ready"
+            report_payload["evidence_artifacts"] = [str(audit_summary_path)]
+            report_template.write_text(json.dumps(report_payload, indent=2) + "\n", encoding="utf-8")
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--report-json",
+                    str(report_template),
+                ],
+                cwd=paths["project_dir"],
+                env=env,
+            )
+
+            self.assertEqual(closeout_proc.returncode, 0, closeout_proc.stderr or closeout_proc.stdout)
+            self.assertIn("Prompt closeout status: clean phase-complete", closeout_proc.stdout)
+            self.assertIn("<promise>SUPERNB 2026-03-19-demo planning batch complete</promise>", closeout_proc.stdout)
+            self.assertIn("Recorded result status: succeeded", closeout_proc.stdout)
+            self.assertIn("Certification run: yes (apply)", closeout_proc.stdout)
 
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -805,28 +1192,53 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Direct bridge fallback activated", proc.stdout)
             self.assertIn("current Claude session must switch to observer mode", proc.stdout)
             self.assertIn("Do not continue editing or committing in parallel", proc.stdout)
-            self.assertIn("Direct bridge run finished. The current Claude session may exit observer mode.", proc.stdout)
-            self.assertIn("Bridge handoff:", proc.stdout)
-            self.assertIn("Next step: review the handoff and continue from the current Claude session.", proc.stdout)
+            self.assertIn("direct bridge fallback was requested but prompt-sync is running with --no-run", proc.stdout.lower())
+            self.assertIn("rerun prompt-sync without --no-run", proc.stdout.lower())
             packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
-            self.assertEqual(len(packet_dirs), 1)
-            response_text = (packet_dirs[0] / "response.md").read_text(encoding="utf-8")
-            self.assertIn("<promise>SUPERNB", response_text)
+            self.assertEqual(len(packet_dirs), 0)
             handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
-            self.assertTrue(handoff_path.is_file())
-            handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
-            self.assertEqual(handoff_payload["status"], "completed")
-            self.assertEqual(handoff_payload["phase"], "planning")
-            self.assertTrue(handoff_payload["observer_mode_can_exit"])
-            self.assertEqual(Path(handoff_payload["packet_dir"]).resolve(), packet_dirs[0].resolve())
-            self.assertEqual(
-                handoff_payload["resume_summary"],
-                "Direct bridge run finished. The current Claude session may exit observer mode.",
+            self.assertFalse(handoff_path.exists())
+
+    def test_bootstrap_claude_code_defaults_to_user_global_install(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            temp_home = temp_root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            repo_dir = temp_root / "supernb-repo"
+            scripts_dir = repo_dir / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            (repo_dir / ".git").mkdir()
+            log_path = temp_root / "bootstrap.log"
+
+            for name, body in {
+                "update-supernb.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "update-upstreams.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "print-next-steps.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "install-claude-code.sh": "#!/usr/bin/env bash\nprintf '%s\\n' \"$1\" >> \"$SUPERNB_BOOTSTRAP_LOG\"\n",
+            }.items():
+                path = scripts_dir / name
+                path.write_text(body, encoding="utf-8")
+                path.chmod(0o755)
+
+            env = dict(os.environ)
+            env["HOME"] = str(temp_home)
+            env["SUPERNB_BOOTSTRAP_LOG"] = str(log_path)
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "bootstrap-supernb.sh"),
+                    "--repo-dir",
+                    str(repo_dir),
+                    "--harness",
+                    "claude-code",
+                    "--skip-update",
+                ],
+                env=env,
             )
-            self.assertEqual(
-                handoff_payload["resume_next_step"],
-                "Review the handoff artifact and continue from the current Claude session using the recorded packet and readiness outputs.",
-            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            self.assertEqual(log_path.read_text(encoding="utf-8").strip(), str(temp_home))
 
     def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
