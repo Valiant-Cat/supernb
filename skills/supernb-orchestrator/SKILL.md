@@ -18,7 +18,7 @@ When the user invokes `supernb` by prompt in an existing product repo, do not st
 Before substantive work:
 
 1. Resolve the active initiative.
-2. Run `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` or plain `./scripts/supernb prompt-sync --start-loop` when the current repo has a single initiative.
+2. Run `./scripts/supernb prompt-bootstrap --initiative-id <initiative-id> --start-loop` or plain `./scripts/supernb prompt-bootstrap --start-loop` when the current repo should auto-discover or initialize the active initiative.
 3. Read the generated `prompt-session.md`, `next-command.md`, and active phase artifacts.
 
 After substantive work:
@@ -50,11 +50,14 @@ Never skip straight to coding when the product direction is still unclear.
 - For competitor analysis, app reviews, market signals, or feature opportunity discovery, use `product-research-prd`.
 - For UI/UX generation or review, use `ui-ux-governance`.
 - For UI/UX modernization of an existing local project, use `ui-ux-upgrade`.
+- For generic "use impeccable" requests, use the local `impeccable` router and then narrow to concrete skills like `frontend-design`, `critique`, `polish`, or `audit`.
 - For implementation after PRD and design approval, use `autonomous-delivery`.
 - For focused coding or feature implementation in an existing codebase, use `implementation-execution`.
 - If upstream `superpowers` skills are available, use them for brainstorming, planning, execution, review, debugging, worktrees, and related specialist flows instead of improvising ad hoc workflows.
 - If upstream `impeccable` commands are available, route design-specific requests to the relevant command family instead of collapsing everything into one generic design pass.
 - If local `sensortower-research` is available, route research-specific requests to the correct dataset pull instead of producing hand-wavy summaries.
+
+Use plain local first-level names for local skills. Do not invent namespaced calls such as `superpowers:ui-ux-upgrade`.
 
 ## Coverage Rule
 

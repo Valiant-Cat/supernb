@@ -32,6 +32,8 @@ Commands:
   clean-initiative
   debug-log
   prompt-sync
+  prompt-bootstrap
+  prompt-closeout
   test
   show-command
   render-command
@@ -71,6 +73,8 @@ case "${SUBCOMMAND}" in
   clean-initiative) exec python3 "${ROOT_DIR}/scripts/supernb-clean-initiative-artifacts.py" "$@" ;;
   debug-log) exec python3 "${ROOT_DIR}/scripts/supernb-debug-log.py" "$@" ;;
   prompt-sync) exec python3 "${ROOT_DIR}/scripts/supernb-prompt-sync.py" "$@" ;;
+  prompt-bootstrap) exec python3 "${ROOT_DIR}/scripts/supernb-prompt-bootstrap.py" "$@" ;;
+  prompt-closeout) exec python3 "${ROOT_DIR}/scripts/supernb-prompt-closeout.py" "$@" ;;
   test) exec python3 -m unittest discover -s "${ROOT_DIR}/tests" "$@" ;;
   show-command) exec "${ROOT_DIR}/scripts/show-command-template.sh" "$@" ;;
   render-command) exec "${ROOT_DIR}/scripts/render-command.sh" "$@" ;;

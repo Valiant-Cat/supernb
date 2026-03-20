@@ -28,7 +28,7 @@ Do not use this mode when the request is actually product discovery, competitor 
 
 ## Loop Rule
 
-For Claude Code prompt-first planning or delivery work, start with `./scripts/supernb prompt-sync ... --start-loop`, then record the real Ralph Loop evidence in the final report.
+For Claude Code prompt-first planning or delivery work, start with `./scripts/supernb prompt-bootstrap ... --start-loop`, then record the real Ralph Loop evidence in the final report.
 If the active Claude environment does not provide the Ralph Loop stop hook, do not self-certify the batch as complete.
 
 ## Quality Bar

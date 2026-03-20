@@ -9,16 +9,85 @@ TARGET_DIR="${1:-${PWD}}"
 CLAUDE_DIR="${TARGET_DIR}/.claude"
 IMPECCABLE_CLAUDE_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/claude-code/.claude"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
+PROJECT_INSTRUCTIONS_TEMPLATE="${ROOT_DIR}/templates/claude/supernb-project-instructions.md"
+USER_INSTRUCTIONS_TEMPLATE="${ROOT_DIR}/templates/claude/supernb-user-instructions.md"
 INSTALL_SCOPE_LABEL="project-local"
+CLAUDE_INSTRUCTIONS_TEMPLATE="${PROJECT_INSTRUCTIONS_TEMPLATE}"
+CLAUDE_MD_PATH="${TARGET_DIR}/CLAUDE.md"
+MANAGED_BLOCK_START="<!-- SUPERNB:START -->"
+MANAGED_BLOCK_END="<!-- SUPERNB:END -->"
 
 if [[ "${TARGET_DIR}" == "${HOME}" ]]; then
   INSTALL_SCOPE_LABEL="user-global"
+  CLAUDE_INSTRUCTIONS_TEMPLATE="${USER_INSTRUCTIONS_TEMPLATE}"
+  CLAUDE_MD_PATH="${CLAUDE_DIR}/CLAUDE.md"
 fi
 
 if [[ ! -d "${IMPECCABLE_CLAUDE_DIR}" ]]; then
   echo "Built impeccable Claude Code bundle not found. Run ./scripts/build-impeccable-dist.sh first." >&2
   exit 1
 fi
+
+ensure_managed_claude_md_block() {
+  if [[ ! -f "${CLAUDE_INSTRUCTIONS_TEMPLATE}" ]]; then
+    echo "  skipped CLAUDE.md managed block: template missing"
+    return 0
+  fi
+
+  local managed_block
+  local rendered_template
+  mkdir -p "$(dirname "${CLAUDE_MD_PATH}")"
+  rendered_template="$(CLAUDE_INSTRUCTIONS_TEMPLATE="${CLAUDE_INSTRUCTIONS_TEMPLATE}" ROOT_DIR="${ROOT_DIR}" python3 - <<'PY'
+from pathlib import Path
+import os
+
+template_path = Path(os.environ["CLAUDE_INSTRUCTIONS_TEMPLATE"])
+root_dir = os.environ["ROOT_DIR"]
+text = template_path.read_text(encoding="utf-8")
+print(text.replace("{{SUPERNB_ROOT}}", root_dir), end="")
+PY
+)"
+  managed_block="$(cat <<EOF
+${MANAGED_BLOCK_START}
+${rendered_template}
+${MANAGED_BLOCK_END}
+EOF
+)"
+
+  if [[ ! -f "${CLAUDE_MD_PATH}" ]]; then
+    printf '%s\n' "${managed_block}" > "${CLAUDE_MD_PATH}"
+    echo "  installed: $(basename "${CLAUDE_MD_PATH}") managed supernb instructions"
+    return 0
+  fi
+
+  local existing
+  existing="$(cat "${CLAUDE_MD_PATH}")"
+  if grep -Fq "${MANAGED_BLOCK_START}" "${CLAUDE_MD_PATH}" && grep -Fq "${MANAGED_BLOCK_END}" "${CLAUDE_MD_PATH}"; then
+    CLAUDE_MD_PATH="${CLAUDE_MD_PATH}" MANAGED_BLOCK_START="${MANAGED_BLOCK_START}" MANAGED_BLOCK_END="${MANAGED_BLOCK_END}" MANAGED_BLOCK="${managed_block}" python3 - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["CLAUDE_MD_PATH"])
+start = os.environ["MANAGED_BLOCK_START"]
+end = os.environ["MANAGED_BLOCK_END"]
+managed = os.environ["MANAGED_BLOCK"]
+text = path.read_text(encoding="utf-8")
+start_idx = text.index(start)
+end_idx = text.index(end, start_idx) + len(end)
+replacement = managed
+if start_idx > 0 and text[start_idx - 1] != "\n":
+    replacement = "\n" + replacement
+if end_idx < len(text) and text[end_idx:end_idx + 1] != "\n":
+    replacement = replacement + "\n"
+path.write_text(text[:start_idx] + replacement + text[end_idx:], encoding="utf-8")
+PY
+    echo "  updated: $(basename "${CLAUDE_MD_PATH}") managed supernb instructions"
+    return 0
+  fi
+
+  printf '\n\n%s\n' "${managed_block}" >> "${CLAUDE_MD_PATH}"
+  echo "  appended: $(basename "${CLAUDE_MD_PATH}") managed supernb instructions"
+}
 
 mkdir -p "${CLAUDE_DIR}/skills"
 echo "Installing Claude Code ${INSTALL_SCOPE_LABEL} assets into ${TARGET_DIR}:"
@@ -28,6 +97,7 @@ sync_directory_as_symlinks "${ROOT_DIR}/skills" "${CLAUDE_DIR}/skills" "supernb"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/sensortower-research" "${CLAUDE_DIR}/skills/sensortower-research" "sensortower-research"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/flutter-l10n-translation" "${CLAUDE_DIR}/skills/flutter-l10n-translation" "flutter-l10n-translation"
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/android-i18n-translation" "${CLAUDE_DIR}/skills/android-i18n-translation" "android-i18n-translation"
+ensure_managed_claude_md_block
 
 superpowers_plugin_list() {
   (cd "${TARGET_DIR}" && claude plugin list 2>/dev/null || true)
@@ -55,9 +125,47 @@ superpowers_plugin_status_from_list() {
   echo "unknown"
 }
 
+preserve_project_loop_plugin_mode_if_active() {
+  if [[ "${INSTALL_SCOPE_LABEL}" != "project-local" ]]; then
+    return 1
+  fi
+
+  local plugin_list="$1"
+  local frad_status
+  frad_status="$(superpowers_plugin_status_from_list "${plugin_list}" "superpowers@frad-dotclaude")"
+  if [[ "${frad_status}" != "enabled" ]]; then
+    return 1
+  fi
+
+  if (cd "${TARGET_DIR}" && claude plugin disable superpowers@claude-plugins-official --scope project >/dev/null 2>&1); then
+    echo "  preserved Ralph Loop project mode: project scope keeps superpowers@frad-dotclaude enabled and superpowers@claude-plugins-official disabled"
+  else
+    echo "  preserved Ralph Loop project mode: superpowers@frad-dotclaude already enabled for this project"
+  fi
+  return 0
+}
+
 install_default_superpowers_plugin() {
   if ! command -v claude >/dev/null 2>&1; then
     echo "  skipped plugin install: claude CLI not found"
+    return 0
+  fi
+
+  if [[ "${INSTALL_SCOPE_LABEL}" == "user-global" ]]; then
+    (cd "${TARGET_DIR}" && claude plugin marketplace add FradSer/dotclaude >/dev/null 2>&1 || true)
+
+    if (cd "${TARGET_DIR}" && claude plugin enable superpowers@frad-dotclaude --scope user >/dev/null 2>&1); then
+      echo "  enabled: Claude Code plugin superpowers@frad-dotclaude (user-global Ralph Loop mode)"
+    elif (cd "${TARGET_DIR}" && claude plugin install superpowers@frad-dotclaude --scope user >/dev/null 2>&1); then
+      echo "  installed: Claude Code plugin superpowers@frad-dotclaude (user-global Ralph Loop mode)"
+    else
+      echo "  failed: could not install or enable superpowers@frad-dotclaude at user scope" >&2
+      exit 1
+    fi
+
+    (cd "${TARGET_DIR}" && claude plugin disable superpowers@claude-plugins-official --scope user >/dev/null 2>&1 || true)
+    (cd "${TARGET_DIR}" && claude plugin disable superpowers@superpowers-marketplace --scope user >/dev/null 2>&1 || true)
+    echo "  enforced: user-global strict mode uses superpowers@frad-dotclaude and disables competing user-scope superpowers plugins"
     return 0
   fi
 
@@ -66,6 +174,9 @@ install_default_superpowers_plugin() {
   local plugin_status
 
   plugin_list="$(superpowers_plugin_list)"
+  if preserve_project_loop_plugin_mode_if_active "${plugin_list}"; then
+    return 0
+  fi
   plugin_id="$(superpowers_plugin_id_from_list "${plugin_list}")"
 
   if [[ -n "${plugin_id}" ]]; then
@@ -103,7 +214,13 @@ install_default_superpowers_plugin
 cat <<EOF
 Installed Claude Code ${INSTALL_SCOPE_LABEL} assets into ${TARGET_DIR}
 
-Default superpowers plugin is auto-installed when missing and auto-enabled when previously disabled.
+User-global installs now maintain ~/.claude/CLAUDE.md and configure user-scope Ralph Loop mode so simple prompts like:
+  use supernb to improve this project
+work across projects without restating the full workflow.
+
+Project-local installs also maintain a managed CLAUDE.md block so simple prompts like:
+  use supernb to improve this project
+still route through the full supernb prompt-first workflow.
 
 Ralph Loop-enabled alternative for Claude Code prompt-first planning or delivery:
   claude plugin marketplace add FradSer/dotclaude

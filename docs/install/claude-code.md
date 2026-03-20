@@ -124,11 +124,14 @@ This also scans managed `SKILL.md` files for hardcoded harness-specific script/r
 
 What the script does:
 
-- symlinks each `supernb` skill directory directly into `<project>/.claude/skills/`
-- symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<project>/.claude/skills/`
-- symlinks `impeccable` skills from the isolated local build cache into `<project>/.claude/skills/`
+- for user-global installs into `"$HOME"`, writes or updates `~/.claude/CLAUDE.md` so any project session can map a simple `use supernb` prompt into the managed workflow
+- for user-global installs into `"$HOME"`, installs or enables `superpowers@frad-dotclaude` at user scope and disables competing same-name user-scope `superpowers` plugins
+- symlinks each `supernb` skill directory directly into `<target>/.claude/skills/`
+- symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<target>/.claude/skills/`
+- symlinks `impeccable` skills from the isolated local build cache into `<target>/.claude/skills/`
 - repairs previously copied generated `impeccable` skill directories into managed symlinks
 - repairs the older aggregate `supernb` symlink layout into per-skill links that Claude Code can actually list
+- for project-local installs, writes or updates a managed project `CLAUDE.md` block so simple prompts like `use supernb to improve this project` still trigger the full `supernb` prompt-first workflow
 
 ## 4. Ralph Loop Mode For Prompt-First Planning And Delivery
 
@@ -157,20 +160,22 @@ Rules:
 ## 5A. Prompt-First Flow
 
 If you mainly use Claude Code by saying things like "use supernb" or "使用 supernb 完善这个项目", that is valid, but the skill should still drive the control plane under the hood.
+For user-global installs, `~/.claude/CLAUDE.md` now reinforces that behavior across projects. For project-local installs, the managed project `CLAUDE.md` block does the same inside that repo.
 
 Expected behavior:
 
-1. The `supernb` skill resolves the current initiative.
-2. It runs:
+1. The `supernb` skill runs the single-entry bootstrap first:
 
 ```bash
-./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop
+./scripts/supernb prompt-bootstrap --start-loop
 ```
 
+2. That command auto-discovers the active initiative in the current repo. If the repo has no initiative yet, it initializes one first and then continues.
 3. It reads `.supernb/initiatives/<initiative-id>/prompt-session.md`.
 4. For planning and delivery on Claude Code, that same command first verifies that the active Claude environment has `superpowers@frad-dotclaude` enabled, then starts the generated Ralph Loop contract in the current Claude session and writes loop audit files alongside the initiative.
 5. It performs the requested phase work.
-6. Before stopping, it fills `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then runs `import-execution` and `apply-execution`.
+6. Before stopping, it fills `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then runs `prompt-closeout`.
+7. For planning and delivery, `prompt-closeout` must succeed before the session is allowed to echo the final Ralph Loop completion promise.
 
 Without that closeout, Claude Code may have changed code while leaving `run-status`, execution packets, certification, and debug logs stale.
 Without Ralph Loop in planning or delivery, Claude Code can still self-terminate early, so those runs should not be treated as clean certification evidence.

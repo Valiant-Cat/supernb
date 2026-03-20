@@ -207,6 +207,10 @@ make bootstrap
 ```
 
 如果你安装到 `"$HOME"`，那受管的 Claude Code skills 会放在 `~/.claude/skills/`。这种用户全局安装模式下，具体业务项目里没有自己的 `.claude/` 目录也是正常的。
+现在 `install-claude-code "$HOME"` 还会自动写入受管的 `~/.claude/CLAUDE.md`，并把用户级 Claude Code plugin 切到 `superpowers@frad-dotclaude` 的 Ralph Loop 模式，所以你在任意项目里只说“使用 supernb 对本项目进行完善和升级”也能走对流程。
+
+如果是项目级 Claude Code 安装，`install-claude-code` 也会自动写入或更新项目根目录里的 `CLAUDE.md` 托管指令块。
+这个项目级指令块沿用同一套单命令入口，会告诉 Claude：当用户只说 `使用 supernb 对本项目进行完善和升级` 这类简单 prompt 时，也要自动触发完整的 `supernb` prompt-first workflow。
 
 如果你要显式指定 harness / project：
 
@@ -258,7 +262,7 @@ make bootstrap HARNESS=codex
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
    现在 PRD、design、implementation plan、release readiness 都带有带稳定 `Trace ID` 的 traceability matrix；这些行一旦对不上，certification 会直接拦住 phase 漂移。
-   如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template、loop audit 文件，并在 planning / delivery 时自动启动 Ralph Loop。
+   如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-bootstrap --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template、loop audit 文件，并在 planning / delivery 时自动启动 Ralph Loop。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
    如果是 Claude Code 的 planning / delivery 直连执行，`execute-next` 现在会自动 arm Ralph Loop，通过 session-local `--plugin-dir` 注入 bundled `dotclaude` plugin，绑定生成的 Claude session id，并且会先等 audit watcher 确认已经观测到 state file，再继续执行并写 packet 局部的 audit 文件。
@@ -277,10 +281,12 @@ make bootstrap HARNESS=codex
 如果你在 Claude Code 里主要靠 prompt 使用：
 
 - 直接说“使用 supernb”或“用 supernb 完善这个项目”是对的
-- 但 managed `supernb` skill 应该先在底层跑 `./scripts/supernb prompt-sync ... --start-loop`
+- managed `supernb` skill 加上用户级或项目级 `CLAUDE.md` 指令，应该先在底层跑 `./scripts/supernb prompt-bootstrap --start-loop`
+- 这条 bootstrap 命令应该优先自动发现当前仓库里最新的 initiative；如果还没有 initiative，就先自动初始化一个
 - agent 应该先读 `.supernb/initiatives/<initiative-id>/prompt-session.md`
 - 对 planning 和 delivery，上面这条内部命令应该先验证 Claude Code 的 loop plugin 环境，再把 Ralph Loop 拉起来，并一直执行到 completion promise 真实成立
-- 结束前还要把 `.supernb/initiatives/<initiative-id>/prompt-report-template.json` 填好，再导入并 apply，不能只改代码不回写 control plane
+- 结束前还要把 `.supernb/initiatives/<initiative-id>/prompt-report-template.json` 填好，再执行 `./scripts/supernb prompt-closeout ...`
+- 对 planning 和 delivery，只有 `prompt-closeout` 成功之后，agent 才能回显最终的 `<promise>...</promise>` 行
 
 如果你想确认本机 direct Claude CLI 路径真的触发了 bundled Ralph Loop hook 生命周期，可以运行：
 

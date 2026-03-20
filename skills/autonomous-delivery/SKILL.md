@@ -19,7 +19,7 @@ Do not start if these are missing:
 
 1. Use upstream `superpowers` to refine brainstorming if needed.
 2. Use upstream `superpowers` writing-plans or equivalent planning flow.
-3. In Claude Code prompt-first sessions, run `./scripts/supernb prompt-sync ... --start-loop` before substantive batch execution.
+3. In Claude Code prompt-first sessions, run `./scripts/supernb prompt-bootstrap ... --start-loop` before substantive batch execution.
 4. Execute in small batches with tests first.
 5. For Claude Code prompt-first planning or delivery sessions, make sure the Ralph Loop has been started before substantive execution with:
    - an explicit state file

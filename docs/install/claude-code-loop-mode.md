@@ -55,12 +55,14 @@ That is the mechanism `supernb` refers to when it mentions `ralph-loop`.
 
 For Claude Code prompt-first planning and delivery:
 
-1. Run `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` inside the active Claude Code session.
+1. Run `./scripts/supernb prompt-bootstrap --start-loop` inside the active Claude Code session.
 2. Read `.supernb/initiatives/<initiative-id>/prompt-session.md`.
-3. That command first checks that the active Claude Code environment exposes `superpowers@frad-dotclaude`, then writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json`, `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.json`, and `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.ndjson`.
-4. It then starts the Ralph Loop for the current session.
-5. Work the bounded batch until the completion promise is honestly true.
-6. Fill `prompt-report-template.json` with real loop evidence, then import and apply it.
+3. That command auto-discovers the active initiative in the current repo, or initializes one first if the repo has none yet.
+4. It then checks that the active Claude Code environment exposes `superpowers@frad-dotclaude`, then writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json`, `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.json`, and `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.ndjson`.
+5. It then starts the Ralph Loop for the current session.
+6. Work the bounded batch until the completion promise is honestly true.
+7. Fill `prompt-report-template.json` with real loop evidence, then run `./scripts/supernb prompt-closeout ...`.
+8. Only after `prompt-closeout` succeeds may the session echo the final Ralph Loop completion promise.
 
 Without the stop hook, the loop contract is not enforceable. In that case, do not treat the batch as cleanly complete.
 

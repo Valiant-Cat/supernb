@@ -14,7 +14,7 @@ from typing import Iterable
 ROOT_DIR = Path(__file__).resolve().parent.parent
 HOME_DIR = Path.home()
 SUPERS_PLUGIN = "superpowers@git+https://github.com/obra/superpowers.git"
-KEY_IMPECCABLE_SKILLS = ["audit", "frontend-design", "polish"]
+KEY_IMPECCABLE_SKILLS = ["impeccable", "audit", "frontend-design", "polish"]
 KEY_SUPERPOWERS_SKILLS = ["brainstorming", "executing-plans", "writing-plans"]
 HARD_PATH_PATTERNS = [
     (
@@ -154,12 +154,37 @@ def scan_skill_doc_path_hygiene(base_dir: Path, managed_skill_names: Iterable[st
 def collect_failures(detail_lines: list[str]) -> list[str]:
     failures: list[str] = []
     for line in detail_lines:
-        if "missing:" in line or line.startswith("skills root missing:") or line.startswith("skill-doc path issue:"):
+        if (
+            "missing:" in line
+            or line.startswith("skills root missing:")
+            or line.startswith("skill-doc path issue:")
+            or line.startswith("managed user instructions issue:")
+            or line.startswith("managed project instructions issue:")
+        ):
             failures.append(line)
     return failures
 
 
-def parse_claude_plugin_state() -> tuple[str | None, str | None, list[str]]:
+def verify_managed_claude_md(path: Path, label: str) -> list[str]:
+    if not path.is_file():
+        return [f"{label} missing: {display_path(path)}"]
+
+    text = path.read_text(encoding="utf-8")
+    details = [f"{label}: {display_path(path)}"]
+    issues: list[str] = []
+    if "<!-- SUPERNB:START -->" not in text or "<!-- SUPERNB:END -->" not in text:
+        issues.append("managed supernb instruction block markers are missing")
+    if "prompt-bootstrap --start-loop" not in text:
+        issues.append("managed instructions do not route simple prompts through prompt-bootstrap --start-loop")
+    if "use supernb" not in text and "使用 supernb" not in text:
+        issues.append("managed instructions do not include simple 'use supernb' prompt routing examples")
+
+    if issues:
+        details.extend(f"{label} issue: {issue}" for issue in issues)
+    return details
+
+
+def parse_claude_plugin_state(require_ralph_loop: bool = False) -> tuple[str | None, str | None, list[str]]:
     if not shutil_which("claude"):
         return None, None, ["claude CLI not found"]
 
@@ -173,6 +198,7 @@ def parse_claude_plugin_state() -> tuple[str | None, str | None, list[str]]:
         stderr = proc.stderr.strip() or "claude plugin list failed"
         return None, None, [stderr]
 
+    inventory: dict[str, str] = {}
     plugin_id: str | None = None
     plugin_status: str | None = None
     lines = proc.stdout.splitlines()
@@ -180,22 +206,43 @@ def parse_claude_plugin_state() -> tuple[str | None, str | None, list[str]]:
         if "superpowers@" not in line:
             continue
         token = next((part for part in line.split() if part.startswith("superpowers@")), None)
-        if token:
-            plugin_id = token
+        if not token:
+            continue
+        inventory[token] = "unknown"
         for follow in lines[idx + 1 : idx + 5]:
             stripped = follow.strip()
             if stripped.startswith("Status:"):
                 if "enabled" in stripped:
-                    plugin_status = "enabled"
+                    inventory[token] = "enabled"
                 elif "disabled" in stripped:
-                    plugin_status = "disabled"
+                    inventory[token] = "disabled"
                 else:
-                    plugin_status = stripped.replace("Status:", "").strip()
+                    inventory[token] = stripped.replace("Status:", "").strip()
                 break
-        break
 
-    if plugin_id is None:
+    if not inventory:
         return None, None, ["Claude Code plugin superpowers is not installed"]
+    enabled = sorted(plugin for plugin, status in inventory.items() if status == "enabled")
+    if require_ralph_loop:
+        plugin_id = "superpowers@frad-dotclaude" if "superpowers@frad-dotclaude" in inventory else next(iter(inventory))
+        plugin_status = inventory.get(plugin_id)
+    else:
+        for candidate in ["superpowers@frad-dotclaude", "superpowers@claude-plugins-official", "superpowers@superpowers-marketplace"]:
+            if candidate in inventory:
+                plugin_id = candidate
+                plugin_status = inventory.get(candidate)
+                break
+        if plugin_id is None:
+            plugin_id, plugin_status = next(iter(inventory.items()))
+    if "superpowers@frad-dotclaude" in enabled and "superpowers@claude-plugins-official" in enabled:
+        return plugin_id, plugin_status, [
+            "Claude Code has both `superpowers@frad-dotclaude` and `superpowers@claude-plugins-official` enabled. "
+            "Disable the official plugin in the active Claude scope before relying on Ralph Loop prompt-first execution."
+        ]
+    if require_ralph_loop and "superpowers@frad-dotclaude" not in enabled:
+        return plugin_id, plugin_status, [
+            "Claude Code user-global strict mode requires `superpowers@frad-dotclaude` to be enabled for prompt-first Ralph Loop execution."
+        ]
     if plugin_status != "enabled":
         return plugin_id, plugin_status, [f"Claude Code plugin {plugin_id} is not enabled"]
     return plugin_id, plugin_status, []
@@ -245,7 +292,8 @@ def verify_claude_user(supernb_expected: list[str], bundled_expected: list[str])
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
     )
     details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
-    plugin_id, plugin_status, plugin_failures = parse_claude_plugin_state()
+    details.extend(verify_managed_claude_md(HOME_DIR / ".claude" / "CLAUDE.md", "managed user instructions"))
+    plugin_id, plugin_status, plugin_failures = parse_claude_plugin_state(require_ralph_loop=True)
     if plugin_id:
         details.append(f"Claude Code plugin: {plugin_id} ({plugin_status or 'unknown'})")
     else:
@@ -277,6 +325,7 @@ def verify_claude_project(project_dir: Path, supernb_expected: list[str], bundle
         impeccable_expected=KEY_IMPECCABLE_SKILLS,
     )
     details.extend(scan_skill_doc_path_hygiene(base_dir, [*supernb_expected, *bundled_expected]))
+    details.extend(verify_managed_claude_md(project_dir / "CLAUDE.md", "managed project instructions"))
     failures = collect_failures(details)
     return VerificationResult(
         label="claude-code (project)",

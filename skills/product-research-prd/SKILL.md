@@ -56,6 +56,6 @@ If the evidence is weak, say so explicitly instead of pretending certainty.
 
 If an initiative scaffold exists, prefer saving research and PRD outputs in the active product project's `.supernb/` workspace.
 
-For prompt-first sessions inside an existing initiative, run `./scripts/supernb prompt-sync ... --start-loop` first so the active phase, current artifact paths, and closeout report template are already aligned before research or PRD work begins. Research and PRD phases will simply skip loop startup because they do not require Ralph Loop.
+For prompt-first sessions, run `./scripts/supernb prompt-bootstrap ... --start-loop` first so the initiative exists, the active phase, current artifact paths, and closeout report template are already aligned before research or PRD work begins. Research and PRD phases will simply skip loop startup because they do not require Ralph Loop.
 
 Do not discard or compress richer upstream-generated documents just to fit the local scaffold. The scaffold is a storage convention, not a cap on detail.

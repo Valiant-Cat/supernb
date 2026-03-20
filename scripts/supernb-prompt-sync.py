@@ -229,7 +229,19 @@ def write_loop_prompt(
             str(spec_path),
             "--packet",
             "<latest-imported-packet>",
-            "--certify",
+            "--apply-certification" if loop_config["required"] else "--certify",
+        ]
+    )
+    closeout_command = shlex.join(
+        [
+            supernb_command,
+            "prompt-closeout",
+            "--spec",
+            str(spec_path),
+            "--phase",
+            selected_phase,
+            "--report-json",
+            str(report_template_path),
         ]
     )
     next_command = run_status.get("next_command") or {}
@@ -242,7 +254,7 @@ def write_loop_prompt(
         "- This loop depends on a Claude Code environment where the Ralph Loop stop-hook is enabled.",
         "- Work only inside the current phase scope and current batch boundaries.",
         "- Update affected initiative artifacts, tests, evidence, and git state as part of the batch.",
-        "- Before stopping, fill the prompt report template with real evidence, import it, and apply it back into supernb.",
+        "- Before stopping, fill the prompt report template with real evidence, then run the managed prompt closeout command so supernb imports it, applies certification, and only then emits the final promise when allowed.",
         "- If the stop-hook is unavailable in this Claude environment, do not pretend the batch is cleanly complete. Report the run as needs-follow-up and switch to a loop-enabled Claude environment.",
         "",
         f"Spec: {spec_path}",
@@ -259,14 +271,15 @@ def write_loop_prompt(
             "- The current batch is implemented to the claimed depth.",
             "- Verification and review evidence are real and recorded.",
             "- The prompt report template contains real commands, tests, evidence artifacts, workflow trace, loop evidence, and commit information.",
-            f"- `{supernb_command} import-execution` and `{supernb_command} apply-execution` have been run for this prompt-first batch.",
+            f"- `{closeout_command}` has completed successfully for this prompt-first batch.",
             "",
             "Required closeout commands:",
-            f"- {import_command}",
-            f"- {apply_command}",
+            f"- Managed closeout: {closeout_command}",
+            f"- Under the hood this runs: {import_command}",
+            f"- Then it runs: {apply_command}",
             "",
-            "When every completion criterion above is genuinely true, output exactly this as the very last line:",
-            f"<promise>{loop_config['completion_promise']}</promise>",
+            "Do not type the final promise manually.",
+            "Only after the managed closeout command succeeds may you echo the exact promise line that it prints.",
         ]
     )
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -305,7 +318,7 @@ def write_prompt_session(
     supernb_command = str(SUPERNB_WRAPPER)
     initiative_id = nested_get(spec, "initiative", "id")
     selected_phase = str(run_status.get("selected_phase", "")).strip()
-    auto_start_command = shlex.join([supernb_command, "prompt-sync", "--spec", str(spec_path), "--start-loop"])
+    auto_start_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--start-loop"])
     import_command = shlex.join(
         [
             supernb_command,
@@ -328,7 +341,19 @@ def write_prompt_session(
             str(spec_path),
             "--packet",
             "<latest-imported-packet>",
-            "--certify",
+            "--apply-certification" if loop_config["required"] else "--certify",
+        ]
+    )
+    closeout_command = shlex.join(
+        [
+            supernb_command,
+            "prompt-closeout",
+            "--spec",
+            str(spec_path),
+            "--phase",
+            selected_phase,
+            "--report-json",
+            str(report_template_path),
         ]
     )
     next_command = run_status.get("next_command") or {}
@@ -377,8 +402,9 @@ def write_prompt_session(
                 f"- Loop audit events: `{loop_config['audit_events_file']}`",
                 f"- Managed auto-start command: `{auto_start_command}`",
                 f"- Start command: `{loop_config['start_command_text']}`",
+                f"- Managed closeout command: `{closeout_command}`",
                 "- Claude Code must have the FradSer/dotclaude Ralph Loop stop-hook enabled for this contract to be enforceable.",
-                "- Do not let the agent stop on self-judgment alone. The Ralph Loop completion promise must be honestly true.",
+                "- Do not let the agent stop on self-judgment alone. The Ralph Loop completion promise must only be echoed after the managed closeout command succeeds.",
             ]
         )
     lines.extend(
@@ -386,12 +412,13 @@ def write_prompt_session(
             "",
             "## Closeout Commands For The Agent",
             "",
+            f"- Managed closeout: `{closeout_command}`",
             f"- Import structured prompt report: `{import_command}`",
             f"- Apply imported packet: `{apply_command}`",
             "",
             "## Notes",
             "",
-            "- If the batch is truly clean and phase-complete, the agent may use `--apply-certification` instead of `--certify`.",
+            "- For planning and delivery, managed closeout requires `--apply-certification`; if certification fails, the session must keep working instead of emitting the completion promise.",
             "- Do not claim completion without updating the report template with real commands, tests, evidence artifacts, and workflow trace.",
         ]
     )

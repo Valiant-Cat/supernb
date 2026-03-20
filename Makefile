@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs verify-claude-loop init-initiative run-initiative execute-next apply-execution import-execution record-result advance-phase certify-phase upgrade-artifacts migrate-legacy clean-initiative test check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs verify-claude-loop init-initiative run-initiative execute-next apply-execution import-execution record-result advance-phase certify-phase upgrade-artifacts migrate-legacy clean-initiative prompt-bootstrap prompt-closeout test check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -78,6 +78,12 @@ migrate-legacy:
 clean-initiative:
 	@if [ -z "$(INITIATIVE_ID)" ] && [ -z "$(SPEC)" ]; then echo "Usage: make clean-initiative INITIATIVE_ID=<id> [APPLY=1] [DELETE=1] [ARCHIVE_DIR=/path]"; exit 1; fi
 	./scripts/supernb clean-initiative $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(APPLY),--apply,) $(if $(DELETE),--delete,) $(if $(ARCHIVE_DIR),--archive-dir "$(ARCHIVE_DIR)",) $(if $(KEEP_COMMAND_BRIEFS),--keep-command-briefs "$(KEEP_COMMAND_BRIEFS)",) $(if $(KEEP_EXECUTIONS_PER_PHASE),--keep-executions-per-phase "$(KEEP_EXECUTIONS_PER_PHASE)",) $(if $(PRUNE_PHASE_RESULTS),--prune-phase-results,) $(if $(KEEP_PHASE_RESULTS_PER_PHASE),--keep-phase-results-per-phase "$(KEEP_PHASE_RESULTS_PER_PHASE)",)
+
+prompt-bootstrap:
+	./scripts/supernb prompt-bootstrap $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(TITLE),--title "$(TITLE)",) $(if $(INITIATIVE),--initiative-slug "$(INITIATIVE)",) $(if $(GOAL),--goal "$(GOAL)",) $(if $(NO_RUN),--no-run,) $(if $(START_LOOP),--start-loop,) $(if $(NO_AUTO_INIT),--no-auto-init,)
+
+prompt-closeout:
+	./scripts/supernb prompt-closeout $(if $(INITIATIVE_ID),--initiative-id "$(INITIATIVE_ID)",) $(if $(SPEC),--spec "$(SPEC)",) $(if $(PHASE),--phase "$(PHASE)",) $(if $(REPORT_JSON),--report-json "$(REPORT_JSON)",) $(if $(RESPONSE_FILE),--response-file "$(RESPONSE_FILE)",) $(if $(STDOUT_FILE),--stdout-file "$(STDOUT_FILE)",) $(if $(STDERR_FILE),--stderr-file "$(STDERR_FILE)",) $(foreach path,$(subst ,, ,$(ARTIFACT_PATHS)),--artifact-path "$(path)") $(if $(ACTOR),--actor "$(ACTOR)",) $(if $(HARNESS),--harness "$(HARNESS)",)
 
 test:
 	./scripts/supernb test

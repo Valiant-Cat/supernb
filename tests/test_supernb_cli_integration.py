@@ -131,6 +131,48 @@ def write_fake_claude(bin_dir: Path) -> Path:
     return script_path
 
 
+def write_fake_claude_for_install(bin_dir: Path, log_path: Path) -> Path:
+    script_path = bin_dir / "claude"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import os
+            import sys
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            log_path = Path(os.environ["FAKE_CLAUDE_INSTALL_LOG"])
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(" ".join(args) + "\\n")
+
+            if args[:3] == ["plugin", "marketplace", "add"]:
+                sys.exit(0)
+            if args[:3] == ["plugin", "enable", "superpowers@frad-dotclaude"]:
+                sys.exit(1)
+            if args[:3] == ["plugin", "install", "superpowers@frad-dotclaude"]:
+                sys.exit(0)
+            if args[:3] == ["plugin", "disable", "superpowers@claude-plugins-official"]:
+                sys.exit(0)
+            if args[:3] == ["plugin", "disable", "superpowers@superpowers-marketplace"]:
+                sys.exit(0)
+            if args[:2] == ["plugin", "list"]:
+                print("superpowers@frad-dotclaude")
+                print("  Version: 1.0.0")
+                print("  Scope: User")
+                print("  Status: enabled")
+                sys.exit(0)
+
+            print("unsupported fake install claude invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return script_path
+
+
 def write_spec(root: Path, initiative_id: str = "2026-03-19-demo") -> dict[str, Path]:
     project_dir = root / "product"
     initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
@@ -414,6 +456,68 @@ def write_research_artifacts_for_certification(project_dir: Path, initiative_id:
 
 
 class SupernbCliIntegrationTests(unittest.TestCase):
+    def test_prompt_bootstrap_auto_initializes_current_project(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            project_dir = Path(tmp_dir) / "new-product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            proc = run_command(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-prompt-bootstrap.py"),
+                    "--project-dir",
+                    str(project_dir),
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            initiative_specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(initiative_specs), 1)
+            initiative_root = initiative_specs[0].parent
+            self.assertTrue((initiative_root / "prompt-session.md").is_file())
+            self.assertTrue((initiative_root / "prompt-report-template.json").is_file())
+            run_status_json = initiative_root / "run-status.json"
+            self.assertTrue(run_status_json.is_file())
+            run_status = json.loads(run_status_json.read_text(encoding="utf-8"))
+            self.assertEqual(run_status.get("selected_phase"), "research")
+
+    def test_install_claude_code_user_global_writes_managed_global_claude_md(self) -> None:
+        impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
+        if not impeccable_dir.is_dir():
+            self.skipTest("built impeccable Claude Code bundle is not available in this checkout")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_home = Path(tmp_dir) / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            bin_dir = Path(tmp_dir) / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            log_path = Path(tmp_dir) / "claude-install.log"
+            write_fake_claude_for_install(bin_dir, log_path)
+
+            env = os.environ.copy()
+            env["HOME"] = str(temp_home)
+            env["FAKE_CLAUDE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "install-claude-code.sh"), str(temp_home)],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            managed_claude_md = temp_home / ".claude" / "CLAUDE.md"
+            self.assertTrue(managed_claude_md.is_file())
+            managed_text = managed_claude_md.read_text(encoding="utf-8")
+            self.assertIn("prompt-bootstrap --start-loop", managed_text)
+            self.assertIn("use supernb", managed_text)
+            self.assertTrue((temp_home / ".claude" / "skills" / "supernb" / "SKILL.md").is_file())
+            self.assertTrue((temp_home / ".claude" / "skills" / "impeccable" / "SKILL.md").is_file())
+
+            logged_calls = log_path.read_text(encoding="utf-8")
+            self.assertIn("plugin marketplace add FradSer/dotclaude", logged_calls)
+            self.assertIn("plugin install superpowers@frad-dotclaude --scope user", logged_calls)
+            self.assertIn("plugin disable superpowers@claude-plugins-official --scope user", logged_calls)
+
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -437,7 +541,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             session_text = session_path.read_text(encoding="utf-8")
             self.assertIn("Prompt Session Contract", session_text)
             self.assertIn("next-command.md", session_text)
-            self.assertIn("import-execution", session_text)
+            self.assertIn("prompt-closeout", session_text)
 
             template_payload = json.loads(report_template.read_text(encoding="utf-8"))
             self.assertIn("workflow_trace", template_payload)
@@ -482,10 +586,13 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             session_text = session_path.read_text(encoding="utf-8")
             self.assertIn("Ralph Loop Requirement", session_text)
             self.assertIn("setup-superpower-loop.sh", session_text)
+            self.assertIn("prompt-closeout", session_text)
+            self.assertIn("--apply-certification", session_text)
 
             loop_prompt_text = loop_prompt.read_text(encoding="utf-8")
-            self.assertIn("<promise>SUPERNB", loop_prompt_text)
             self.assertIn("stop-hook", loop_prompt_text)
+            self.assertIn("Do not type the final promise manually.", loop_prompt_text)
+            self.assertIn("prompt-closeout", loop_prompt_text)
 
             manifest_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
             self.assertEqual(manifest_payload["phase"], "delivery")
@@ -555,6 +662,67 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             payload = json.loads(audit_summary.read_text(encoding="utf-8"))
             self.assertEqual(payload.get("final_status"), "state_removed")
             self.assertEqual(payload.get("expected_session_id"), "session-123")
+
+    def test_prompt_closeout_blocks_delivery_promise_when_certification_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\n- Execute the current delivery batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            payload = json.loads(report_template.read_text(encoding="utf-8"))
+            payload["summary"] = "Tried to close out a delivery batch."
+            payload["completed_items"] = ["Changed some code."]
+            payload["evidence_artifacts"] = []
+            payload["loop_execution"] = {
+                "used": False,
+                "mode": "none",
+                "completion_promise": "",
+                "state_file": "",
+                "max_iterations": 0,
+                "final_iteration": 0,
+                "exit_reason": "",
+                "evidence": "",
+            }
+            report_template.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "delivery",
+                    "--report-json",
+                    str(report_template),
+                ]
+            )
+
+            self.assertNotEqual(closeout_proc.returncode, 0)
+            self.assertNotIn("<promise>SUPERNB", closeout_proc.stdout)
 
     def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

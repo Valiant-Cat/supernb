@@ -69,5 +69,5 @@ If you want to prove the real local CLI path is loop-capable end to end, run `./
 - `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.
 - upstream `superpowers` remains the main workflow engine
 - for prompt-first planning and delivery, Claude Code should run in a Ralph Loop-enabled environment instead of relying on self-judged completion
-- `prompt-sync --start-loop` now verifies the loop-enabled Claude plugin before it reports success
+- `prompt-bootstrap --start-loop` now auto-discovers or initializes the initiative and verifies the loop-enabled Claude plugin before it reports success
 - this mapping intentionally avoids inventing a fake native Claude Code command system for `supernb`

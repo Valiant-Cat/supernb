@@ -38,7 +38,7 @@ Route to `brainstorm-and-save` or upstream `superpowers` brainstorming or planni
 
 ### Design And UX
 
-Route to `ui-ux-governance`, `ui-ux-upgrade`, or the relevant `impeccable` capability family when the user asks for:
+Route to `ui-ux-governance`, `ui-ux-upgrade`, `impeccable`, or the relevant concrete impeccable skill when the user asks for:
 
 - frontend design
 - audit
@@ -52,6 +52,9 @@ Route to `ui-ux-governance`, `ui-ux-upgrade`, or the relevant `impeccable` capab
 - copy clarity
 - onboarding design
 - visual boldening or quieting
+
+Use plain local names such as `impeccable`, `critique`, `polish`, `audit`, `frontend-design`, and `ui-ux-upgrade`.
+Do not invent namespaced local calls like `superpowers:ui-ux-upgrade`.
 
 ### Engineering Execution
 

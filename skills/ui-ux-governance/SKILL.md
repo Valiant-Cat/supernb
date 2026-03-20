@@ -5,7 +5,7 @@ description: Use when creating, refining, reviewing, or validating UI/UX for a p
 
 # UI UX Governance
 
-This skill ensures `impeccable` is used as a design and review layer, not just as a one-shot styling prompt.
+This skill ensures the integrated impeccable skill family is used as a design and review layer, not just as a one-shot styling prompt.
 
 ## Mandatory Context
 
@@ -19,13 +19,15 @@ If design context is missing, gather it first.
 
 ## Mandatory Use Of Impeccable
 
-Use `impeccable`:
+Use plain local skill names. Do not invent namespaced local calls such as `superpowers:ui-ux-governance` or `superpowers:impeccable`.
 
-- before page design, to establish visual direction and design-system principles
-- during page design, to critique hierarchy, interaction quality, retention surfaces, and trust cues
-- after implementation, to audit contrast, readability, spacing, responsive behavior, interaction polish, and localization layout resilience
+Use the local `impeccable` router or concrete skills from that family:
 
-At minimum, run `impeccable` as three passes:
+- before page design, use `teach-impeccable` or `frontend-design` to establish visual direction and design-system principles
+- during page design, use `critique` to inspect hierarchy, interaction quality, retention surfaces, and trust cues
+- after implementation, use `polish` and then `audit` to review contrast, readability, spacing, responsive behavior, interaction polish, and localization layout resilience
+
+At minimum, run the impeccable family as three passes:
 
 - foundation pass: direction, tone, hierarchy, type, color, spacing
 - critique pass: flows, states, friction, trust, conversion, retention, anti-patterns

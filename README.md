@@ -206,6 +206,10 @@ Direct Claude Code install into the current project:
 ```
 
 If you install into `"$HOME"` instead, the managed Claude Code skills live under `~/.claude/skills/`. In that user-global mode, target projects do not need their own `.claude/` directory.
+`install-claude-code "$HOME"` now also writes a managed `~/.claude/CLAUDE.md` block and configures user-scope Ralph Loop mode with `superpowers@frad-dotclaude`, so a simple prompt such as `use supernb to improve this project` can route correctly in any project session.
+
+For project-local Claude Code installs, `install-claude-code` also writes or updates a managed block in the project's `CLAUDE.md`.
+That project instruction block uses the same one-command flow and tells Claude that a simple user prompt such as `use supernb to improve this project` should automatically trigger the full `supernb` prompt-first workflow under the hood.
 
 If you need explicit harness or project selection:
 
@@ -257,7 +261,7 @@ For a new product initiative:
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
    PRD, design, implementation plan, and release readiness now each carry traceability matrices with stable `Trace ID` rows. Certification blocks phase drift when those rows stop lining up.
-   If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
+   If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-bootstrap --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
    For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the state file, and then writes packet-local audit files.
@@ -276,10 +280,12 @@ For a new product initiative:
 For prompt-first sessions in Claude Code:
 
 - say "use supernb" or "use supernb to improve this project"
-- the managed `supernb` skill should first run `./scripts/supernb prompt-sync ... --start-loop` under the hood
+- the managed `supernb` skill plus the managed user or project `CLAUDE.md` instructions should first run `./scripts/supernb prompt-bootstrap --start-loop` under the hood
+- that bootstrap command should auto-discover the latest initiative in the current repo, or initialize one automatically if the repo has none yet
 - the agent should read `.supernb/initiatives/<initiative-id>/prompt-session.md`
 - for planning and delivery, that internal command should first verify the Claude Code loop plugin environment, then start the Ralph Loop and keep iterating until the completion promise is honestly true
-- before ending the session, the agent should fill `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then import and apply it so execution packets and certification stay aligned
+- before ending the session, the agent should fill `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then run `./scripts/supernb prompt-closeout ...`
+- for planning and delivery, `prompt-closeout` must succeed before the agent echoes the final `<promise>...</promise>` line
 
 To prove that your local direct Claude CLI path really triggers the bundled Ralph Loop hook lifecycle, run:
 
