@@ -24,6 +24,7 @@ from lib.supernb_common import (
     nested_get,
     project_root,
     resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -455,7 +456,9 @@ def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, A
     if not session_id:
         raise RuntimeError(
             "CLAUDE_CODE_SESSION_ID is not set. "
-            "Run --start-loop from inside the active Claude Code session so the loop state file is bound to that session."
+            "Run --start-loop from inside the active Claude Code session so the loop state file is bound to that session. "
+            f"If you only need the prompt files, rerun without --start-loop, for example: "
+            f"`{supernb_cli_prefix(ROOT_DIR)} prompt-sync --spec <initiative.yaml> --no-run`."
         )
 
     project_dir = project_root(spec, ROOT_DIR)

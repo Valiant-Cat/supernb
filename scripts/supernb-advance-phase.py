@@ -25,6 +25,7 @@ from lib.supernb_common import (
     phase_targets as common_phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -124,7 +125,9 @@ def ensure_certification_gate(spec: dict[str, Any], phase: str, status: str) -> 
     if report_path:
         message.append(f"Latest certification report: {report_path}")
     else:
-        message.append(f"Run ./scripts/supernb certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase} first.")
+        message.append(
+            f"Run {supernb_cli_prefix(ROOT_DIR)} certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase} first."
+        )
     raise ValueError(" ".join(message))
 
 

@@ -15,6 +15,7 @@ from lib.supernb_common import (
     project_root as common_project_root,
     resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -81,6 +82,13 @@ def resolve_evidence_paths(spec: dict[str, Any], packet_dir: Path, values: list[
             continue
         resolved.append(str(match))
     return resolved, missing
+
+
+def apply_certification_follow_up(spec_path: Path, packet_dir: Path) -> str:
+    return (
+        f"This packet must be recorded first, then inspect blockers with "
+        f"`{supernb_cli_prefix(ROOT_DIR)} apply-execution --spec {spec_path} --packet {packet_dir} --certify`."
+    )
 
 
 def main() -> int:
@@ -199,28 +207,32 @@ def main() -> int:
 
     if args.apply_certification and status != "succeeded":
         print(
-            f"--apply-certification requires a succeeded result status; got '{status}'.",
+            "--apply-certification requires a succeeded execution result before any gate can be applied. "
+            f"This packet would currently be recorded as '{status}' "
+            f"(suggested_result_status={suggested_result_status or 'missing'}). "
+            f"{apply_certification_follow_up(spec_path, packet_dir)}",
             file=sys.stderr,
         )
         return 1
     if args.apply_certification and suggested_result_status != "succeeded":
         print(
             f"--apply-certification blocked because the execution packet itself did not conclude as succeeded "
-            f"(suggested_result_status={suggested_result_status or 'missing'}).",
+            f"(suggested_result_status={suggested_result_status or 'missing'}). "
+            f"{apply_certification_follow_up(spec_path, packet_dir)}",
             file=sys.stderr,
         )
         return 1
     if args.apply_certification and not phase_readiness.get("ready_for_certification", False):
         print(
             "--apply-certification blocked because phase-readiness still reports unresolved gaps. "
-            "Review phase-readiness.md or use --certify to inspect the exact blockers first.",
+            f"Review phase-readiness.md or use --certify to inspect the exact blockers first. {apply_certification_follow_up(spec_path, packet_dir)}",
             file=sys.stderr,
         )
         return 1
     if args.apply_certification and workflow_issues:
         print(
             "--apply-certification blocked because the execution packet still reports workflow-trace or commit-policy gaps. "
-            "Review result-suggestion.md and fix the missing superpowers workflow evidence first.",
+            f"Review result-suggestion.md and fix the missing superpowers workflow evidence first. {apply_certification_follow_up(spec_path, packet_dir)}",
             file=sys.stderr,
         )
         return 1

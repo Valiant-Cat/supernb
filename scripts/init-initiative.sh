@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATES_DIR="${ROOT_DIR}/templates"
+SUPERNB_CLI="${ROOT_DIR}/scripts/supernb"
 DATE_STAMP="$(date +%F)"
 GOAL="${GOAL:-}"
 REPOSITORY="${REPOSITORY:-}"
@@ -108,10 +109,11 @@ render_template() {
     s/\{\{SCALE_TARGET_DAU_YAML\}\}/$ENV{SCALE_TARGET_DAU_YAML}/g;
     s/\{\{QUALITY_BAR_YAML\}\}/$ENV{QUALITY_BAR_YAML}/g;
     s/\{\{CONSTRAINTS_YAML\}\}/$ENV{CONSTRAINTS_YAML}/g;
+    s/\{\{SUPERNB_CLI\}\}/$ENV{SUPERNB_CLI}/g;
   ' "${template_path}" > "${output_path}"
 }
 
-export INIT_ID DATE_STAMP SLUG TITLE
+export INIT_ID DATE_STAMP SLUG TITLE SUPERNB_CLI
 export GOAL_YAML="$(yaml_escape "${GOAL}")"
 export REPOSITORY_YAML="$(yaml_escape "${REPOSITORY}")"
 export PROJECT_DIR_YAML="$(yaml_escape "${PROJECT_DIR}")"
@@ -148,7 +150,7 @@ cat > "${RUN_STATUS_FILE}" <<EOF
 Run:
 
 \`\`\`bash
-./scripts/supernb run --initiative-id ${INIT_ID}
+"${SUPERNB_CLI}" run --initiative-id ${INIT_ID}
 \`\`\`
 EOF
 
@@ -162,13 +164,13 @@ EOF
 cat > "${NEXT_COMMAND_FILE}" <<EOF
 # Next Command
 
-Run \`./scripts/supernb run --initiative-id ${INIT_ID}\` to generate the next structured command brief for this initiative.
+Run \`"${SUPERNB_CLI}" run --initiative-id ${INIT_ID}\` to generate the next structured command brief for this initiative.
 EOF
 
 cat > "${PHASE_PACKET_FILE}" <<EOF
 # Phase Packet
 
-Run \`./scripts/supernb run --initiative-id ${INIT_ID}\` to generate the current phase execution packet.
+Run \`"${SUPERNB_CLI}" run --initiative-id ${INIT_ID}\` to generate the current phase execution packet.
 EOF
 
 cat > "${RUN_LOG_FILE}" <<EOF
@@ -204,5 +206,5 @@ Created:
   ${LOCATOR_FILE}
 
 Recommended next step:
-  Run ./scripts/supernb run --initiative-id ${INIT_ID}
+  Run "${SUPERNB_CLI}" run --initiative-id ${INIT_ID}
 EOF

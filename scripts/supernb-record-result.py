@@ -18,12 +18,14 @@ from lib.supernb_common import (
     project_root as common_project_root,
     resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
 RESULT_STATUSES = ["succeeded", "blocked", "needs-follow-up", "manual-follow-up", "not-run", "failed"]
 RESULT_SOURCES = ["manual-override", "execution-packet"]
+GATE_STATUSES = {"approved", "ready", "verified", "pending"}
 
 
 def utc_now() -> str:
@@ -39,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--initiative-id", help="Existing initiative id, e.g. 2026-03-19-my-product")
     parser.add_argument("--spec", help="Path to initiative.yaml")
     parser.add_argument("--phase", help="Phase name. Defaults to the current selected phase from run-status.json.")
-    parser.add_argument("--status", required=True, choices=RESULT_STATUSES, help="Outcome label for the recorded phase result")
+    parser.add_argument("--status", required=True, help="Outcome label for the recorded phase result. Allowed: " + ", ".join(RESULT_STATUSES))
     parser.add_argument("--summary", required=True, help="One-line execution summary")
     parser.add_argument("--source", choices=RESULT_SOURCES, default="manual-override", help="Whether this result is a manual override or sourced from an execution packet")
     parser.add_argument("--override-reason", help="Why a manual override is necessary. Required for manual overrides.")
@@ -48,6 +50,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifact-path", action="append", default=[], help="Repeatable evidence artifact path")
     parser.add_argument("--no-rerun", action="store_true", help="Do not invoke supernb run after recording the result")
     return parser.parse_args()
+
+
+def validate_result_status(raw_status: str) -> tuple[bool, str]:
+    status = str(raw_status).strip().lower()
+    if status in RESULT_STATUSES:
+        return True, status
+    if status in GATE_STATUSES:
+        return (
+            False,
+            f"`{raw_status}` is a gate status, not a result status. "
+            f"Use one of: {', '.join(RESULT_STATUSES)}. "
+            f"Gate statuses belong to certify-phase/advance-phase, for example `{supernb_cli_prefix(ROOT_DIR)} certify-phase ...`.",
+        )
+    return False, f"Invalid result status `{raw_status}`. Use one of: {', '.join(RESULT_STATUSES)}."
 
 
 def display_path(path: Path) -> str:
@@ -73,7 +89,10 @@ def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None
 def current_phase_from_run_status(spec: dict[str, Any]) -> str:
     run_status_json = artifact_path(spec, "run_status_json")
     if not run_status_json.is_file():
-        raise FileNotFoundError(f"Run status JSON not found: {run_status_json}. Run ./scripts/supernb run first or pass --phase.")
+        raise FileNotFoundError(
+            f"Run status JSON not found: {run_status_json}. "
+            f"Run {supernb_cli_prefix(ROOT_DIR)} run first or pass --phase."
+        )
     import json
 
     payload = json.loads(run_status_json.read_text(encoding="utf-8"))
@@ -119,6 +138,12 @@ def append_to_run_log(
 
 def main() -> int:
     args = parse_args()
+    valid_status, status_or_error = validate_result_status(args.status)
+    if not valid_status:
+        print(status_or_error, file=sys.stderr)
+        return 2
+    args.status = status_or_error
+
     try:
         spec_path = resolve_spec_path(args)
     except ValueError as exc:
@@ -221,8 +246,8 @@ def main() -> int:
             "## Follow Up",
             "",
             "- Update the relevant artifact status fields only when this execution materially advances the phase artifacts.",
-            f"- Run `./scripts/supernb certify-phase --initiative-id {initiative_id} --phase {phase}` before any gate advance.",
-            f"- Re-run `./scripts/supernb run --initiative-id {initiative_id}` after artifact and certification changes.",
+            f"- Run `{supernb_cli_prefix(ROOT_DIR)} certify-phase --initiative-id {initiative_id} --phase {phase}` before any gate advance.",
+            f"- Re-run `{supernb_cli_prefix(ROOT_DIR)} run --initiative-id {initiative_id}` after artifact and certification changes.",
         ]
     )
     result_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

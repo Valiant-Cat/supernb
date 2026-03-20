@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import threading
@@ -31,9 +32,251 @@ def load_module(name: str, relative_path: str):
 common = load_module("supernb_common_test", "scripts/lib/supernb_common.py")
 execute_next = load_module("supernb_execute_next_test", "scripts/supernb-execute-next.py")
 certify_phase = load_module("supernb_certify_phase_test", "scripts/supernb-certify-phase.py")
+run_control_plane = load_module("supernb_run_test", "scripts/supernb-run.py")
 
 
 class SupernbControlPlaneTests(unittest.TestCase):
+    def test_delivery_docs_only_commit_is_not_completion_grade(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            (project_dir / "README.md").write_text("# Demo\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", "README.md"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "chore: initial"], check=True, capture_output=True, text=True)
+            git_before = execute_next.git_state(project_dir)
+
+            plan_path = project_dir / ".supernb" / "plans" / "demo" / "implementation-plan.md"
+            plan_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_path.write_text("# Updated plan\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(plan_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "docs: update delivery plan"], check=True, capture_output=True, text=True)
+            git_after = execute_next.git_state(project_dir)
+            created_commits = execute_next.commits_created(project_dir, git_before, git_after)
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Completed one delivery batch.",
+                        "completed_items": ["Updated implementation documentation."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": [str(plan_path.relative_to(project_dir))],
+                        "commands_run": [],
+                        "tests_run": ["npm test -- --runInBand"],
+                        "validated_batches_completed": 1,
+                        "batch_commits": [],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Ran the documented delivery test flow."},
+                            "code_review": {"used": True, "evidence": "Reviewed the documented changes."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed for this batch."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed a single bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="codex",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="npm test -- --runInBand\n",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before=git_before,
+                git_after=git_after,
+                created_commits=created_commits,
+            )
+
+            self.assertEqual(suggestion["suggested_result_status"], "needs-follow-up")
+            self.assertTrue(
+                any("did not modify any product workspace files" in issue for issue in suggestion["workflow_issues"])
+            )
+
+    def test_delivery_product_file_commit_can_remain_completion_grade(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = project_dir / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: initial app"], check=True, capture_output=True, text=True)
+            git_before = execute_next.git_state(project_dir)
+
+            app_path.write_text("export const version = 2;\n", encoding="utf-8")
+            release_path = project_dir / ".supernb" / "releases" / "demo" / "release-readiness.md"
+            release_path.parent.mkdir(parents=True, exist_ok=True)
+            release_path.write_text("# Release readiness\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir)), str(release_path.relative_to(project_dir))],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: ship delivery batch"], check=True, capture_output=True, text=True)
+            git_after = execute_next.git_state(project_dir)
+            created_commits = execute_next.commits_created(project_dir, git_before, git_after)
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Completed one delivery batch.",
+                        "completed_items": ["Implemented the requested delivery batch."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": [str(app_path.relative_to(project_dir)), str(release_path.relative_to(project_dir))],
+                        "commands_run": [],
+                        "tests_run": ["npm test -- --runInBand"],
+                        "validated_batches_completed": 1,
+                        "batch_commits": [],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Wrote and ran the delivery test first."},
+                            "code_review": {"used": True, "evidence": "Reviewed the completed batch."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed for this batch."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed a single bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="codex",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="npm test -- --runInBand\n",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before=git_before,
+                git_after=git_after,
+                created_commits=created_commits,
+            )
+
+            self.assertEqual(suggestion["suggested_result_status"], "succeeded")
+            self.assertFalse(
+                any("did not modify any product workspace files" in issue for issue in suggestion["workflow_issues"])
+            )
+
+    def test_run_command_strings_use_absolute_supernb_cli_path(self) -> None:
+        initiative_id = "2026-03-19-demo"
+        expected_prefix = str((ROOT_DIR / "scripts" / "supernb").resolve())
+
+        commands = [
+            run_control_plane.record_result_command(initiative_id, "delivery"),
+            run_control_plane.advance_phase_command(initiative_id, "delivery"),
+            run_control_plane.certify_phase_command(initiative_id, "delivery"),
+            run_control_plane.execute_next_command(initiative_id),
+            run_control_plane.apply_execution_command(initiative_id),
+        ]
+
+        for command in commands:
+            self.assertIn(expected_prefix, command)
+            self.assertNotIn("./scripts/supernb", command)
+
+    def test_certification_report_labels_gate_status_as_post_pass_action(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            report_path = root / "certification.md"
+            spec = {
+                "initiative": {"id": "2026-03-19-demo"},
+                "delivery": {"project_dir": str(project_dir)},
+                "artifacts": {
+                    "research_dir": ".supernb/research/2026-03-19-demo",
+                    "phase_results_dir": ".supernb/initiatives/2026-03-19-demo/phase-results",
+                },
+            }
+            readiness = {
+                "ready_for_certification": False,
+                "summary": "Needs follow-up",
+                "total_missing_sections": 0,
+                "total_thin_sections": 0,
+                "total_placeholders": 0,
+                "total_semantic_issues": 1,
+                "total_traceability_issues": 0,
+                "artifact_checks": [],
+                "traceability_checks": [],
+            }
+
+            certify_phase.DISPLAY_ROOTS = [project_dir, ROOT_DIR]
+            certify_phase.write_report(
+                spec=spec,
+                phase="research",
+                issues=[],
+                execution_findings=[],
+                readiness=readiness,
+                report_path=report_path,
+                applied=False,
+            )
+
+            report_text = report_path.read_text(encoding="utf-8")
+            self.assertIn("- Gate status to apply after pass: `approved`", report_text)
+            self.assertNotIn("- Recommended gate status: `approved`", report_text)
+
     def test_normalized_snapshot_ignores_gate_metadata_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             pending = Path(tmp_dir) / "pending.md"

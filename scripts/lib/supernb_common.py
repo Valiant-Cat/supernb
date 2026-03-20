@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import re
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -218,6 +219,14 @@ def parse_bool_flag(value: str | None) -> bool | None:
 
 def debug_log_toggle_path(project_dir: Path) -> Path:
     return project_dir / ".supernb" / "debug-logging.enabled"
+
+
+def supernb_cli_path(root_dir: Path) -> Path:
+    return (root_dir / "scripts" / "supernb").resolve()
+
+
+def supernb_cli_prefix(root_dir: Path) -> str:
+    return shlex.quote(str(supernb_cli_path(root_dir)))
 
 
 def debug_log_env_override() -> bool | None:

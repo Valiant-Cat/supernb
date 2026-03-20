@@ -27,6 +27,7 @@ from lib.supernb_common import (
     phase_targets as common_phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -127,7 +128,10 @@ def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
 def current_phase_from_run_status(spec: dict[str, Any]) -> str:
     run_status_json = artifact_path(spec, "run_status_json")
     if not run_status_json.is_file():
-        raise FileNotFoundError(f"Run status JSON not found: {run_status_json}. Run ./scripts/supernb run first or pass --phase.")
+        raise FileNotFoundError(
+            f"Run status JSON not found: {run_status_json}. "
+            f"Run {supernb_cli_prefix(ROOT_DIR)} run first or pass --phase."
+        )
     import json
 
     payload = json.loads(run_status_json.read_text(encoding="utf-8"))
@@ -209,7 +213,7 @@ def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]
         return []
     packet = latest_execution_packet(spec, phase)
     if packet is None:
-        return [f"No execution packet found for {phase}; run ./scripts/supernb execute-next first."]
+        return [f"No execution packet found for {phase}; run {supernb_cli_prefix(ROOT_DIR)} execute-next first."]
     suggestion_path = packet / "result-suggestion.json"
     request_path = packet / "request.json"
     if not request_path.is_file():
@@ -224,7 +228,10 @@ def execution_compliance_findings(spec: dict[str, Any], phase: str) -> list[str]
     packet_initiative = str(request.get("initiative_id", "")).strip()
     packet_phase = str(request.get("phase", "")).strip()
     if bool(request.get("dry_run")):
-        return [f"Latest {phase} execution packet is a dry run only; run ./scripts/supernb execute-next without --dry-run or import a manual execution packet first."]
+        return [
+            f"Latest {phase} execution packet is a dry run only; run {supernb_cli_prefix(ROOT_DIR)} execute-next "
+            "without --dry-run or import a manual execution packet first."
+        ]
     findings: list[str] = []
     if packet_initiative and packet_initiative != initiative_id:
         findings.append(f"Latest execution packet belongs to initiative {packet_initiative}, not {initiative_id}.")
@@ -364,7 +371,7 @@ def append_run_log(
         "",
         f"- Phase: `{phase}`",
         f"- Passed: `{'yes' if passed else 'no'}`",
-        f"- Recommended gate status: `{recommendation}`",
+        f"- Gate status to apply after pass: `{recommendation}`",
         f"- Applied automatically: `{'yes' if applied else 'no'}`",
         f"- Certification report: `{display_path(report_path)}`",
         "",
@@ -391,7 +398,7 @@ def write_report(
         f"- Phase: `{phase}`",
         f"- Recorded: `{utc_now()}`",
         f"- Passed: `{'yes' if not issues and not execution_findings and readiness_ok else 'no'}`",
-        f"- Recommended gate status: `{recommendation}`",
+        f"- Gate status to apply after pass: `{recommendation}`",
         f"- Applied automatically: `{'yes' if applied else 'no'}`",
         "",
         "## Checked Artifacts",
@@ -441,11 +448,17 @@ def write_report(
 
     lines.extend(["", "## Next Action", ""])
     if issues or execution_findings or not readiness_ok:
-        lines.append(f"- Resolve the findings above, then rerun `./scripts/supernb certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase}`.")
+        lines.append(
+            f"- Resolve the findings above, then rerun "
+            f"`{supernb_cli_prefix(ROOT_DIR)} certify-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase}`."
+        )
     elif applied:
         lines.append(f"- The gate was advanced automatically to `{recommendation}`.")
     else:
-        lines.append(f"- You can now advance the gate with `./scripts/supernb advance-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase} --status {recommendation} --actor <who approved it>`.")
+        lines.append(
+            f"- You can now advance the gate with "
+            f"`{supernb_cli_prefix(ROOT_DIR)} advance-phase --initiative-id {nested_get(spec, 'initiative', 'id')} --phase {phase} --status {recommendation} --actor <who approved it>`."
+        )
 
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -576,7 +589,7 @@ def main() -> int:
 
     print(f"Phase certification report: {report_path}")
     print(f"Passed: {'yes' if passed else 'no'}")
-    print(f"Recommended gate status: {recommended_gate_status(phase)}")
+    print(f"Gate status to apply after pass: {recommended_gate_status(phase)}")
     if not passed:
         print(f"Line issue count: {len(issues)}")
         print(f"Execution compliance findings: {len(execution_findings)}")

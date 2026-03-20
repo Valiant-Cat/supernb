@@ -35,4 +35,4 @@
 - Use `ui-ux-governance` only after the PRD is evidence-backed.
 - Use `autonomous-delivery` only after PRD and design approval.
 - Keep `initiative.yaml` updated before each major phase handoff.
-- Run `./scripts/supernb run --initiative-id {{INIT_ID}}` to compute gates and generate the next command brief.
+- Run `"{{SUPERNB_CLI}}" run --initiative-id {{INIT_ID}}` to compute gates and generate the next command brief.

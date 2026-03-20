@@ -11,7 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from lib.supernb_common import artifact_path as common_artifact_path, load_spec, resolve_spec_path as common_resolve_spec_path
+from lib.supernb_common import (
+    artifact_path as common_artifact_path,
+    load_spec,
+    resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
@@ -281,7 +286,7 @@ def main() -> int:
             f"- Review the imported legacy files under `{legacy_import_dir}`.",
             f"- Start with the suggested targets in `{mapping_md_path}` instead of reconciling files ad hoc.",
             f"- Update the initiative-scoped artifacts under `{initiative_dir}` with the parts you want to preserve.",
-            f"- Run `./scripts/supernb run --initiative-id {initiative_id}` after the migrated artifacts are reconciled.",
+            f"- Run `{supernb_cli_prefix(ROOT_DIR)} run --initiative-id {initiative_id}` after the migrated artifacts are reconciled.",
         ]
     )
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

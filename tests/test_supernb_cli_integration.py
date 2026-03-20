@@ -238,7 +238,13 @@ artifacts:
     }
 
 
-def write_report_json(path: Path, evidence_artifacts: list[str] | None = None) -> None:
+def write_report_json(
+    path: Path,
+    evidence_artifacts: list[str] | None = None,
+    recommended_result_status: str = "succeeded",
+    recommended_gate_action: str = "certify",
+    recommended_gate_status: str = "ready",
+) -> None:
     payload = {
         "completion_status": "completed",
         "summary": "Imported execution completed.",
@@ -258,9 +264,9 @@ def write_report_json(path: Path, evidence_artifacts: list[str] | None = None) -
             "using_git_worktrees": {"used": False, "evidence": "No git worktree workflow was used."},
             "subagent_or_executing_plans": {"used": False, "evidence": "No delegated execution workflow was used."},
         },
-        "recommended_result_status": "succeeded",
-        "recommended_gate_action": "certify",
-        "recommended_gate_status": "ready",
+        "recommended_result_status": recommended_result_status,
+        "recommended_gate_action": recommended_gate_action,
+        "recommended_gate_status": recommended_gate_status,
         "follow_up": [],
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -723,6 +729,41 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             self.assertNotEqual(closeout_proc.returncode, 0)
             self.assertNotIn("<promise>SUPERNB", closeout_proc.stdout)
+            self.assertIn("Prompt closeout did not emit the Ralph Loop completion promise", closeout_proc.stderr)
+            self.assertIn("Imported execution packet:", closeout_proc.stderr)
+            self.assertIn("--certify", closeout_proc.stderr)
+
+    def test_prompt_sync_start_loop_requires_claude_session_id_with_actionable_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\n- Execute the current delivery batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run", "--start-loop"],
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("CLAUDE_CODE_SESSION_ID is not set", proc.stderr)
+            self.assertIn("active Claude Code session", proc.stderr)
+            self.assertIn("If you only need the prompt files", proc.stderr)
+            self.assertIn("--no-run", proc.stderr)
 
     def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -874,6 +915,30 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("--override-reason is required", proc.stderr)
 
+    def test_record_result_rejects_gate_status_with_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-record-result.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "delivery",
+                "--status",
+                "verified",
+                "--summary",
+                "Wrong status kind",
+                "--source",
+                "manual-override",
+                "--override-reason",
+                "Testing validation guidance",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("`verified` is a gate status, not a result status", proc.stderr)
+            self.assertIn("succeeded, blocked, needs-follow-up, manual-follow-up, not-run, failed", proc.stderr)
+            self.assertIn("certify-phase", proc.stderr)
+
     def test_import_execution_rejects_missing_evidence_before_packet_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -930,6 +995,40 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("- Source: `execution-packet`", result_text)
             self.assertIn("- Source packet: `", result_text)
 
+    def test_apply_execution_apply_certification_requires_succeeded_packet_with_follow_up(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            report_path = Path(tmp_dir) / "report.json"
+            write_report_json(report_path, recommended_result_status="needs-follow-up")
+
+            import_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "research",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertEqual(import_proc.returncode, 0, msg=import_proc.stderr)
+
+            packet_dirs = [path for path in paths["executions_dir"].iterdir() if path.is_dir()]
+            self.assertEqual(len(packet_dirs), 1)
+
+            apply_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-apply-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--packet",
+                str(packet_dirs[0]),
+                "--apply-certification",
+            )
+
+            self.assertNotEqual(apply_proc.returncode, 0)
+            self.assertIn("suggested_result_status=needs-follow-up", apply_proc.stderr)
+            self.assertIn("--certify", apply_proc.stderr)
+            self.assertIn("recorded first", apply_proc.stderr)
+
     def test_migrate_legacy_writes_mapping_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -962,6 +1061,34 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("01-competitor-landscape.md", mapping_text)
             self.assertIn("implementation-plan.md", mapping_text)
             self.assertIn("i18n-strategy.md", mapping_text)
+
+    def test_init_initiative_scaffold_uses_absolute_supernb_cli_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            env = dict(os.environ)
+            env["PROJECT_DIR"] = str(project_dir)
+
+            proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-cli-path", "Demo CLI Path"],
+                env=env,
+            )
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+
+            spec_candidates = list((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(spec_candidates), 1)
+            initiative_root = spec_candidates[0].parent
+            expected_prefix = str((ROOT_DIR / "scripts" / "supernb").resolve())
+
+            for artifact_name in ["run-status.md", "next-command.md", "phase-packet.md"]:
+                artifact_text = (initiative_root / artifact_name).read_text(encoding="utf-8")
+                self.assertIn(expected_prefix, artifact_text)
+                self.assertNotIn("./scripts/supernb", artifact_text)
+
+            self.assertIn(expected_prefix, proc.stdout)
+            self.assertNotIn("Run ./scripts/supernb run", proc.stdout)
 
     def test_clean_initiative_archives_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

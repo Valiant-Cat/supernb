@@ -27,6 +27,7 @@ from lib.supernb_common import (
     phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -463,14 +464,16 @@ def phase_objectives(phase: str) -> list[str]:
 
 
 def record_result_command(initiative_id: str, phase: str) -> str:
+    cli = supernb_cli_prefix(ROOT_DIR)
     return (
-        f'./scripts/supernb record-result --initiative-id {initiative_id} --phase {phase} '
+        f'{cli} record-result --initiative-id {initiative_id} --phase {phase} '
         '--status "<status>" --summary "<what happened>" '
         '--source manual-override --override-reason "<why packet automation was bypassed>"'
     )
 
 
 def advance_phase_command(initiative_id: str, phase: str) -> str:
+    cli = supernb_cli_prefix(ROOT_DIR)
     defaults = {
         "research": "approved",
         "prd": "approved",
@@ -479,19 +482,19 @@ def advance_phase_command(initiative_id: str, phase: str) -> str:
         "delivery": "verified",
         "release": "ready",
     }
-    return f'./scripts/supernb advance-phase --initiative-id {initiative_id} --phase {phase} --status {defaults[phase]} --actor "<who approved it>"'
+    return f'{cli} advance-phase --initiative-id {initiative_id} --phase {phase} --status {defaults[phase]} --actor "<who approved it>"'
 
 
 def certify_phase_command(initiative_id: str, phase: str) -> str:
-    return f'./scripts/supernb certify-phase --initiative-id {initiative_id} --phase {phase}'
+    return f'{supernb_cli_prefix(ROOT_DIR)} certify-phase --initiative-id {initiative_id} --phase {phase}'
 
 
 def execute_next_command(initiative_id: str) -> str:
-    return f'./scripts/supernb execute-next --initiative-id {initiative_id}'
+    return f'{supernb_cli_prefix(ROOT_DIR)} execute-next --initiative-id {initiative_id}'
 
 
 def apply_execution_command(initiative_id: str) -> str:
-    return f'./scripts/supernb apply-execution --initiative-id {initiative_id} --packet <execution-packet-dir>'
+    return f'{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id {initiative_id} --packet <execution-packet-dir>'
 
 
 def phase_artifact_lines(spec: dict[str, Any], phase: str) -> list[str]:
@@ -675,7 +678,7 @@ def build_markdown(
             lines.append(f"- Archived brief: `{archived_brief}`")
         lines.append(f"- Execute via harness: `{execute_next_command(initiative_id)}`")
         lines.append(f"- Apply execution packet: `{apply_execution_command(initiative_id)}`")
-        lines.append(f"- Run: `./scripts/supernb run --initiative-id {initiative_id}` after phase progress changes")
+        lines.append(f"- Run: `{supernb_cli_prefix(ROOT_DIR)} run --initiative-id {initiative_id}` after phase progress changes")
     lines.append(f"- Certify the current phase: `{certify_phase_command(initiative_id, selected_phase)}`")
     lines.append(f"- Record execution results: `{record_result_command(initiative_id, selected_phase)}`")
     lines.append(f"- Advance phase gate: `{advance_phase_command(initiative_id, selected_phase)}`")

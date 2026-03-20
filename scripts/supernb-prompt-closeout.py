@@ -16,6 +16,7 @@ from lib.supernb_common import (
     load_spec,
     nested_get,
     resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 
@@ -160,6 +161,15 @@ def main() -> int:
 
     apply_proc = subprocess.run(apply_command, capture_output=True, text=True)
     if apply_proc.returncode != 0:
+        if phase in LOOP_REQUIRED_PHASES:
+            sys.stderr.write(
+                f"Prompt closeout did not emit the Ralph Loop completion promise for {phase} because result recording/certification failed.\n"
+            )
+        sys.stderr.write(f"Imported execution packet: {packet_dir}\n")
+        sys.stderr.write(
+            f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} apply-execution --spec {spec_path} --packet {packet_dir} --certify` to inspect blockers, "
+            "then rerun prompt-closeout after the packet can succeed.\n"
+        )
         sys.stderr.write(apply_proc.stderr or apply_proc.stdout)
         append_debug_log(
             spec,

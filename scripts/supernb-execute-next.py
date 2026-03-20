@@ -26,6 +26,7 @@ from lib.supernb_common import (
     phase_targets as common_phase_targets,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
+    supernb_cli_prefix,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -308,7 +309,7 @@ def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None
 def resolve_run_payload(spec: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
     run_status_json = artifact_path(spec, "run_status_json")
     if not run_status_json.is_file():
-        raise FileNotFoundError(f"Run status JSON not found: {run_status_json}. Run ./scripts/supernb run first.")
+        raise FileNotFoundError(f"Run status JSON not found: {run_status_json}. Run {supernb_cli_prefix(ROOT_DIR)} run first.")
     return run_status_json, json.loads(run_status_json.read_text(encoding="utf-8"))
 
 
@@ -318,7 +319,10 @@ def resolve_phase(args: argparse.Namespace, payload: dict[str, Any]) -> str:
         raise ValueError("selected_phase missing in run-status.json")
     phase = args.phase or selected
     if args.phase and args.phase != selected and not args.prompt_file:
-        raise ValueError(f"--phase {args.phase} does not match the current selected phase {selected}. Re-run ./scripts/supernb run first or pass --prompt-file explicitly.")
+        raise ValueError(
+            f"--phase {args.phase} does not match the current selected phase {selected}. "
+            f"Re-run {supernb_cli_prefix(ROOT_DIR)} run first or pass --prompt-file explicitly."
+        )
     return phase
 
 
@@ -2222,6 +2226,53 @@ def commits_created(project_dir: Path, before: dict[str, Any], after: dict[str, 
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
+def changed_files_in_commits(project_dir: Path, before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    if not before.get("is_repo") or not after.get("is_repo"):
+        return []
+    before_head = ensure_string(before.get("head"))
+    after_head = ensure_string(after.get("head"))
+    if not after_head or before_head == after_head:
+        return []
+    if before_head:
+        command = ["git", "-C", str(project_dir), "diff", "--name-only", f"{before_head}..{after_head}"]
+    else:
+        command = ["git", "-C", str(project_dir), "diff-tree", "--no-commit-id", "--name-only", "-r", after_head]
+    try:
+        output = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def is_workflow_artifact_path(path_value: str) -> bool:
+    normalized = ensure_string(path_value).replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    if not normalized:
+        return False
+    for prefix in [".supernb/", ".claude/"]:
+        if normalized == prefix[:-1] or normalized.startswith(prefix):
+            return True
+    return False
+
+
+def delivery_workspace_change_findings(project_dir: Path, before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    changed_files = changed_files_in_commits(project_dir, before, after)
+    if not changed_files:
+        return []
+    if any(not is_workflow_artifact_path(path) for path in changed_files):
+        return []
+    return [
+        "Delivery batch did not modify any product workspace files outside .supernb/.claude workflow artifacts. "
+        f"Changed files: {', '.join(changed_files)}"
+    ]
+
+
 def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: list[str]) -> list[str]:
     issues: list[str] = []
     trace = report.get("workflow_trace") or {}
@@ -2400,6 +2451,8 @@ def build_result_suggestion(
     if missing_structured_report:
         workflow_issues.insert(0, missing_structured_report_issue(harness))
     workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
+    if phase == "delivery":
+        workflow_issues.extend(delivery_workspace_change_findings(project_dir, git_before, git_after))
     commit_issue = ""
     if phase == "delivery" and git_after.get("is_repo") and not created_commits:
         commit_issue = "No new git commit was detected for this delivery batch."
@@ -2484,9 +2537,9 @@ def write_result_suggestion_md(
         "",
         "## Suggested Commands",
         "",
-        f"- Record result: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir}`",
-        f"- Record result and certify: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir} --certify`",
-        f"- Record result and certify+apply: `./scripts/supernb apply-execution --initiative-id {initiative_id} --packet {packet_dir} --apply-certification`",
+        f"- Record result: `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id {initiative_id} --packet {packet_dir}`",
+        f"- Record result and certify: `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id {initiative_id} --packet {packet_dir} --certify`",
+        f"- Record result and certify+apply: `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id {initiative_id} --packet {packet_dir} --apply-certification`",
         "",
         "## Evidence",
         "",
@@ -2783,11 +2836,17 @@ def write_summary(
     if dry_run:
         lines.append("- Review the execution packet, then rerun without `--dry-run` when you are ready.")
     elif status == "unsupported":
-        lines.append("- Review `result-suggestion.md`, then use `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>` to record the manual-follow-up result.")
+        lines.append(
+            f"- Review `result-suggestion.md`, then use `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id <id> --packet <packet-dir>` to record the manual-follow-up result."
+        )
     elif status == "failed":
-        lines.append("- Review `result-suggestion.md`, then use `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>` to record the blocked result before rerunning if needed.")
+        lines.append(
+            f"- Review `result-suggestion.md`, then use `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id <id> --packet <packet-dir>` to record the blocked result before rerunning if needed."
+        )
     else:
-        lines.append("- Review `result-suggestion.md`, then apply it with `./scripts/supernb apply-execution --initiative-id <id> --packet <packet-dir>`.")
+        lines.append(
+            f"- Review `result-suggestion.md`, then apply it with `{supernb_cli_prefix(ROOT_DIR)} apply-execution --initiative-id <id> --packet <packet-dir>`."
+        )
 
     summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -2938,7 +2997,7 @@ def main() -> int:
         if harness == "opencode":
             manual_note = (
                 "- Open the prepared `prompt-with-report.md` in your OpenCode project session.\n"
-                "- Run that prompt manually in OpenCode, then return to `./scripts/supernb apply-execution` with this packet.\n"
+                f"- Run that prompt manually in OpenCode, then return to `{supernb_cli_prefix(ROOT_DIR)} apply-execution` with this packet.\n"
             )
         stdout_path.write_text("", encoding="utf-8")
         stderr_path.write_text(error_message + "\n", encoding="utf-8")
