@@ -741,6 +741,120 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("bundles/claude-loop-marketplace", logged_calls)
             self.assertIn("plugin install supernb-loop@supernb --scope user", logged_calls)
 
+    def test_install_claude_code_project_local_writes_managed_project_claude_md_with_prompt_examples(self) -> None:
+        impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
+        if not impeccable_dir.is_dir():
+            self.skipTest("built impeccable Claude Code bundle is not available in this checkout")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            temp_home = root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            project_dir = root / "project"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            log_path = root / "claude-install.log"
+            write_fake_claude_for_install(bin_dir, log_path)
+
+            env = os.environ.copy()
+            env["HOME"] = str(temp_home)
+            env["FAKE_CLAUDE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "install-claude-code.sh"), str(project_dir)],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            managed_claude_md = project_dir / "CLAUDE.md"
+            self.assertTrue(managed_claude_md.is_file())
+            managed_text = managed_claude_md.read_text(encoding="utf-8")
+            self.assertIn("use supernb", managed_text)
+            self.assertIn("use supernb to improve this project", managed_text)
+            self.assertIn("使用 supernb", managed_text)
+            self.assertIn("使用 supernb 对本项目进行完善和升级", managed_text)
+            self.assertIn("用 supernb 完善这个项目", managed_text)
+            self.assertIn("initiative-wide reassessment", managed_text)
+            self.assertIn("prompt-bootstrap --start-loop --direct-bridge-fallback", managed_text)
+
+    def test_verify_installs_accepts_supernb_loop_plugin_and_prompt_first_examples(self) -> None:
+        impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
+        if not impeccable_dir.is_dir():
+            self.skipTest("built impeccable Claude Code bundle is not available in this checkout")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            temp_home = root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            log_path = root / "claude-install.log"
+            write_fake_claude_for_prompt_first(bin_dir, log_path)
+
+            env = os.environ.copy()
+            env["HOME"] = str(temp_home)
+            env["FAKE_CLAUDE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            install_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "install-claude-code.sh"), str(temp_home)],
+                env=env,
+            )
+            self.assertEqual(install_proc.returncode, 0, install_proc.stderr or install_proc.stdout)
+
+            verify_proc = run_command(
+                [sys.executable, str(ROOT_DIR / "scripts" / "supernb-verify-installs.py"), "--harness", "claude-code"],
+                env=env,
+            )
+
+            self.assertEqual(verify_proc.returncode, 0, verify_proc.stderr or verify_proc.stdout)
+            self.assertIn("[PASS] claude-code (user)", verify_proc.stdout)
+            self.assertIn("Claude Code plugin: supernb-loop@supernb (enabled)", verify_proc.stdout)
+
+    def test_verify_installs_rejects_managed_claude_md_missing_reassessment_or_upgrade_examples(self) -> None:
+        impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
+        if not impeccable_dir.is_dir():
+            self.skipTest("built impeccable Claude Code bundle is not available in this checkout")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            temp_home = root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            bin_dir = root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            log_path = root / "claude-install.log"
+            write_fake_claude_for_prompt_first(bin_dir, log_path)
+
+            env = os.environ.copy()
+            env["HOME"] = str(temp_home)
+            env["FAKE_CLAUDE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
+
+            install_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "install-claude-code.sh"), str(temp_home)],
+                env=env,
+            )
+            self.assertEqual(install_proc.returncode, 0, install_proc.stderr or install_proc.stdout)
+
+            managed_claude_md = temp_home / ".claude" / "CLAUDE.md"
+            managed_text = managed_claude_md.read_text(encoding="utf-8")
+            managed_text = managed_text.replace("- 使用 supernb 对本项目进行完善和升级\n", "")
+            managed_text = managed_text.replace("- 用 supernb 完善这个项目\n", "")
+            managed_text = managed_text.replace("4. Start with an initiative-wide reassessment. Compare the real repository state against research, PRD, design, planning, delivery, and release artifacts before deciding the work is only a current-phase patch.\n", "")
+            managed_claude_md.write_text(managed_text, encoding="utf-8")
+
+            verify_proc = run_command(
+                [sys.executable, str(ROOT_DIR / "scripts" / "supernb-verify-installs.py"), "--harness", "claude-code"],
+                env=env,
+            )
+
+            self.assertNotEqual(verify_proc.returncode, 0)
+            self.assertIn("managed user instructions issue:", verify_proc.stdout)
+            self.assertIn("initiative-wide reassessment", verify_proc.stdout)
+            self.assertIn("完善和升级", verify_proc.stdout)
+
     def test_prompt_first_smoke_flow_from_managed_claude_md_to_closeout_promise(self) -> None:
         impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
         if not impeccable_dir.is_dir():
@@ -953,6 +1067,48 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("initiative-wide reassessment", closeout_proc.stderr)
             self.assertIn("pending", closeout_proc.stderr)
             self.assertNotIn("Execution packet:", closeout_proc.stdout)
+
+    def test_prompt_closeout_blocks_when_reassessment_requires_reopen_of_earlier_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            run_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(paths["spec_path"]),
+            )
+            self.assertEqual(run_proc.returncode, 0, msg=run_proc.stderr)
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"])],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            reassessment_path.write_text(
+                reassessment_text.replace("- Status: pending", "- Status: completed")
+                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: research")
+                .replace(
+                    "- Can the current selected phase continue without reopening upstream work: yes/no",
+                    "- Can the current selected phase continue without reopening upstream work: no",
+                ),
+                encoding="utf-8",
+            )
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                ],
+            )
+
+            self.assertNotEqual(closeout_proc.returncode, 0)
+            self.assertIn("cannot close out cleanly", closeout_proc.stderr)
+            self.assertIn("prompt-bootstrap --spec", closeout_proc.stderr)
+            self.assertIn("--phase research", closeout_proc.stderr)
 
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

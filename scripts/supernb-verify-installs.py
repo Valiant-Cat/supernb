@@ -177,8 +177,16 @@ def verify_managed_claude_md(path: Path, label: str) -> list[str]:
         issues.append("managed supernb instruction block markers are missing")
     if "prompt-bootstrap --start-loop" not in text:
         issues.append("managed instructions do not route simple prompts through prompt-bootstrap --start-loop")
-    if "use supernb" not in text and "使用 supernb" not in text:
-        issues.append("managed instructions do not include simple 'use supernb' prompt routing examples")
+    if "use supernb" not in text:
+        issues.append("managed instructions do not include the simple `use supernb` prompt example")
+    if "use supernb to improve this project" not in text:
+        issues.append("managed instructions do not include the `use supernb to improve this project` prompt example")
+    if "使用 supernb" not in text:
+        issues.append("managed instructions do not include the simple `使用 supernb` prompt example")
+    if "使用 supernb 对本项目进行完善和升级" not in text and "用 supernb 完善这个项目" not in text:
+        issues.append("managed instructions do not include a Chinese project-upgrade prompt example such as `使用 supernb 对本项目进行完善和升级`")
+    if "initiative-wide reassessment" not in text:
+        issues.append("managed instructions do not require an initiative-wide reassessment before current-phase work continues")
 
     if issues:
         details.extend(f"{label} issue: {issue}" for issue in issues)
@@ -204,9 +212,9 @@ def parse_claude_plugin_state(require_ralph_loop: bool = False) -> tuple[str | N
     plugin_status: str | None = None
     lines = proc.stdout.splitlines()
     for idx, line in enumerate(lines):
-        if "superpowers@" not in line:
+        if line.startswith(" ") or "@" not in line:
             continue
-        token = next((part for part in line.split() if part.startswith("superpowers@")), None)
+        token = next((part for part in line.split() if "@" in part and not part.startswith("Version:")), None)
         if not token:
             continue
         inventory[token] = "unknown"
@@ -222,7 +230,7 @@ def parse_claude_plugin_state(require_ralph_loop: bool = False) -> tuple[str | N
                 break
 
     if not inventory:
-        return None, None, ["Claude Code plugin superpowers is not installed"]
+        return None, None, ["Claude Code plugin inventory is empty"]
     enabled = sorted(plugin for plugin, status in inventory.items() if status == "enabled")
     if require_ralph_loop:
         plugin_id = RALPH_LOOP_PLUGIN_ID if RALPH_LOOP_PLUGIN_ID in inventory else next(iter(inventory))
