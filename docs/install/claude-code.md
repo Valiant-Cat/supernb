@@ -168,7 +168,7 @@ Expected behavior:
 ```
 
 3. It reads `.supernb/initiatives/<initiative-id>/prompt-session.md`.
-4. For planning and delivery on Claude Code, that same command also starts the generated Ralph Loop contract in the current Claude session.
+4. For planning and delivery on Claude Code, that same command first verifies that the active Claude environment has `superpowers@frad-dotclaude` enabled, then starts the generated Ralph Loop contract in the current Claude session and writes loop audit files alongside the initiative.
 5. It performs the requested phase work.
 6. Before stopping, it fills `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then runs `import-execution` and `apply-execution`.
 
@@ -189,6 +189,7 @@ make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet 
 
 When you switch from `DRY_RUN=1` to a real bridged run, keep the `REPORT JSON` block in Claude Code's final response.
 Without that block, the packet is marked `needs-follow-up` and certification will not treat it as clean execution evidence.
+For direct `claude-code` planning or delivery runs, `execute-next` also auto-arms Ralph Loop and writes packet-local audit files, so the same loop-enabled plugin requirement applies there too.
 
 Use the `supernb` command templates from:
 

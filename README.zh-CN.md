@@ -258,9 +258,10 @@ make bootstrap HARNESS=codex
 2. 在产品项目里的 `.supernb/initiatives/<initiative-id>/initiative.yaml` 中填写信息。
 3. 运行 `./scripts/supernb run --initiative-id <initiative-id>`。
    现在 PRD、design、implementation plan、release readiness 都带有带稳定 `Trace ID` 的 traceability matrix；这些行一旦对不上，certification 会直接拦住 phase 漂移。
-   如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template，并在 planning / delivery 时自动启动 Ralph Loop。
+   如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template、loop audit 文件，并在 planning / delivery 时自动启动 Ralph Loop。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
+   如果是 Claude Code 的 planning / delivery 直连执行，`execute-next` 现在会自动 arm Ralph Loop，并写 packet 局部的 audit 文件，但前提是当前 Claude Code 环境启用了 `superpowers@frad-dotclaude`。
    `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。
    如果是 OpenCode，这一步会先准备 execution packet 和 prompt，再由你在 OpenCode 里手动执行。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。
@@ -278,7 +279,7 @@ make bootstrap HARNESS=codex
 - 直接说“使用 supernb”或“用 supernb 完善这个项目”是对的
 - 但 managed `supernb` skill 应该先在底层跑 `./scripts/supernb prompt-sync ... --start-loop`
 - agent 应该先读 `.supernb/initiatives/<initiative-id>/prompt-session.md`
-- 对 planning 和 delivery，上面这条内部命令就应该先把 Ralph Loop 拉起来，并一直执行到 completion promise 真实成立
+- 对 planning 和 delivery，上面这条内部命令应该先验证 Claude Code 的 loop plugin 环境，再把 Ralph Loop 拉起来，并一直执行到 completion promise 真实成立
 - 结束前还要把 `.supernb/initiatives/<initiative-id>/prompt-report-template.json` 填好，再导入并 apply，不能只改代码不回写 control plane
 
 如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：

@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shlex
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    assert_ralph_loop_environment,
     append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
@@ -27,12 +30,15 @@ from lib.supernb_common import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
+RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
+RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
 REPORT_END = "SUPERNB_EXECUTION_REPORT_JSON_END"
 LOOP_REQUIRED_PHASES = {"planning", "delivery"}
 CLAUDE_LOOP_HARNESSES = {"claude-code", "claude-code-prompt"}
+LOOP_MAX_ITERATIONS = {"planning": 6, "delivery": 8}
 METADATA_FIELDS = {
     "Initiative ID",
     "Product",
@@ -426,6 +432,169 @@ def build_execution_command(harness: str, project_dir: Path, response_path: Path
             *cli_args,
         ]
     raise ValueError(f"Direct execution is not supported for harness: {harness}")
+
+
+def slugify(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    normalized = normalized.strip("-")
+    return normalized or "initiative"
+
+
+def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path, project_dir: Path) -> dict[str, Any]:
+    slug = slugify(f"{initiative_id}-{phase}-{packet_dir.name}")
+    completion_promise = f"SUPERNB {initiative_id} {phase} batch complete"
+    state_file = project_dir / ".claude" / f"superpower-loop-{slug}.local.md"
+    prompt_file = packet_dir / "ralph-loop-prompt.md"
+    audit_summary_file = packet_dir / "ralph-loop-audit.json"
+    audit_events_file = packet_dir / "ralph-loop-audit.ndjson"
+    start_command = [
+        "bash",
+        str(RALPH_LOOP_SETUP_SCRIPT),
+        "--prompt-file",
+        str(prompt_file),
+        "--completion-promise",
+        completion_promise,
+        "--max-iterations",
+        str(LOOP_MAX_ITERATIONS.get(phase, 4)),
+        "--state-file",
+        str(state_file),
+    ]
+    return {
+        "completion_promise": completion_promise,
+        "state_file": state_file,
+        "prompt_file": prompt_file,
+        "audit_summary_file": audit_summary_file,
+        "audit_events_file": audit_events_file,
+        "max_iterations": LOOP_MAX_ITERATIONS.get(phase, 4),
+        "start_command": start_command,
+        "start_command_text": shlex.join(start_command),
+    }
+
+
+def direct_loop_policy(loop_contract: dict[str, Any]) -> str:
+    return (
+        "\n\nClaude Code Ralph Loop contract:\n"
+        f"- Ralph Loop has been armed for this run with state file `{loop_contract['state_file']}`.\n"
+        f"- External audit summary: `{loop_contract['audit_summary_file']}`.\n"
+        f"- External audit events: `{loop_contract['audit_events_file']}`.\n"
+        f"- Add `{loop_contract['audit_summary_file']}` to evidence_artifacts.\n"
+        f"- loop_execution.evidence must equal `{loop_contract['audit_summary_file']}`.\n"
+        f"- When the run is genuinely complete, the final response must include `<promise>{loop_contract['completion_promise']}</promise>` as the last line.\n"
+    )
+
+
+def start_loop_audit_watcher(loop_contract: dict[str, Any], project_dir: Path, expected_session_id: str = "") -> None:
+    subprocess.Popen(
+        [
+            sys.executable,
+            str(RALPH_LOOP_AUDIT_WATCHER),
+            "--state-file",
+            str(loop_contract["state_file"]),
+            "--summary-json",
+            str(loop_contract["audit_summary_file"]),
+            "--events-ndjson",
+            str(loop_contract["audit_events_file"]),
+            "--completion-promise",
+            loop_contract["completion_promise"],
+            "--max-iterations",
+            str(loop_contract["max_iterations"]),
+            "--expected-session-id",
+            expected_session_id,
+        ],
+        cwd=project_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -> dict[str, str]:
+    if not RALPH_LOOP_SETUP_SCRIPT.is_file():
+        raise FileNotFoundError(f"Ralph Loop setup script not found: {RALPH_LOOP_SETUP_SCRIPT}")
+    if not RALPH_LOOP_AUDIT_WATCHER.is_file():
+        raise FileNotFoundError(f"Ralph Loop audit watcher not found: {RALPH_LOOP_AUDIT_WATCHER}")
+
+    plugin_metadata = assert_ralph_loop_environment(project_dir)
+    proc = subprocess.run(
+        loop_contract["start_command"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        message = proc.stderr.strip() or proc.stdout.strip() or "unknown Ralph Loop setup error"
+        raise RuntimeError(f"Failed to arm Ralph Loop for direct Claude execution: {message}")
+
+    state_file = Path(loop_contract["state_file"]).resolve()
+    if not state_file.is_file():
+        raise RuntimeError(f"Ralph Loop setup completed without creating the state file: {state_file}")
+
+    start_loop_audit_watcher(loop_contract, project_dir)
+    return plugin_metadata
+
+
+def wait_for_loop_audit_summary(loop_contract: dict[str, Any], timeout_seconds: float = 12.0) -> dict[str, Any] | None:
+    summary_path = Path(loop_contract["audit_summary_file"]).resolve()
+    deadline = time.time() + max(timeout_seconds, 0.5)
+    while time.time() < deadline:
+        if summary_path.is_file():
+            try:
+                payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                payload = None
+            if isinstance(payload, dict) and str(payload.get("final_status", "")).strip() not in {"", "watching"}:
+                return payload
+        time.sleep(0.2)
+    if summary_path.is_file():
+        try:
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def extract_promise_text(text: str) -> str:
+    match = re.search(r"<promise>(.*?)</promise>", text, re.DOTALL)
+    if not match:
+        return ""
+    return " ".join(match.group(1).strip().split())
+
+
+def resolve_loop_audit_summary(project_dir: Path, packet_dir: Path, report: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
+    loop_execution = report.get("loop_execution") or {}
+    evidence_path = ensure_string(loop_execution.get("evidence"))
+    if not evidence_path:
+        return None, ""
+    candidates = [Path(evidence_path).expanduser()]
+    if not candidates[0].is_absolute():
+        candidates.extend([(project_dir / evidence_path).resolve(), (packet_dir / evidence_path).resolve()])
+    for candidate in candidates:
+        if candidate.is_file():
+            try:
+                payload = json.loads(candidate.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                return None, str(candidate)
+            if isinstance(payload, dict):
+                return payload, str(candidate)
+            return None, str(candidate)
+    return None, evidence_path
+
+
+def serialize_loop_contract(loop_contract: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not loop_contract:
+        return None
+    return {
+        "completion_promise": loop_contract["completion_promise"],
+        "state_file": str(loop_contract["state_file"]),
+        "prompt_file": str(loop_contract["prompt_file"]),
+        "audit_summary_file": str(loop_contract["audit_summary_file"]),
+        "audit_events_file": str(loop_contract["audit_events_file"]),
+        "max_iterations": loop_contract["max_iterations"],
+        "start_command": list(loop_contract["start_command"]),
+        "start_command_text": loop_contract["start_command_text"],
+    }
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -1981,7 +2150,14 @@ def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: li
     return issues
 
 
-def loop_execution_findings(phase: str, harness: str, report: dict[str, Any]) -> list[str]:
+def loop_execution_findings(
+    phase: str,
+    harness: str,
+    report: dict[str, Any],
+    project_dir: Path,
+    packet_dir: Path,
+    response_text: str,
+) -> list[str]:
     if phase not in LOOP_REQUIRED_PHASES or harness not in CLAUDE_LOOP_HARNESSES:
         return []
 
@@ -2016,6 +2192,37 @@ def loop_execution_findings(phase: str, harness: str, report: dict[str, Any]) ->
         issues.append("loop_execution.exit_reason must explain why the loop stopped.")
     if not evidence:
         issues.append("loop_execution.evidence must explain the Ralph Loop state or observed stop condition.")
+    audit_summary, audit_path = resolve_loop_audit_summary(project_dir, packet_dir, report)
+    if not audit_summary:
+        issues.append(f"loop_execution.evidence must point to a valid Ralph Loop audit summary JSON. Got: {audit_path or '<missing>'}")
+        return issues
+
+    if ensure_string(audit_summary.get("completion_promise")) != completion_promise:
+        issues.append("Ralph Loop audit summary completion_promise does not match loop_execution.completion_promise.")
+    if ensure_string(audit_summary.get("state_file")) != state_file:
+        issues.append("Ralph Loop audit summary state_file does not match loop_execution.state_file.")
+    if not audit_summary.get("state_observed"):
+        issues.append("Ralph Loop audit summary never observed the state file.")
+    if not audit_summary.get("removed_after_observation"):
+        issues.append("Ralph Loop audit summary did not observe the state file being removed, so loop completion is unverified.")
+    if ensure_string(audit_summary.get("final_status")) != "state_removed":
+        issues.append("Ralph Loop audit summary final_status must be state_removed.")
+    last_iteration = int(audit_summary.get("last_iteration", 0) or 0)
+    if last_iteration < 1:
+        issues.append("Ralph Loop audit summary must record at least one observed iteration.")
+    if final_iteration > last_iteration:
+        issues.append("loop_execution.final_iteration cannot exceed the last iteration recorded by the audit summary.")
+    if harness == "claude-code-prompt":
+        expected_session = ensure_string(audit_summary.get("expected_session_id"))
+        observed_session = ensure_string(audit_summary.get("last_session_id"))
+        if not expected_session:
+            issues.append("Prompt-first Ralph Loop audit summary must record the expected Claude session id.")
+        elif observed_session != expected_session:
+            issues.append("Prompt-first Ralph Loop audit summary session id does not match the active Claude session.")
+    if harness == "claude-code":
+        promise_text = extract_promise_text(response_text)
+        if promise_text != completion_promise:
+            issues.append("Direct Claude Code execution must end with the exact Ralph Loop completion promise tag.")
     return issues
 
 
@@ -2084,7 +2291,7 @@ def build_result_suggestion(
         structured_report["batch_commits"] = created_commits
 
     workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
-    workflow_issues.extend(loop_execution_findings(phase, harness, structured_report))
+    workflow_issues.extend(loop_execution_findings(phase, harness, structured_report, project_dir, packet_dir, response_text))
     if missing_structured_report:
         workflow_issues.insert(0, missing_structured_report_issue(harness))
     workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
@@ -2392,6 +2599,8 @@ def write_summary(
     git_before: dict[str, Any],
     git_after: dict[str, Any],
     created_commits: list[str],
+    loop_contract: dict[str, Any] | None = None,
+    loop_plugin_metadata: dict[str, str] | None = None,
 ) -> None:
     lines = [
         "# Execution Packet",
@@ -2444,6 +2653,25 @@ def write_summary(
             for item in created_commits:
                 lines.append(f"  - `{item}`")
 
+    if loop_contract:
+        lines.extend(
+            [
+                "",
+                "## Ralph Loop",
+                "",
+                f"- State file: `{display_path(Path(loop_contract['state_file']))}`",
+                f"- Prompt file: `{display_path(Path(loop_contract['prompt_file']))}`",
+                f"- Audit summary: `{display_path(Path(loop_contract['audit_summary_file']))}`",
+                f"- Audit events: `{display_path(Path(loop_contract['audit_events_file']))}`",
+                f"- Completion promise: `{loop_contract['completion_promise']}`",
+                f"- Max iterations: `{loop_contract['max_iterations']}`",
+            ]
+        )
+        if loop_plugin_metadata:
+            lines.append(f"- Claude plugin id: `{loop_plugin_metadata.get('id', '')}`")
+            if loop_plugin_metadata.get("version"):
+                lines.append(f"- Claude plugin version: `{loop_plugin_metadata.get('version', '')}`")
+
     lines.extend(["", "## Next Action", ""])
     if dry_run:
         lines.append("- Review the execution packet, then rerun without `--dry-run` when you are ready.")
@@ -2480,7 +2708,7 @@ def main() -> int:
             "phase_arg": args.phase,
             "harness_arg": args.harness,
             "project_dir_arg": args.project_dir or "",
-            "prompt_arg": args.prompt or "",
+            "prompt_arg": args.prompt_file or "",
             "dry_run": args.dry_run,
         },
     )
@@ -2533,6 +2761,11 @@ def main() -> int:
     prompt_copy_path.write_text(prompt_text, encoding="utf-8")
     prompt_with_report_path = packet_dir / "prompt-with-report.md"
     prompt_with_report_text = prompt_text + execution_policy(spec, phase, project_dir) + response_contract(phase)
+    direct_loop_contract: dict[str, Any] | None = None
+    if harness == "claude-code" and phase in LOOP_REQUIRED_PHASES:
+        direct_loop_contract = build_direct_loop_contract(initiative_id, phase, packet_dir, project_dir)
+        prompt_with_report_text += direct_loop_policy(direct_loop_contract)
+        Path(direct_loop_contract["prompt_file"]).write_text(prompt_with_report_text, encoding="utf-8")
     prompt_with_report_path.write_text(prompt_with_report_text, encoding="utf-8")
     response_path = packet_dir / "response.md"
     stdout_path = packet_dir / "stdout.log"
@@ -2551,6 +2784,8 @@ def main() -> int:
     git_before = git_state(project_dir)
     git_after = git_before
     created_commits: list[str] = []
+    loop_plugin_metadata: dict[str, str] = {}
+    direct_loop_audit_summary: dict[str, Any] | None = None
 
     if harness not in DIRECT_EXECUTION_HARNESSES:
         status = "unsupported"
@@ -2578,6 +2813,8 @@ def main() -> int:
             "command": command_argv or [],
             "cli_args": args.cli_arg,
             "git_before": git_before,
+            "ralph_loop": serialize_loop_contract(direct_loop_contract),
+            "ralph_loop_plugin": loop_plugin_metadata,
         },
     )
 
@@ -2605,23 +2842,43 @@ def main() -> int:
             encoding="utf-8",
         )
     else:
-        proc = subprocess.run(
-            command_argv,
-            input=prompt_with_report_text,
-            text=True,
-            capture_output=True,
-            cwd=str(project_dir),
-        )
-        exit_code = proc.returncode
-        stdout_path.write_text(proc.stdout, encoding="utf-8")
-        stderr_path.write_text(proc.stderr, encoding="utf-8")
+        if direct_loop_contract:
+            try:
+                loop_plugin_metadata = start_direct_claude_loop(project_dir, direct_loop_contract)
+            except (FileNotFoundError, RuntimeError) as exc:
+                status = "failed"
+                exit_code = 1
+                error_message = str(exc)
+                stdout_path.write_text("", encoding="utf-8")
+                stderr_path.write_text(error_message + "\n", encoding="utf-8")
+                response_path.write_text(
+                    "# Ralph Loop Setup Failed\n\n"
+                    f"- {error_message}\n"
+                    "- Fix the Claude Code loop environment and rerun this packet.\n",
+                    encoding="utf-8",
+                )
 
-        if harness == "claude-code":
-            response_path.write_text(proc.stdout, encoding="utf-8")
-        elif not response_path.exists():
-            response_path.write_text("", encoding="utf-8")
+        if status != "failed":
+            proc = subprocess.run(
+                command_argv,
+                input=prompt_with_report_text,
+                text=True,
+                capture_output=True,
+                cwd=str(project_dir),
+            )
+            exit_code = proc.returncode
+            stdout_path.write_text(proc.stdout, encoding="utf-8")
+            stderr_path.write_text(proc.stderr, encoding="utf-8")
 
-        status = "succeeded" if proc.returncode == 0 else "failed"
+            if harness == "claude-code":
+                response_path.write_text(proc.stdout, encoding="utf-8")
+            elif not response_path.exists():
+                response_path.write_text("", encoding="utf-8")
+
+            if direct_loop_contract:
+                direct_loop_audit_summary = wait_for_loop_audit_summary(direct_loop_contract)
+
+            status = "succeeded" if proc.returncode == 0 else "failed"
 
     git_after = git_state(project_dir)
     created_commits = commits_created(project_dir, git_before, git_after)
@@ -2642,6 +2899,9 @@ def main() -> int:
             "git_before": git_before,
             "git_after": git_after,
             "commits_created": created_commits,
+            "ralph_loop": serialize_loop_contract(direct_loop_contract),
+            "ralph_loop_plugin": loop_plugin_metadata,
+            "ralph_loop_audit_summary": direct_loop_audit_summary or {},
         },
     )
 
@@ -2689,6 +2949,8 @@ def main() -> int:
         git_before,
         git_after,
         created_commits,
+        direct_loop_contract,
+        loop_plugin_metadata,
     )
     append_run_log(run_log_path, phase, harness, args.dry_run, status, exit_code, packet_dir, prompt_source, response_path, result_suggestion_md, phase_readiness_md)
     debug_log(
@@ -2710,6 +2972,9 @@ def main() -> int:
             "phase_readiness_semantic_issues": int(phase_readiness.get("total_semantic_issues", 0)),
             "workflow_issues": suggestion.get("workflow_issues", []),
             "suggested_result_status": suggestion.get("suggested_result_status", ""),
+            "ralph_loop": serialize_loop_contract(direct_loop_contract),
+            "ralph_loop_plugin": loop_plugin_metadata,
+            "ralph_loop_audit_final_status": (direct_loop_audit_summary or {}).get("final_status", ""),
         },
     )
 

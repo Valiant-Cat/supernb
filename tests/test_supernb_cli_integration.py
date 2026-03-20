@@ -5,6 +5,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import textwrap
+import time
 import unittest
 from pathlib import Path
 
@@ -28,6 +30,104 @@ def run_command(command: list[str], cwd: Path | None = None, env: dict[str, str]
         capture_output=True,
         text=True,
     )
+
+
+def write_fake_claude(bin_dir: Path) -> Path:
+    script_path = bin_dir / "claude"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import json
+            import os
+            import re
+            import sys
+            import time
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            plugin_id = os.environ.get("FAKE_CLAUDE_PLUGIN_ID", "superpowers@frad-dotclaude")
+            plugin_status = os.environ.get("FAKE_CLAUDE_PLUGIN_STATUS", "enabled")
+
+            if args[:2] == ["plugin", "list"]:
+                print(plugin_id)
+                print("  Version: 1.0.0")
+                print("  Scope: User")
+                print(f"  Status: {plugin_status}")
+                sys.exit(0)
+
+            if "-p" in args:
+                prompt = sys.stdin.read()
+
+                def extract(pattern: str) -> str:
+                    match = re.search(pattern, prompt, re.DOTALL)
+                    return match.group(1).strip() if match else ""
+
+                state_file = extract(r"state file `([^`]+)`")
+                audit_summary = extract(r"External audit summary: `([^`]+)`")
+                completion_promise = extract(r"final response must include `<promise>(.*?)</promise>`")
+                if not completion_promise:
+                    promise_matches = re.findall(r"<promise>(.*?)</promise>", prompt, re.DOTALL)
+                    if promise_matches:
+                        completion_promise = promise_matches[-1].strip()
+
+                if state_file:
+                    time.sleep(0.8)
+                    state_path = Path(state_file)
+                    if state_path.exists():
+                        state_path.unlink()
+
+                report = {
+                    "completion_status": "completed",
+                    "summary": "Completed the requested Claude Code batch.",
+                    "completed_items": ["Finished the requested Claude Code batch."],
+                    "remaining_items": [],
+                    "evidence_artifacts": [audit_summary] if audit_summary else [],
+                    "artifacts_updated": [],
+                    "commands_run": [],
+                    "tests_run": [],
+                    "validated_batches_completed": 0,
+                    "batch_commits": [],
+                    "workflow_trace": {
+                        "brainstorming": {"used": False, "evidence": "Not needed."},
+                        "writing_plans": {"used": True, "evidence": "Updated the current plan."},
+                        "test_driven_development": {"used": False, "evidence": "Not needed for this planning batch."},
+                        "code_review": {"used": False, "evidence": "Not needed for this planning batch."},
+                        "using_git_worktrees": {"used": False, "evidence": "Not needed."},
+                        "subagent_or_executing_plans": {"used": True, "evidence": "Executed the bounded planning batch."},
+                    },
+                    "loop_execution": {
+                        "used": bool(audit_summary),
+                        "mode": "ralph-loop" if audit_summary else "none",
+                        "completion_promise": completion_promise,
+                        "state_file": state_file,
+                        "max_iterations": 6,
+                        "final_iteration": 1 if audit_summary else 0,
+                        "exit_reason": "completion promise became true" if audit_summary else "",
+                        "evidence": audit_summary,
+                    },
+                    "recommended_result_status": "succeeded",
+                    "recommended_gate_action": "certify",
+                    "recommended_gate_status": "ready",
+                    "follow_up": [],
+                }
+
+                print("Completed the requested Claude Code batch.")
+                print("SUPERNB_EXECUTION_REPORT_JSON_START")
+                print(json.dumps(report, indent=2))
+                print("SUPERNB_EXECUTION_REPORT_JSON_END")
+                if completion_promise:
+                    print(f"<promise>{completion_promise}</promise>")
+                sys.exit(0)
+
+            print("unsupported fake claude invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return script_path
 
 
 def write_spec(root: Path, initiative_id: str = "2026-03-19-demo") -> dict[str, Path]:
@@ -400,6 +500,9 @@ class SupernbCliIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
             initiative_id = paths["initiative_root"].name
+            fake_bin = Path(tmp_dir) / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude(fake_bin)
             next_command = paths["initiative_root"] / "next-command.md"
             phase_packet = paths["initiative_root"] / "phase-packet.md"
             run_status = paths["initiative_root"] / "run-status.json"
@@ -420,6 +523,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             env = dict(os.environ)
             env["CLAUDE_CODE_SESSION_ID"] = "session-123"
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
             sync_proc = run_command(
                 ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run", "--start-loop"],
                 env=env,
@@ -431,6 +535,89 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             state_text = state_file.read_text(encoding="utf-8")
             self.assertIn("session_id: session-123", state_text)
             self.assertIn("completion_promise: \"SUPERNB 2026-03-19-demo delivery batch complete\"", state_text)
+
+            audit_summary = paths["initiative_root"] / "ralph-loop-delivery-audit.json"
+            audit_events = paths["initiative_root"] / "ralph-loop-delivery-audit.ndjson"
+            deadline = time.time() + 3
+            while time.time() < deadline and not audit_summary.is_file():
+                time.sleep(0.2)
+            self.assertTrue(audit_summary.is_file())
+            self.assertTrue(audit_events.is_file())
+
+            state_file.unlink()
+            deadline = time.time() + 3
+            while time.time() < deadline:
+                payload = json.loads(audit_summary.read_text(encoding="utf-8"))
+                if payload.get("final_status") == "state_removed":
+                    break
+                time.sleep(0.2)
+            payload = json.loads(audit_summary.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("final_status"), "state_removed")
+            self.assertEqual(payload.get("expected_session_id"), "session-123")
+
+    def test_execute_next_claude_code_direct_auto_arms_ralph_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            paths = write_spec(root)
+            fake_bin = root / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude(fake_bin)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            (paths["initiative_root"] / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+
+            proc = run_command(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-execute-next.py"),
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--harness",
+                    "claude-code",
+                    "--prompt-file",
+                    str(next_command),
+                ],
+                env=env,
+            )
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+
+            packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
+            self.assertEqual(len(packet_dirs), 1)
+            packet_dir = packet_dirs[0]
+
+            request_payload = json.loads((packet_dir / "request.json").read_text(encoding="utf-8"))
+            loop_contract = request_payload.get("ralph_loop") or {}
+            self.assertTrue(loop_contract)
+            self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("id"), "superpowers@frad-dotclaude")
+
+            audit_summary_path = packet_dir / "ralph-loop-audit.json"
+            audit_summary = json.loads(audit_summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(audit_summary.get("final_status"), "state_removed")
+            self.assertTrue(audit_summary.get("state_observed"))
+            self.assertTrue(audit_summary.get("removed_after_observation"))
+
+            response_text = (packet_dir / "response.md").read_text(encoding="utf-8")
+            self.assertIn("<promise>SUPERNB", response_text)
+
+            suggestion = json.loads((packet_dir / "result-suggestion.json").read_text(encoding="utf-8"))
+            self.assertFalse(any("Ralph Loop" in issue for issue in suggestion.get("workflow_issues", [])))
 
     def test_debug_log_toggle_emits_initiative_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -377,6 +377,96 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertEqual(suggestion["suggested_result_status"], "needs-follow-up")
             self.assertTrue(any("Ralph Loop" in issue for issue in suggestion["workflow_issues"]))
 
+    def test_claude_delivery_requires_audit_backed_loop_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+            audit_summary = packet_dir / "ralph-loop-audit.json"
+            audit_summary.write_text(
+                json.dumps(
+                    {
+                        "state_file": str(project_dir / ".claude" / "superpower-loop-demo.local.md"),
+                        "completion_promise": "SUPERNB demo delivery batch complete",
+                        "max_iterations": 8,
+                        "expected_session_id": "session-1",
+                        "state_observed": True,
+                        "removed_after_observation": False,
+                        "last_iteration": 1,
+                        "last_session_id": "session-1",
+                        "final_status": "timeout",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Completed one delivery batch.",
+                        "completed_items": ["Implemented the requested delivery batch."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [str(audit_summary)],
+                        "artifacts_updated": [],
+                        "commands_run": [],
+                        "tests_run": [],
+                        "validated_batches_completed": 1,
+                        "batch_commits": ["abc123 delivery batch"],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Wrote and ran the delivery test first."},
+                            "code_review": {"used": True, "evidence": "Reviewed the completed batch."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed for this batch."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed a single bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": True,
+                            "mode": "ralph-loop",
+                            "completion_promise": "SUPERNB demo delivery batch complete",
+                            "state_file": str(project_dir / ".claude" / "superpower-loop-demo.local.md"),
+                            "max_iterations": 8,
+                            "final_iteration": 1,
+                            "exit_reason": "completion promise became true",
+                            "evidence": str(audit_summary),
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="claude-code-prompt",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before={"is_repo": False},
+                git_after={"is_repo": False},
+                created_commits=[],
+            )
+
+            self.assertEqual(suggestion["suggested_result_status"], "needs-follow-up")
+            combined = "\n".join(suggestion["workflow_issues"])
+            self.assertIn("did not observe the state file being removed", combined)
+            self.assertIn("final_status must be state_removed", combined)
+
 
 if __name__ == "__main__":
     unittest.main()

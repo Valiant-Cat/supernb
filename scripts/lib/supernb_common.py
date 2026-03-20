@@ -4,12 +4,14 @@ import json
 import hashlib
 import os
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 DEBUG_LOG_ENV_VAR = "SUPERNB_DEBUG_LOG"
+RALPH_LOOP_PLUGIN_ID = "superpowers@frad-dotclaude"
 SNAPSHOT_IGNORED_METADATA_FIELDS = {
     "Status",
     "Approval status",
@@ -265,6 +267,84 @@ def append_debug_log(
         return log_path
     except OSError:
         return None
+
+
+def parse_claude_plugin_list(output: str) -> dict[str, dict[str, str]]:
+    plugins: dict[str, dict[str, str]] = {}
+    current_id = ""
+
+    for raw_line in output.splitlines():
+        line = raw_line.rstrip()
+        plugin_match = re.match(r"^\s*[❯>*-]?\s*(superpowers@[^\s]+|[A-Za-z0-9_.-]+@[^\s]+)\s*$", line)
+        if plugin_match:
+            current_id = plugin_match.group(1).strip()
+            plugins[current_id] = {"id": current_id}
+            continue
+        if not current_id:
+            continue
+        field_match = re.match(r"^\s*(Version|Scope|Status):\s*(.+?)\s*$", line)
+        if not field_match:
+            continue
+        key = field_match.group(1).lower()
+        value = field_match.group(2).strip()
+        if key == "status":
+            if "enabled" in value:
+                plugins[current_id]["status"] = "enabled"
+            elif "disabled" in value:
+                plugins[current_id]["status"] = "disabled"
+            else:
+                plugins[current_id]["status"] = value
+        else:
+            plugins[current_id][key] = value
+    return plugins
+
+
+def claude_plugin_inventory(project_dir: Path) -> dict[str, dict[str, str]]:
+    try:
+        proc = subprocess.run(
+            ["claude", "plugin", "list"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("`claude` CLI is not installed or not on PATH, so Ralph Loop cannot verify the Claude plugin environment.") from exc
+    if proc.returncode != 0:
+        message = proc.stderr.strip() or proc.stdout.strip() or "unknown claude plugin list error"
+        raise RuntimeError(f"`claude plugin list` failed in {project_dir}: {message}")
+    return parse_claude_plugin_list(proc.stdout)
+
+
+def enabled_superpowers_plugins(project_dir: Path) -> list[str]:
+    inventory = claude_plugin_inventory(project_dir)
+    return sorted(
+        plugin_id
+        for plugin_id, metadata in inventory.items()
+        if plugin_id.startswith("superpowers@") and metadata.get("status") == "enabled"
+    )
+
+
+def assert_ralph_loop_environment(project_dir: Path) -> dict[str, str]:
+    inventory = claude_plugin_inventory(project_dir)
+    enabled = sorted(
+        plugin_id
+        for plugin_id, metadata in inventory.items()
+        if plugin_id.startswith("superpowers@") and metadata.get("status") == "enabled"
+    )
+    if RALPH_LOOP_PLUGIN_ID not in enabled:
+        enabled_text = ", ".join(enabled) if enabled else "none"
+        raise RuntimeError(
+            "Ralph Loop requires an enabled Claude Code loop environment. "
+            f"Expected `{RALPH_LOOP_PLUGIN_ID}` but found enabled superpowers plugins: {enabled_text}. "
+            "Install or switch to the FradSer/dotclaude superpowers plugin before starting planning or delivery loop execution."
+        )
+    if len(enabled) > 1:
+        raise RuntimeError(
+            "Ralph Loop environment is ambiguous because multiple `superpowers@...` plugins are enabled in Claude Code: "
+            + ", ".join(enabled)
+            + ". Use a single loop-enabled superpowers plugin environment for planning or delivery execution."
+        )
+    return inventory[RALPH_LOOP_PLUGIN_ID]
 
 
 def certification_state_path(spec: dict[str, Any], root_dir: Path) -> Path:

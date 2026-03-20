@@ -257,9 +257,10 @@ For a new product initiative:
 2. Fill `.supernb/initiatives/<initiative-id>/initiative.yaml` in the product project.
 3. Run `./scripts/supernb run --initiative-id <initiative-id>`.
    PRD, design, implementation plan, and release readiness now each carry traceability matrices with stable `Trace ID` rows. Certification blocks phase drift when those rows stop lining up.
-   If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, and auto-started Ralph Loop for planning or delivery.
+   If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
+   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop and writes packet-local audit files, but it requires a Claude Code environment with `superpowers@frad-dotclaude` enabled.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
@@ -277,7 +278,7 @@ For prompt-first sessions in Claude Code:
 - say "use supernb" or "use supernb to improve this project"
 - the managed `supernb` skill should first run `./scripts/supernb prompt-sync ... --start-loop` under the hood
 - the agent should read `.supernb/initiatives/<initiative-id>/prompt-session.md`
-- for planning and delivery, that internal command should start the Ralph Loop and keep iterating until the completion promise is honestly true
+- for planning and delivery, that internal command should first verify the Claude Code loop plugin environment, then start the Ralph Loop and keep iterating until the completion promise is honestly true
 - before ending the session, the agent should fill `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then import and apply it so execution packets and certification stay aligned
 
 For an existing initiative created before the deeper templates and stricter gates were added:

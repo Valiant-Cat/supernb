@@ -57,8 +57,11 @@ For Claude Code prompt-first planning and delivery:
 
 1. Run `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` inside the active Claude Code session.
 2. Read `.supernb/initiatives/<initiative-id>/prompt-session.md`.
-3. That command writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json` and starts the Ralph Loop for the current session.
-4. Work the bounded batch until the completion promise is honestly true.
-5. Fill `prompt-report-template.json` with real loop evidence, then import and apply it.
+3. That command first checks that the active Claude Code environment exposes `superpowers@frad-dotclaude`, then writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json`, `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.json`, and `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.ndjson`.
+4. It then starts the Ralph Loop for the current session.
+5. Work the bounded batch until the completion promise is honestly true.
+6. Fill `prompt-report-template.json` with real loop evidence, then import and apply it.
 
 Without the stop hook, the loop contract is not enforceable. In that case, do not treat the batch as cleanly complete.
+
+For direct `./scripts/supernb execute-next --harness claude-code` runs on `planning` or `delivery`, `supernb` now auto-arms the same Ralph Loop contract and packet-local audit files before invoking Claude Code. Those direct runs therefore require the same loop-enabled plugin environment.

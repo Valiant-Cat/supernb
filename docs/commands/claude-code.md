@@ -61,10 +61,12 @@ Then apply the resulting packet:
 
 For certifiable packets, Claude Code responses must include the structured `REPORT JSON` block that `execute-next` asks for.
 `--dry-run` packets are preview-only and should be rerun before certification.
+For `planning` and `delivery`, direct `claude-code` bridging now auto-arms Ralph Loop and writes packet-local audit files before invoking Claude Code, so the active Claude environment must have `superpowers@frad-dotclaude` enabled.
 
 ## Notes
 
 - `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.
 - upstream `superpowers` remains the main workflow engine
 - for prompt-first planning and delivery, Claude Code should run in a Ralph Loop-enabled environment instead of relying on self-judged completion
+- `prompt-sync --start-loop` now verifies the loop-enabled Claude plugin before it reports success
 - this mapping intentionally avoids inventing a fake native Claude Code command system for `supernb`

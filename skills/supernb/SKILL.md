@@ -24,7 +24,7 @@ do not only imitate the methodology. Treat that as a request to run the `supernb
 4. Execute only the current phase scope unless the user explicitly asks to re-open an upstream phase.
 5. Before finishing, write a structured execution report and import or apply it so the initiative state, packets, and certification records stay aligned.
 
-For Claude Code planning and delivery phases, `prompt-sync --start-loop` both generates the Ralph Loop contract and starts it in the current session. Do not let the agent stop on self-judged completion. Only allow exit when the completion promise is honestly true.
+For Claude Code planning and delivery phases, `prompt-sync --start-loop` first verifies the loop-enabled Claude plugin environment, then generates the Ralph Loop contract, audit files, and starts the loop in the current session. Do not let the agent stop on self-judged completion. Only allow exit when the completion promise is honestly true.
 
 ## Required Commands The Agent Should Run Internally
 

@@ -28,7 +28,7 @@ After substantive work:
 3. Apply it with `apply-execution`.
 
 This is mandatory for prompt-first usage because otherwise the codebase drifts away from `run-status`, `execution` packets, certification, and debug logs.
-For Claude Code planning and delivery, `--start-loop` is also the anti-self-termination step and should happen before substantive execution.
+For Claude Code planning and delivery, `--start-loop` is also the anti-self-termination step, verifies the loop-enabled Claude plugin environment, and should happen before substantive execution.
 
 ## Mandatory Phase Order
 

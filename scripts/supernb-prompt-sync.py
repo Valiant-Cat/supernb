@@ -14,6 +14,7 @@ from typing import Any
 
 from lib.supernb_common import (
     PHASES,
+    assert_ralph_loop_environment,
     append_debug_log,
     artifact_path,
     debug_log_dir,
@@ -26,6 +27,7 @@ from lib.supernb_common import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
+RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
 SUPERNB_WRAPPER = ROOT_DIR / "scripts" / "supernb"
 LOOP_PHASE_SETTINGS = {
     "planning": {"required": True, "max_iterations": 6},
@@ -138,6 +140,8 @@ def loop_settings(initiative_id: str, phase: str, project_dir: Path, initiative_
     state_file = project_dir / ".claude" / f"superpower-loop-{slug}.local.md"
     prompt_file = initiative_root / f"ralph-loop-{phase}.md"
     manifest_file = initiative_root / f"ralph-loop-{phase}.json"
+    audit_summary_file = initiative_root / f"ralph-loop-{phase}-audit.json"
+    audit_events_file = initiative_root / f"ralph-loop-{phase}-audit.ndjson"
     start_command = [
         "bash",
         str(RALPH_LOOP_SETUP_SCRIPT),
@@ -157,6 +161,8 @@ def loop_settings(initiative_id: str, phase: str, project_dir: Path, initiative_
         "state_file": state_file,
         "prompt_file": prompt_file,
         "manifest_file": manifest_file,
+        "audit_summary_file": audit_summary_file,
+        "audit_events_file": audit_events_file,
         "setup_script": RALPH_LOOP_SETUP_SCRIPT,
         "start_command": start_command,
         "start_command_text": shlex.join(start_command),
@@ -176,6 +182,7 @@ def write_report_template(target: Path, phase: str, loop_config: dict[str, Any])
         payload["workflow_trace"]["code_review"] = {"used": True, "evidence": "Reviewed the completed batch before final summary."}
         payload["workflow_trace"]["subagent_or_executing_plans"] = {"used": True, "evidence": "Executed one bounded delivery batch against the current plan."}
     if loop_config["required"]:
+        payload["evidence_artifacts"] = [str(loop_config["audit_summary_file"])]
         payload["loop_execution"] = {
             "used": True,
             "mode": "ralph-loop",
@@ -184,7 +191,7 @@ def write_report_template(target: Path, phase: str, loop_config: dict[str, Any])
             "max_iterations": loop_config["max_iterations"],
             "final_iteration": 0,
             "exit_reason": "",
-            "evidence": "Record the Ralph Loop state file path and why the loop was finally allowed to stop.",
+            "evidence": str(loop_config["audit_summary_file"]),
         }
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -274,6 +281,8 @@ def write_loop_manifest(target: Path, phase: str, loop_config: dict[str, Any]) -
         "completion_promise": loop_config["completion_promise"],
         "state_file": str(loop_config["state_file"]),
         "prompt_file": str(loop_config["prompt_file"]),
+        "audit_summary_file": str(loop_config["audit_summary_file"]),
+        "audit_events_file": str(loop_config["audit_events_file"]),
         "setup_script": str(loop_config["setup_script"]),
         "max_iterations": loop_config["max_iterations"],
         "start_command": loop_config["start_command"],
@@ -363,6 +372,8 @@ def write_prompt_session(
                 f"- Completion promise: `{loop_config['completion_promise']}`",
                 f"- State file: `{loop_config['state_file']}`",
                 f"- Max iterations: `{loop_config['max_iterations']}`",
+                f"- Loop audit summary: `{loop_config['audit_summary_file']}`",
+                f"- Loop audit events: `{loop_config['audit_events_file']}`",
                 f"- Managed auto-start command: `{auto_start_command}`",
                 f"- Start command: `{loop_config['start_command_text']}`",
                 "- Claude Code must have the FradSer/dotclaude Ralph Loop stop-hook enabled for this contract to be enforceable.",
@@ -397,11 +408,14 @@ def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, A
             "Run --start-loop from inside the active Claude Code session so the loop state file is bound to that session."
         )
 
+    project_dir = project_root(spec, ROOT_DIR)
+    plugin_metadata = assert_ralph_loop_environment(project_dir)
+
     setup_script = Path(loop_config["setup_script"]).resolve()
     if not setup_script.is_file():
         raise FileNotFoundError(f"Ralph Loop setup script not found: {setup_script}")
-
-    project_dir = project_root(spec, ROOT_DIR)
+    if not RALPH_LOOP_AUDIT_WATCHER.is_file():
+        raise FileNotFoundError(f"Ralph Loop audit watcher not found: {RALPH_LOOP_AUDIT_WATCHER}")
     proc = subprocess.run(
         loop_config["start_command"],
         cwd=project_dir,
@@ -416,7 +430,31 @@ def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, A
     if not state_file.is_file():
         raise RuntimeError(f"Ralph Loop setup completed without creating the state file: {state_file}")
 
-    return True, proc.stdout.strip()
+    subprocess.Popen(
+        [
+            sys.executable,
+            str(RALPH_LOOP_AUDIT_WATCHER),
+            "--state-file",
+            str(loop_config["state_file"]),
+            "--summary-json",
+            str(loop_config["audit_summary_file"]),
+            "--events-ndjson",
+            str(loop_config["audit_events_file"]),
+            "--completion-promise",
+            loop_config["completion_promise"],
+            "--max-iterations",
+            str(loop_config["max_iterations"]),
+            "--expected-session-id",
+            session_id,
+        ],
+        cwd=project_dir,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    plugin_id = plugin_metadata.get("id", "")
+    return True, f"{plugin_id} | {proc.stdout.strip()}"
 
 
 def main() -> int:
@@ -486,6 +524,8 @@ def main() -> int:
             "loop_manifest": display_path(loop_config["manifest_file"], [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "loop_required": loop_config["required"],
             "loop_completion_promise": loop_config["completion_promise"],
+            "loop_audit_summary": display_path(loop_config["audit_summary_file"], [project_root(spec, ROOT_DIR), ROOT_DIR]),
+            "loop_audit_events": display_path(loop_config["audit_events_file"], [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "loop_started": loop_started,
             "loop_state_file": str(loop_config["state_file"]) if loop_started else "",
             "loop_start_summary": loop_start_summary,
