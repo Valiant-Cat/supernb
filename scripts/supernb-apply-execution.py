@@ -91,6 +91,15 @@ def apply_certification_follow_up(spec_path: Path, packet_dir: Path) -> str:
     )
 
 
+def run_child(command: list[str]) -> int:
+    proc = subprocess.run(command, capture_output=True, text=True)
+    if proc.stdout:
+        sys.stdout.write(proc.stdout)
+    if proc.stderr:
+        sys.stderr.write(proc.stderr)
+    return proc.returncode
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -260,7 +269,9 @@ def main() -> int:
     if args.no_rerun or args.certify or args.apply_certification:
         record_command.append("--no-rerun")
 
-    subprocess.run(record_command, check=True)
+    record_returncode = run_child(record_command)
+    if record_returncode != 0:
+        return record_returncode
 
     if args.certify or args.apply_certification:
         certify_command = [
@@ -275,10 +286,14 @@ def main() -> int:
             certify_command.extend(["--apply", "--actor", args.actor])
             if args.date:
                 certify_command.extend(["--date", args.date])
-        subprocess.run(certify_command, check=True)
+        certify_returncode = run_child(certify_command)
+        if certify_returncode != 0:
+            return certify_returncode
 
     if not args.no_rerun and not args.apply_certification:
-        subprocess.run([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)], check=True)
+        rerun_returncode = run_child([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)])
+        if rerun_returncode != 0:
+            return rerun_returncode
     debug_log(
         spec,
         "complete",

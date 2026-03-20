@@ -13,7 +13,7 @@ Do not ask the user to remember the detailed command sequence.
 
 ## Default supernb prompt-first behavior
 
-1. Run `{{SUPERNB_ROOT}}/scripts/supernb prompt-bootstrap --start-loop` before substantive work.
+1. Run `{{SUPERNB_ROOT}}/scripts/supernb prompt-bootstrap --start-loop --direct-bridge-fallback` before substantive work.
 2. Let that command auto-discover the active initiative. If no initiative exists yet, let it initialize one for the current project first.
 3. Read the generated `.supernb/initiatives/<initiative-id>/prompt-session.md`, `next-command.md`, and current phase artifacts.
 4. Execute only the active phase scope unless the user explicitly asks to reopen an upstream phase.

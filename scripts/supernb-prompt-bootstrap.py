@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--goal", help="Optional goal written into an auto-created initiative.")
     parser.add_argument("--no-run", action="store_true", help="Forward --no-run to prompt-sync.")
     parser.add_argument("--start-loop", action="store_true", help="Forward --start-loop to prompt-sync.")
+    parser.add_argument(
+        "--direct-bridge-fallback",
+        action="store_true",
+        help="Forward --direct-bridge-fallback to prompt-sync so loop-required phases can auto-switch to direct Claude bridging.",
+    )
     parser.add_argument("--no-auto-init", action="store_true", help="Fail instead of auto-initializing when no initiative exists in the current project.")
     return parser.parse_args()
 
@@ -139,6 +144,8 @@ def prompt_sync(spec_path: Path, args: argparse.Namespace) -> int:
         command.append("--no-run")
     if args.start_loop:
         command.append("--start-loop")
+    if args.direct_bridge_fallback:
+        command.append("--direct-bridge-fallback")
 
     proc = subprocess.run(command, cwd=project_dir_from_args(args))
     return proc.returncode
@@ -160,6 +167,8 @@ def main() -> int:
             command.append("--no-run")
         if args.start_loop:
             command.append("--start-loop")
+        if args.direct_bridge_fallback:
+            command.append("--direct-bridge-fallback")
         proc = subprocess.run(command, cwd=project_dir)
         return proc.returncode
 

@@ -31,6 +31,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
 RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
 SUPERNB_WRAPPER = ROOT_DIR / "scripts" / "supernb"
+EXECUTE_NEXT_SCRIPT = ROOT_DIR / "scripts" / "supernb-execute-next.py"
 LOOP_PHASE_SETTINGS = {
     "planning": {"required": True, "max_iterations": 6},
     "delivery": {"required": True, "max_iterations": 8},
@@ -87,6 +88,11 @@ def parse_args() -> argparse.Namespace:
         "--start-loop",
         action="store_true",
         help="When the selected phase requires Ralph Loop, start it immediately in the current Claude Code session after writing the prompt session files.",
+    )
+    parser.add_argument(
+        "--direct-bridge-fallback",
+        action="store_true",
+        help="If Ralph Loop cannot bind to the current Claude session, fall back to direct `execute-next --harness claude-code` for loop-required phases.",
     )
     return parser.parse_args()
 
@@ -448,6 +454,154 @@ def wait_for_loop_audit_observed(loop_config: dict[str, Any], timeout_seconds: f
     return None
 
 
+def parse_execute_next_summary(stdout: str) -> dict[str, str]:
+    fields = {
+        "initiative_id": "",
+        "phase": "",
+        "harness": "",
+        "project_dir": "",
+        "packet_dir": "",
+        "summary_path": "",
+        "response_path": "",
+        "result_suggestion_path": "",
+        "phase_readiness_path": "",
+        "status": "",
+    }
+    prefix_map = {
+        "Initiative: ": "initiative_id",
+        "Phase: ": "phase",
+        "Harness: ": "harness",
+        "Project dir: ": "project_dir",
+        "Execution packet: ": "packet_dir",
+        "Summary: ": "summary_path",
+        "Response: ": "response_path",
+        "Result suggestion: ": "result_suggestion_path",
+        "Phase readiness: ": "phase_readiness_path",
+        "Status: ": "status",
+    }
+    for raw_line in stdout.splitlines():
+        line = raw_line.strip()
+        for prefix, key in prefix_map.items():
+            if line.startswith(prefix):
+                fields[key] = line.split(prefix, 1)[1].strip()
+                break
+    return fields
+
+
+def write_direct_bridge_handoff(
+    initiative_root: Path,
+    phase: str,
+    execute_next_summary: dict[str, str],
+    proc: subprocess.CompletedProcess[str],
+) -> tuple[Path, Path]:
+    json_path = initiative_root / f"direct-bridge-handoff-{phase}.json"
+    md_path = initiative_root / f"direct-bridge-handoff-{phase}.md"
+    completed = proc.returncode == 0
+    resume_summary = (
+        "Direct bridge run finished. The current Claude session may exit observer mode."
+        if completed
+        else "Direct bridge run finished with blockers. The current Claude session may exit observer mode."
+    )
+    resume_next_step = (
+        "Review the handoff artifact and continue from the current Claude session using the recorded packet and readiness outputs."
+        if completed
+        else "Review the handoff artifact and direct bridge output before continuing from the current Claude session."
+    )
+    payload = {
+        "phase": phase,
+        "status": "completed" if completed else "failed",
+        "bridge_returncode": proc.returncode,
+        "observer_mode_can_exit": True,
+        "resume_summary": resume_summary,
+        "resume_next_step": resume_next_step,
+        "initiative_id": execute_next_summary.get("initiative_id", ""),
+        "harness": execute_next_summary.get("harness", "claude-code"),
+        "project_dir": execute_next_summary.get("project_dir", ""),
+        "packet_dir": execute_next_summary.get("packet_dir", ""),
+        "summary_path": execute_next_summary.get("summary_path", ""),
+        "response_path": execute_next_summary.get("response_path", ""),
+        "result_suggestion_path": execute_next_summary.get("result_suggestion_path", ""),
+        "phase_readiness_path": execute_next_summary.get("phase_readiness_path", ""),
+        "direct_bridge_status": execute_next_summary.get("status", ""),
+    }
+    json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    lines = [
+        "# Direct Bridge Handoff",
+        "",
+        f"- Phase: `{phase}`",
+        f"- Status: `{payload['status']}`",
+        f"- Observer mode can exit: `{'yes' if payload['observer_mode_can_exit'] else 'no'}`",
+        f"- Resume summary: {resume_summary}",
+        f"- Next step: {resume_next_step}",
+    ]
+    if payload["packet_dir"]:
+        lines.append(f"- Execution packet: `{payload['packet_dir']}`")
+    if payload["result_suggestion_path"]:
+        lines.append(f"- Result suggestion: `{payload['result_suggestion_path']}`")
+    if payload["phase_readiness_path"]:
+        lines.append(f"- Phase readiness: `{payload['phase_readiness_path']}`")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return json_path, md_path
+
+
+def run_direct_claude_bridge_fallback(spec: dict[str, Any], spec_path: Path, phase: str, cwd: Path, initiative_root: Path) -> int:
+    command = [
+        sys.executable,
+        str(EXECUTE_NEXT_SCRIPT),
+        "--spec",
+        str(spec_path),
+        "--phase",
+        phase,
+        "--harness",
+        "claude-code",
+    ]
+    proc = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    print(
+        "Direct bridge fallback activated because Ralph Loop could not bind to the current Claude session. "
+        "Running execute-next with harness=claude-code."
+    )
+    print(
+        "The current Claude session must switch to observer mode. "
+        "Do not continue editing or committing in parallel while the direct bridge run is active."
+    )
+    if proc.stdout:
+        sys.stdout.write(proc.stdout)
+    if proc.stderr:
+        sys.stderr.write(proc.stderr)
+    execute_next_summary = parse_execute_next_summary(proc.stdout or "")
+    handoff_json, handoff_md = write_direct_bridge_handoff(initiative_root, phase, execute_next_summary, proc)
+    print(
+        "Direct bridge run finished. The current Claude session may exit observer mode."
+        if proc.returncode == 0
+        else "Direct bridge run finished with blockers. The current Claude session may exit observer mode."
+    )
+    print(f"Bridge handoff: {handoff_json}")
+    print(f"Bridge handoff summary: {handoff_md}")
+    print(
+        "Next step: review the handoff and continue from the current Claude session."
+        if proc.returncode == 0
+        else "Next step: inspect the handoff and direct bridge output before continuing from the current Claude session."
+    )
+    append_debug_log(
+        spec,
+        ROOT_DIR,
+        "supernb-prompt-sync",
+        "direct-bridge-fallback-complete",
+        {
+            "spec_path": str(spec_path),
+            "phase": phase,
+            "returncode": proc.returncode,
+            "handoff_json": str(handoff_json),
+            "handoff_md": str(handoff_md),
+            "packet_dir": execute_next_summary.get("packet_dir", ""),
+            "result_suggestion_path": execute_next_summary.get("result_suggestion_path", ""),
+            "phase_readiness_path": execute_next_summary.get("phase_readiness_path", ""),
+        },
+    )
+    return proc.returncode
+
+
 def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, Any]) -> tuple[bool, str]:
     if not loop_config["required"]:
         return False, "selected phase does not require Ralph Loop"
@@ -565,6 +719,8 @@ def main() -> int:
         try:
             loop_started, loop_start_summary = start_loop_in_current_session(spec, loop_config)
         except (FileNotFoundError, RuntimeError) as exc:
+            if args.direct_bridge_fallback and loop_config["required"]:
+                return run_direct_claude_bridge_fallback(spec, spec_path, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
             print(str(exc), file=sys.stderr)
             return 1
 

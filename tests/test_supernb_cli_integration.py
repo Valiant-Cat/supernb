@@ -732,6 +732,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Prompt closeout did not emit the Ralph Loop completion promise", closeout_proc.stderr)
             self.assertIn("Imported execution packet:", closeout_proc.stderr)
             self.assertIn("--certify", closeout_proc.stderr)
+            self.assertNotIn("Traceback", closeout_proc.stderr)
 
     def test_prompt_sync_start_loop_requires_claude_session_id_with_actionable_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -764,6 +765,76 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("active Claude Code session", proc.stderr)
             self.assertIn("If you only need the prompt files", proc.stderr)
             self.assertIn("--no-run", proc.stderr)
+
+    def test_prompt_sync_start_loop_can_fallback_to_direct_claude_bridge(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            fake_bin = Path(tmp_dir) / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude(fake_bin)
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Planning is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+            env["FAKE_CLAUDE_LOOP_DELETE_DELAY"] = "0.0"
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-sync",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--no-run",
+                    "--start-loop",
+                    "--direct-bridge-fallback",
+                ],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            self.assertIn("Direct bridge fallback activated", proc.stdout)
+            self.assertIn("current Claude session must switch to observer mode", proc.stdout)
+            self.assertIn("Do not continue editing or committing in parallel", proc.stdout)
+            self.assertIn("Direct bridge run finished. The current Claude session may exit observer mode.", proc.stdout)
+            self.assertIn("Bridge handoff:", proc.stdout)
+            self.assertIn("Next step: review the handoff and continue from the current Claude session.", proc.stdout)
+            packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
+            self.assertEqual(len(packet_dirs), 1)
+            response_text = (packet_dirs[0] / "response.md").read_text(encoding="utf-8")
+            self.assertIn("<promise>SUPERNB", response_text)
+            handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
+            self.assertTrue(handoff_path.is_file())
+            handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+            self.assertEqual(handoff_payload["status"], "completed")
+            self.assertEqual(handoff_payload["phase"], "planning")
+            self.assertTrue(handoff_payload["observer_mode_can_exit"])
+            self.assertEqual(Path(handoff_payload["packet_dir"]).resolve(), packet_dirs[0].resolve())
+            self.assertEqual(
+                handoff_payload["resume_summary"],
+                "Direct bridge run finished. The current Claude session may exit observer mode.",
+            )
+            self.assertEqual(
+                handoff_payload["resume_next_step"],
+                "Review the handoff artifact and continue from the current Claude session using the recorded packet and readiness outputs.",
+            )
 
     def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1028,6 +1099,41 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("suggested_result_status=needs-follow-up", apply_proc.stderr)
             self.assertIn("--certify", apply_proc.stderr)
             self.assertIn("recorded first", apply_proc.stderr)
+
+    def test_apply_execution_certify_failure_returns_clean_error_without_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            report_path = Path(tmp_dir) / "report.json"
+            write_report_json(report_path, recommended_result_status="needs-follow-up")
+
+            import_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "delivery",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertEqual(import_proc.returncode, 0, msg=import_proc.stderr)
+
+            packet_dirs = [path for path in paths["executions_dir"].iterdir() if path.is_dir()]
+            self.assertEqual(len(packet_dirs), 1)
+
+            apply_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-apply-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--packet",
+                str(packet_dirs[0]),
+                "--certify",
+                "--no-rerun",
+            )
+
+            self.assertNotEqual(apply_proc.returncode, 0)
+            self.assertIn("Recorded phase result:", apply_proc.stdout)
+            self.assertTrue(apply_proc.stderr.strip())
+            self.assertNotIn("Traceback", apply_proc.stderr)
 
     def test_migrate_legacy_writes_mapping_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
