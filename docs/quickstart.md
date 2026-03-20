@@ -1,17 +1,35 @@
 # Quickstart
 
-This is the shortest path to get `supernb` installed and used.
+This page is now the shortest path to choose the right `supernb` install story for your platform.
 
-Bootstrap behavior:
+## 1. Pick Your Platform
 
-- installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
-- skips existing skills and plugin installs instead of overwriting them
-- auto-installs the default Claude Code `superpowers` plugin when needed
-- auto-ensures the OpenCode `superpowers` plugin entry in project `opencode.json`
+### Claude Code
 
-## 1. Install
+Start here if you want prompt-first `supernb` delivery with managed Ralph Loop support.
 
-Use the bootstrap script:
+- Platform page: [Supernb for Claude Code](./platforms/claude-code.md)
+- Compatibility install doc: [claude-code.md](./install/claude-code.md)
+
+### Codex
+
+Start here if you want Codex native skill discovery and a clean full-stack `supernb` environment.
+
+- Platform page: [Supernb for Codex](./platforms/codex.md)
+- Native install entrypoint: [.codex/INSTALL.md](../.codex/INSTALL.md)
+- Compatibility install doc: [codex.md](./install/codex.md)
+
+### OpenCode
+
+Start here if you want OpenCode project-local skills plus native plugin/config integration.
+
+- Platform page: [Supernb for OpenCode](./platforms/opencode.md)
+- Native install entrypoint: [.opencode/INSTALL.md](../.opencode/INSTALL.md)
+- Compatibility install doc: [opencode.md](./install/opencode.md)
+
+## 2. Compatibility Bootstrap
+
+If you still want the old one-command compatibility path, it remains available:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
@@ -25,7 +43,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness opencode --project-dir /path/to/project
 ```
 
-## 2. Create An Initiative
+Treat this as a compatibility shortcut, not the primary installation story.
+
+## 3. Create An Initiative
 
 ```bash
 ./scripts/supernb init-initiative my-product "My Product"
@@ -35,7 +55,7 @@ Then fill:
 
 - `.supernb/initiatives/<initiative-id>/initiative.yaml` in the active product project
 
-## 3. Run The Control Plane
+## 4. Run The Control Plane
 
 ```bash
 ./scripts/supernb run --initiative-id <initiative-id>
@@ -59,7 +79,7 @@ If you want to inspect a real-world run in detail, turn on persistent debug logg
 
 That writes structured event traces to `.supernb/initiatives/<initiative-id>/debug-logs/<YYYYMMDD>.ndjson` until you turn it off again.
 
-## 4. Execute The Phase
+## 5. Execute The Phase
 
 Run the rendered `next-command.md` through a supported harness CLI:
 
@@ -86,7 +106,7 @@ For planning and delivery work, the packet also records explicit `superpowers` w
 `--dry-run` packets are preview-only and are not certification-grade.
 For direct Codex and Claude Code bridging, the captured response must include the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up`.
 
-## 5. Apply The Execution Packet
+## 6. Apply The Execution Packet
 
 After reviewing the packet, convert it into a phase result:
 
@@ -125,7 +145,7 @@ If the phase was executed manually, or via OpenCode after `execute-next` prepare
 
 That command creates a normal execution packet under `executions/` so the rest of the workflow can still use `apply-execution`, `certify-phase`, and `advance-phase`. It now validates every declared evidence path before writing the packet.
 
-## 6. Record The Outcome
+## 7. Record The Outcome
 
 After a phase execution, record what happened:
 
@@ -158,7 +178,7 @@ If execution history gets noisy after many previews and retries, inspect cleanup
 
 Add `--apply` to archive the selected artifacts into a cleanup session with a manifest, or `--apply --delete` if you explicitly want hard deletion.
 
-## 7. Certify The Phase
+## 8. Certify The Phase
 
 Before advancing, check whether the current phase artifacts still contain structural gaps or semantic completeness problems:
 
@@ -178,7 +198,7 @@ If you want it to advance immediately when the phase passes:
   --actor supernb
 ```
 
-## 8. Advance The Gate
+## 9. Advance The Gate
 
 When the phase really should advance, write the approval/ready/verified state into the artifacts:
 
@@ -192,7 +212,7 @@ When the phase really should advance, write the approval/ready/verified state in
 
 This updates the relevant artifact status fields and reruns `supernb run` by default.
 
-## 9. Pick A Command
+## 10. Pick A Command
 
 The three most useful manual entrypoints are:
 
@@ -208,7 +228,7 @@ See the raw templates:
 ./scripts/supernb show-command ui-ux-upgrade
 ```
 
-## 10. Render A Filled Prompt
+## 11. Render A Filled Prompt
 
 ```bash
 ./scripts/supernb render-command \
@@ -223,7 +243,7 @@ See the raw templates:
   --constraints "no MVP shortcuts; 10M-DAU-grade quality"
 ```
 
-## 11. Save The Brief
+## 12. Save The Brief
 
 ```bash
 ./scripts/supernb save-command \

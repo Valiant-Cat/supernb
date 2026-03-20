@@ -83,27 +83,46 @@ More detail: [docs/upstream-analysis.md](./docs/upstream-analysis.md)
 
 Architecture: [docs/architecture.md](./docs/architecture.md)
 
-## Quick Start
+## Choose Your Platform
 
-Fastest path:
+`supernb` now presents installation as three platform-native entrypoints instead of one bootstrap-first story.
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
-```
+### Claude Code
 
-If auto-detection is ambiguous:
+Best when you want prompt-first product delivery plus managed Ralph Loop enforcement.
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
-```
-
-Then use one of the three main command entrypoints:
+Quick install:
 
 ```bash
-./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a 10M-DAU-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
-./scripts/supernb save-command --command full-product-delivery --title "10M DAU Delivery Brief" --goal "Build a 10M-DAU-grade product" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
+./scripts/supernb build-impeccable
+./scripts/supernb install-claude-code /path/to/your-project
 ```
+
+Product page: [Supernb for Claude Code](./docs/platforms/claude-code.md)
+
+### Codex
+
+Best when you want native skill discovery and the cleanest full-stack `supernb` environment.
+
+Quick install:
+
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.codex/INSTALL.md
+```
+
+Product page: [Supernb for Codex](./docs/platforms/codex.md)
+
+### OpenCode
+
+Best when you want project-local skills plus OpenCode-native plugin/config integration.
+
+Quick install:
+
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.opencode/INSTALL.md
+```
+
+Product page: [Supernb for OpenCode](./docs/platforms/opencode.md)
 
 New-user guide: [docs/quickstart.md](./docs/quickstart.md)
 
@@ -162,7 +181,13 @@ These names align best with the bundled skills and CLI scripts.
 
 ## Install And Update
 
-What bootstrap does:
+Use the platform pages for installation:
+
+- Claude Code: [Supernb for Claude Code](./docs/platforms/claude-code.md)
+- Codex: [Supernb for Codex](./docs/platforms/codex.md)
+- OpenCode: [Supernb for OpenCode](./docs/platforms/opencode.md)
+
+What the shared maintenance layer still does:
 
 - syncs `superpowers` and `impeccable`
 - installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
@@ -191,39 +216,20 @@ If you only want upstream caches:
 make update-upstreams
 ```
 
-If you already cloned this repo:
+If you already cloned this repo and want the old unified path, it still exists:
 
 ```bash
 make bootstrap
 ```
 
-Direct Claude Code install into the current project:
-
-```bash
-./scripts/supernb build-impeccable
-./scripts/supernb install-claude-code .
-```
-
-If you install into `"$HOME"` instead, the managed Claude Code skills live under `~/.claude/skills/`. In that user-global mode, target projects do not need their own `.claude/` directory.
-`install-claude-code "$HOME"` now also writes a managed `~/.claude/CLAUDE.md` block and configures user-scope Ralph Loop mode with `supernb-loop@supernb`, so a simple prompt such as `use supernb to improve this project` can route correctly in any project session.
-
-For project-local Claude Code installs, `install-claude-code` also writes or updates a managed block in the project's `CLAUDE.md`.
-That project instruction block uses the same one-command flow and tells Claude that a simple user prompt such as `use supernb to improve this project` should automatically trigger the full `supernb` prompt-first workflow under the hood.
-
-If you need explicit harness or project selection:
-
-```bash
-make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/project
-make bootstrap HARNESS=opencode PROJECT_DIR=/path/to/project
-make bootstrap HARNESS=codex
-```
+Treat that as a compatibility shortcut, not the primary onboarding story.
 
 Detailed install guides:
 
-- Claude Code: [docs/install/claude-code.md](./docs/install/claude-code.md)
+- Claude Code: [docs/platforms/claude-code.md](./docs/platforms/claude-code.md)
 - Claude Code loop mode: [docs/install/claude-code-loop-mode.md](./docs/install/claude-code-loop-mode.md)
-- Codex: [docs/install/codex.md](./docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](./docs/install/opencode.md)
+- Codex: [docs/platforms/codex.md](./docs/platforms/codex.md)
+- OpenCode: [docs/platforms/opencode.md](./docs/platforms/opencode.md)
 
 ## Default And Optional Engines
 

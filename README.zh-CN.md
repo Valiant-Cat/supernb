@@ -83,27 +83,46 @@
 
 架构说明见：[docs/architecture.md](./docs/architecture.md)
 
-## 快速开始
+## 选择你的平台
 
-最快安装方式：
+`supernb` 现在把安装入口改成 3 条平台原生路径，而不是统一的 bootstrap-first 叙事。
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
-```
+### Claude Code
 
-如果自动探测不明确：
+适合需要 prompt-first 产品交付、并且需要受管 Ralph Loop 的场景。
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
-```
-
-安装后可以先用这三个主命令入口：
+快速安装：
 
 ```bash
-./scripts/supernb show-command full-product-delivery
-./scripts/supernb render-command --command full-product-delivery --goal "Build a 1000W DAU 级产品" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
-./scripts/supernb save-command --command full-product-delivery --title "1000W DAU 交付 Brief" --goal "Build a 1000W DAU 级产品" --product-category "finance" --markets "SEA" --research-window "last 90 days" --stack "your stack" --quality-bar "10m-dau-grade"
+./scripts/supernb build-impeccable
+./scripts/supernb install-claude-code /path/to/your-project
 ```
+
+平台页： [Supernb for Claude Code](./docs/platforms/claude-code.md)
+
+### Codex
+
+适合希望使用原生 skill discovery，并且获得最完整 `supernb` 栈体验的场景。
+
+快速安装：
+
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.codex/INSTALL.md
+```
+
+平台页： [Supernb for Codex](./docs/platforms/codex.md)
+
+### OpenCode
+
+适合希望使用项目级 skills，并通过 OpenCode 原生 plugin/config 方式集成的场景。
+
+快速安装：
+
+```text
+Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.opencode/INSTALL.md
+```
+
+平台页： [Supernb for OpenCode](./docs/platforms/opencode.md)
 
 新手指南见：[docs/quickstart.md](./docs/quickstart.md)
 
@@ -163,7 +182,13 @@ export OPENAI_API_KEY="sk-..."
 
 ## 安装与更新
 
-bootstrap 当前会做这些事：
+安装请优先看平台页：
+
+- Claude Code: [docs/platforms/claude-code.md](./docs/platforms/claude-code.md)
+- Codex: [docs/platforms/codex.md](./docs/platforms/codex.md)
+- OpenCode: [docs/platforms/opencode.md](./docs/platforms/opencode.md)
+
+共享维护层仍然负责：
 
 - 同步 `superpowers`、`impeccable`
 - 安装 bundled `sensortower-research`、`flutter-l10n-translation`、`android-i18n-translation`
@@ -192,39 +217,20 @@ make update
 make update-upstreams
 ```
 
-如果你已经 clone 了仓库：
+如果你已经 clone 了仓库，旧的统一入口仍然可用：
 
 ```bash
 make bootstrap
 ```
 
-当前项目下直接安装 Claude Code 资产：
-
-```bash
-./scripts/supernb build-impeccable
-./scripts/supernb install-claude-code .
-```
-
-如果你安装到 `"$HOME"`，那受管的 Claude Code skills 会放在 `~/.claude/skills/`。这种用户全局安装模式下，具体业务项目里没有自己的 `.claude/` 目录也是正常的。
-现在 `install-claude-code "$HOME"` 还会自动写入受管的 `~/.claude/CLAUDE.md`，并把用户级 Claude Code plugin 切到 `supernb-loop@supernb` 的 Ralph Loop 模式，所以你在任意项目里只说“使用 supernb 对本项目进行完善和升级”也能走对流程。
-
-如果是项目级 Claude Code 安装，`install-claude-code` 也会自动写入或更新项目根目录里的 `CLAUDE.md` 托管指令块。
-这个项目级指令块沿用同一套单命令入口，会告诉 Claude：当用户只说 `使用 supernb 对本项目进行完善和升级` 这类简单 prompt 时，也要自动触发完整的 `supernb` prompt-first workflow。
-
-如果你要显式指定 harness / project：
-
-```bash
-make bootstrap HARNESS=claude-code PROJECT_DIR=/path/to/project
-make bootstrap HARNESS=opencode PROJECT_DIR=/path/to/project
-make bootstrap HARNESS=codex
-```
+但它现在更适合作为兼容快捷方式，而不是主 onboarding 入口。
 
 详细安装文档：
 
-- Claude Code: [docs/install/claude-code.md](./docs/install/claude-code.md)
+- Claude Code: [docs/platforms/claude-code.md](./docs/platforms/claude-code.md)
 - Claude Code loop mode: [docs/install/claude-code-loop-mode.md](./docs/install/claude-code-loop-mode.md)
-- Codex: [docs/install/codex.md](./docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](./docs/install/opencode.md)
+- Codex: [docs/platforms/codex.md](./docs/platforms/codex.md)
+- OpenCode: [docs/platforms/opencode.md](./docs/platforms/opencode.md)
 
 ## 默认与可选引擎
 

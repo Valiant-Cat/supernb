@@ -10,6 +10,12 @@ usage() {
 Usage:
   ./scripts/supernb <command> [args]
 
+Install entrypoints:
+  install-codex
+  install-claude-code
+  install-opencode
+  bootstrap                 Compatibility shortcut that auto-selects one of the install paths
+
 Commands:
   bootstrap
   update

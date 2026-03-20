@@ -57,11 +57,13 @@ case "${HARNESS}" in
   codex)
     cat <<EOF
 1. Restart Codex so it reloads ~/.agents/skills.
-2. Initialize an initiative:
+2. Read the Codex platform page:
+   ${REPO_DIR}/docs/platforms/codex.md
+3. Initialize an initiative:
    ${REPO_DIR}/scripts/supernb init-initiative my-product "My Product"
-3. Run the initiative controller:
+4. Run the initiative controller:
    ${REPO_DIR}/scripts/supernb run --initiative-id <initiative-id>
-4. Or generate a starter prompt:
+5. Or generate a starter prompt:
    ${REPO_DIR}/scripts/supernb show-command full-product-delivery
 
 Quickstart:
@@ -72,13 +74,15 @@ EOF
     cat <<EOF
 1. Restart Claude Code and open this project:
    ${PROJECT_DIR}
-2. Confirm the default superpowers plugin is available in this project.
-3. Initialize an initiative:
+2. Read the Claude Code platform page:
+   ${REPO_DIR}/docs/platforms/claude-code.md
+3. Confirm the default superpowers plugin and supernb loop plugin are available in this project.
+4. Initialize an initiative:
    ${REPO_DIR}/scripts/supernb init-initiative my-product "My Product"
-4. Run the initiative controller:
+5. Run the initiative controller:
    ${REPO_DIR}/scripts/supernb run --initiative-id <initiative-id>
 
-Loop mode is optional and separate:
+Loop mode details:
   ${REPO_DIR}/docs/install/claude-code-loop-mode.md
 
 Quickstart:
@@ -89,10 +93,12 @@ EOF
     cat <<EOF
 1. Restart OpenCode and open this project:
    ${PROJECT_DIR}
-2. Confirm ${PROJECT_DIR}/opencode.json contains upstream superpowers.
-3. Initialize an initiative:
+2. Read the OpenCode platform page:
+   ${REPO_DIR}/docs/platforms/opencode.md
+3. Confirm ${PROJECT_DIR}/opencode.json contains upstream superpowers.
+4. Initialize an initiative:
    ${REPO_DIR}/scripts/supernb init-initiative my-product "My Product"
-4. Run the initiative controller:
+5. Run the initiative controller:
    ${REPO_DIR}/scripts/supernb run --initiative-id <initiative-id>
 
 Quickstart:

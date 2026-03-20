@@ -9,6 +9,8 @@ SKIP_UPDATE=0
 
 usage() {
   cat <<'EOF'
+Compatibility bootstrap for `supernb` platform installs.
+
 Usage:
   bootstrap-supernb.sh [--harness <codex|claude-code|opencode>] [options]
 
@@ -21,6 +23,11 @@ Examples:
   bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
   bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
   bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir ~/projects/my-app
+
+Prefer the platform-native install docs for day-to-day onboarding:
+  Codex:       .codex/INSTALL.md
+  Claude Code: docs/platforms/claude-code.md
+  OpenCode:    .opencode/INSTALL.md
 EOF
 }
 
@@ -99,7 +106,7 @@ done
 
 if [[ -z "${HARNESS}" ]]; then
   HARNESS="$(detect_harness)"
-  echo "Auto-detected harness: ${HARNESS}"
+  echo "Auto-detected compatibility target harness: ${HARNESS}"
 fi
 
 case "${HARNESS}" in
@@ -138,7 +145,7 @@ case "${HARNESS}" in
 esac
 
 echo
-echo "supernb bootstrap complete."
+echo "supernb compatibility bootstrap complete."
 echo "Repo dir: ${REPO_DIR}"
 echo "Harness: ${HARNESS}"
 echo

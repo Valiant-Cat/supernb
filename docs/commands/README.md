@@ -2,6 +2,12 @@
 
 This folder explains how to use `supernb` command templates across supported harnesses.
 
+Start with the platform page first if you are still installing or choosing a harness:
+
+- [Supernb for Claude Code](../platforms/claude-code.md)
+- [Supernb for Codex](../platforms/codex.md)
+- [Supernb for OpenCode](../platforms/opencode.md)
+
 These docs do not assume that every harness has the same native command system.
 
 The stable cross-harness base is:
