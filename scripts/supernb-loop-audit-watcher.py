@@ -45,6 +45,13 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
     return result
 
 
+def parse_iteration(value: str) -> int:
+    try:
+        return int((value or "0").strip() or "0")
+    except ValueError:
+        return 0
+
+
 def append_event(events_path: Path, payload: dict[str, Any]) -> None:
     events_path.parent.mkdir(parents=True, exist_ok=True)
     with events_path.open("a", encoding="utf-8") as handle:
@@ -63,6 +70,9 @@ def main() -> int:
     events_path = Path(args.events_ndjson).expanduser().resolve()
     deadline = time.time() + max(args.timeout_seconds, 1)
 
+    initial_snapshot = parse_frontmatter(state_file) if state_file.is_file() else {}
+    initial_observed = bool(initial_snapshot)
+
     summary: dict[str, Any] = {
         "state_file": str(state_file),
         "completion_promise": args.completion_promise,
@@ -70,13 +80,13 @@ def main() -> int:
         "expected_session_id": args.expected_session_id,
         "watcher_started_at": utc_now(),
         "watcher_pid": __import__("os").getpid(),
-        "state_observed": False,
+        "state_observed": initial_observed,
         "removed_after_observation": False,
-        "last_iteration": 0,
-        "last_session_id": "",
-        "last_completion_promise": "",
-        "last_started_at": "",
-        "last_observed_at": "",
+        "last_iteration": parse_iteration(initial_snapshot.get("iteration", "")) if initial_observed else 0,
+        "last_session_id": initial_snapshot.get("session_id", "") if initial_observed else "",
+        "last_completion_promise": initial_snapshot.get("completion_promise", "") if initial_observed else "",
+        "last_started_at": initial_snapshot.get("started_at", "") if initial_observed else "",
+        "last_observed_at": utc_now() if initial_observed else "",
         "final_status": "watching",
     }
     write_summary(summary_path, summary)
@@ -89,11 +99,26 @@ def main() -> int:
             "expected_session_id": args.expected_session_id,
             "completion_promise": args.completion_promise,
             "max_iterations": args.max_iterations,
+            "state_exists_at_start": state_file.is_file(),
         },
     )
 
-    last_snapshot: dict[str, str] | None = None
-    observed_once = False
+    if initial_observed:
+        append_event(
+            events_path,
+            {
+                "timestamp": utc_now(),
+                "event": "state-observed",
+                "iteration": summary["last_iteration"],
+                "session_id": summary["last_session_id"],
+                "completion_promise": summary["last_completion_promise"],
+                "started_at": summary["last_started_at"],
+                "observed_on_start": True,
+            },
+        )
+
+    last_snapshot: dict[str, str] | None = initial_snapshot or None
+    observed_once = initial_observed
 
     while time.time() < deadline:
         if state_file.is_file():
@@ -101,7 +126,7 @@ def main() -> int:
             if current != last_snapshot:
                 observed_once = True
                 last_snapshot = current
-                iteration = int((current.get("iteration") or "0").strip() or "0")
+                iteration = parse_iteration(current.get("iteration", ""))
                 summary.update(
                     {
                         "state_observed": True,

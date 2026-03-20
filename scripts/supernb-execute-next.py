@@ -578,6 +578,16 @@ def finalize_loop_audit_summary(loop_contract: dict[str, Any], payload: dict[str
     return payload
 
 
+def read_loop_audit_summary(summary_path: Path) -> dict[str, Any] | None:
+    if not summary_path.is_file():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -> dict[str, str]:
     if not RALPH_LOOP_SETUP_SCRIPT.is_file():
         raise FileNotFoundError(f"Ralph Loop setup script not found: {RALPH_LOOP_SETUP_SCRIPT}")
@@ -611,30 +621,36 @@ def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -
     return plugin_metadata
 
 
+def wait_for_loop_state_observed(loop_contract: dict[str, Any], timeout_seconds: float = 4.0) -> dict[str, Any] | None:
+    summary_path = Path(loop_contract["audit_summary_file"]).resolve()
+    deadline = time.time() + max(timeout_seconds, 0.5)
+    while time.time() < deadline:
+        payload = read_loop_audit_summary(summary_path)
+        if payload and payload.get("state_observed"):
+            return payload
+        time.sleep(0.1)
+    payload = read_loop_audit_summary(summary_path)
+    if payload and payload.get("state_observed"):
+        return payload
+    return payload
+
+
 def wait_for_loop_audit_summary(loop_contract: dict[str, Any], timeout_seconds: float = 12.0) -> dict[str, Any] | None:
     summary_path = Path(loop_contract["audit_summary_file"]).resolve()
     state_path = Path(loop_contract["state_file"]).resolve()
     deadline = time.time() + max(timeout_seconds, 0.5)
     while time.time() < deadline:
-        if summary_path.is_file():
-            try:
-                payload = json.loads(summary_path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                payload = None
-            if isinstance(payload, dict) and str(payload.get("final_status", "")).strip() not in {"", "watching"}:
-                return payload
-            if isinstance(payload, dict) and not state_path.exists() and payload.get("state_observed"):
-                return finalize_loop_audit_summary(loop_contract, payload, "state-removed-confirmed")
-        time.sleep(0.2)
-    if summary_path.is_file():
-        try:
-            payload = json.loads(summary_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            return None
-        if isinstance(payload, dict):
-            if str(payload.get("final_status", "")).strip() in {"", "watching"} and not state_path.exists() and payload.get("state_observed"):
-                return finalize_loop_audit_summary(loop_contract, payload, "state-removed-timeout-confirmed")
+        payload = read_loop_audit_summary(summary_path)
+        if payload and str(payload.get("final_status", "")).strip() not in {"", "watching"}:
             return payload
+        if payload and not state_path.exists() and payload.get("state_observed"):
+            return finalize_loop_audit_summary(loop_contract, payload, "state-removed-confirmed")
+        time.sleep(0.2)
+    payload = read_loop_audit_summary(summary_path)
+    if payload:
+        if str(payload.get("final_status", "")).strip() in {"", "watching"} and not state_path.exists() and payload.get("state_observed"):
+            return finalize_loop_audit_summary(loop_contract, payload, "state-removed-timeout-confirmed")
+        return payload
     return None
 
 
@@ -2936,6 +2952,12 @@ def main() -> int:
         if direct_loop_contract:
             try:
                 loop_plugin_metadata = start_direct_claude_loop(project_dir, direct_loop_contract)
+                direct_loop_audit_summary = wait_for_loop_state_observed(direct_loop_contract)
+                if not direct_loop_audit_summary or not direct_loop_audit_summary.get("state_observed"):
+                    raise RuntimeError(
+                        "Ralph Loop audit watcher did not confirm the state file before Claude Code execution started. "
+                        "The direct Claude run was not launched because the loop contract could not be externally observed."
+                    )
             except (FileNotFoundError, RuntimeError) as exc:
                 status = "failed"
                 exit_code = 1

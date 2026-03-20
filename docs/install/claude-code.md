@@ -189,7 +189,15 @@ make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet 
 
 When you switch from `DRY_RUN=1` to a real bridged run, keep the `REPORT JSON` block in Claude Code's final response.
 Without that block, the packet is marked `needs-follow-up` and certification will not treat it as clean execution evidence.
-For direct `claude-code` planning or delivery runs, `execute-next` also auto-arms Ralph Loop, injects the bundled `dotclaude` plugin via a session-local `--plugin-dir`, binds a generated Claude session id, and writes packet-local audit files. Prompt-first sessions still need the active Claude environment to have `superpowers@frad-dotclaude` enabled because the running session cannot retrofit its own hooks.
+For direct `claude-code` planning or delivery runs, `execute-next` also auto-arms Ralph Loop, injects the bundled `dotclaude` plugin via a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files. Prompt-first sessions still need the active Claude environment to have `superpowers@frad-dotclaude` enabled because the running session cannot retrofit its own hooks.
+
+If you want a real local smoke check for the direct CLI path, run:
+
+```bash
+./scripts/supernb verify-claude-loop --allow-live-run
+```
+
+That command intentionally invokes a live `claude -p` session and only passes if the audit evidence proves a genuine second Ralph Loop iteration and clean state removal.
 
 Use the `supernb` command templates from:
 

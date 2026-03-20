@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs init-initiative run-initiative execute-next apply-execution import-execution record-result advance-phase certify-phase upgrade-artifacts migrate-legacy clean-initiative test check-copy init-i18n show-command render-command save-command bootstrap quickstart
+.PHONY: update update-upstreams build-impeccable install-codex install-claude-code install-opencode verify-installs verify-claude-loop init-initiative run-initiative execute-next apply-execution import-execution record-result advance-phase certify-phase upgrade-artifacts migrate-legacy clean-initiative test check-copy init-i18n show-command render-command save-command bootstrap quickstart
 
 update:
 	./scripts/update-supernb.sh
@@ -28,6 +28,9 @@ install-opencode:
 
 verify-installs:
 	./scripts/supernb verify-installs $(if $(HARNESS),--harness "$(HARNESS)",) $(if $(PROJECT_DIR),--project-dir "$(PROJECT_DIR)",)
+
+verify-claude-loop:
+	./scripts/supernb verify-claude-loop $(if $(WORKSPACE),--workspace "$(WORKSPACE)",) $(if $(ALLOW_LIVE_RUN),--allow-live-run,) $(if $(CLEANUP),--cleanup,) $(if $(OBSERVATION_TIMEOUT_SECONDS),--observation-timeout-seconds "$(OBSERVATION_TIMEOUT_SECONDS)",) $(if $(AUDIT_TIMEOUT_SECONDS),--audit-timeout-seconds "$(AUDIT_TIMEOUT_SECONDS)",)
 
 init-initiative:
 	@if [ -z "$(INITIATIVE)" ]; then echo "Usage: make init-initiative INITIATIVE=my-product [TITLE='My Product']"; exit 1; fi

@@ -261,7 +261,7 @@ make bootstrap HARNESS=codex
    如果你是在 Claude Code 里走 prompt-first 用法，而不是手动敲命令，建议每次会话先运行一次 `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop`，让 agent 拿到新的 session contract、report template、loop audit 文件，并在 planning / delivery 时自动启动 Ralph Loop。
 4. 用 `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]` 执行当前 phase。
    直接通过 Codex 或 Claude Code 执行时，回复里必须带结构化 `REPORT JSON` block；否则 packet 会被降级成 `needs-follow-up`，不能干净通过 certification。
-   如果是 Claude Code 的 planning / delivery 直连执行，`execute-next` 现在会自动 arm Ralph Loop，通过 session-local `--plugin-dir` 注入 bundled `dotclaude` plugin，绑定生成的 Claude session id，并写 packet 局部的 audit 文件。
+   如果是 Claude Code 的 planning / delivery 直连执行，`execute-next` 现在会自动 arm Ralph Loop，通过 session-local `--plugin-dir` 注入 bundled `dotclaude` plugin，绑定生成的 Claude session id，并且会先等 audit watcher 确认已经观测到 state file，再继续执行并写 packet 局部的 audit 文件。
    `--dry-run` 只用于预演，certification 会优先选择最新的真实非 dry-run packet。
    如果是 OpenCode，这一步会先准备 execution packet 和 prompt，再由你在 OpenCode 里手动执行。
 5. 用 `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]` 回写执行结果。
@@ -281,6 +281,14 @@ make bootstrap HARNESS=codex
 - agent 应该先读 `.supernb/initiatives/<initiative-id>/prompt-session.md`
 - 对 planning 和 delivery，上面这条内部命令应该先验证 Claude Code 的 loop plugin 环境，再把 Ralph Loop 拉起来，并一直执行到 completion promise 真实成立
 - 结束前还要把 `.supernb/initiatives/<initiative-id>/prompt-report-template.json` 填好，再导入并 apply，不能只改代码不回写 control plane
+
+如果你想确认本机 direct Claude CLI 路径真的触发了 bundled Ralph Loop hook 生命周期，可以运行：
+
+```bash
+./scripts/supernb verify-claude-loop --allow-live-run
+```
+
+这个命令会在临时工作区里执行一次真实的 `claude -p` smoke verification，只有当 audit 证据证明发生了真实第二轮 loop iteration，并且 `state_removed` 成立时才会通过。
 
 如果是此前已经创建过的旧 initiative，想升级到更深的模板和更严格的 gate：
 

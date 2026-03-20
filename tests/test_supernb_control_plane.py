@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -504,6 +505,76 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertEqual(payload.get("final_status"), "state_removed")
             self.assertTrue(payload.get("removed_after_observation"))
             self.assertTrue((packet_dir / "ralph-loop-audit.ndjson").is_file())
+
+    def test_wait_for_loop_state_observed_returns_after_watcher_observes_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            state_dir = root / "project" / ".claude"
+            packet_dir.mkdir()
+            state_dir.mkdir(parents=True)
+            state_file = state_dir / "superpower-loop-demo.local.md"
+            state_file.write_text(
+                "---\n"
+                'session_id: "session-demo"\n'
+                'completion_promise: "SUPERNB demo planning batch complete"\n'
+                'iteration: "1"\n'
+                'started_at: "2026-03-20T00:00:00Z"\n'
+                "---\n",
+                encoding="utf-8",
+            )
+            loop_contract = {
+                "state_file": state_file,
+                "audit_summary_file": packet_dir / "ralph-loop-audit.json",
+                "audit_events_file": packet_dir / "ralph-loop-audit.ndjson",
+                "completion_promise": "SUPERNB demo planning batch complete",
+                "max_iterations": 6,
+                "session_id": "session-demo",
+                "prompt_file": packet_dir / "ralph-loop-prompt.md",
+                "plugin_dir": ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin",
+                "start_command": [],
+                "start_command_text": "",
+            }
+
+            execute_next.write_json(
+                loop_contract["audit_summary_file"],
+                {
+                    "state_file": str(state_file),
+                    "completion_promise": loop_contract["completion_promise"],
+                    "expected_session_id": loop_contract["session_id"],
+                    "state_observed": False,
+                    "removed_after_observation": False,
+                    "last_iteration": 0,
+                    "last_session_id": "",
+                    "final_status": "watching",
+                },
+            )
+
+            def mark_observed() -> None:
+                execute_next.write_json(
+                    loop_contract["audit_summary_file"],
+                    {
+                        "state_file": str(state_file),
+                        "completion_promise": loop_contract["completion_promise"],
+                        "expected_session_id": loop_contract["session_id"],
+                        "state_observed": True,
+                        "removed_after_observation": False,
+                        "last_iteration": 1,
+                        "last_session_id": loop_contract["session_id"],
+                        "final_status": "watching",
+                    },
+                )
+
+            timer = threading.Timer(0.05, mark_observed)
+            timer.start()
+            try:
+                payload = execute_next.wait_for_loop_state_observed(loop_contract, timeout_seconds=0.5)
+            finally:
+                timer.cancel()
+
+            self.assertIsNotNone(payload)
+            self.assertTrue(payload.get("state_observed"))
+            self.assertEqual(payload.get("last_session_id"), loop_contract["session_id"])
 
 
 if __name__ == "__main__":

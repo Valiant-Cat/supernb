@@ -58,6 +58,7 @@ def write_fake_claude(bin_dir: Path) -> Path:
 
             if "-p" in args:
                 prompt = sys.stdin.read()
+                loop_delete_delay = float(os.environ.get("FAKE_CLAUDE_LOOP_DELETE_DELAY", "0.8"))
 
                 def extract(pattern: str) -> str:
                     match = re.search(pattern, prompt, re.DOTALL)
@@ -72,7 +73,7 @@ def write_fake_claude(bin_dir: Path) -> Path:
                         completion_promise = promise_matches[-1].strip()
 
                 if state_file:
-                    time.sleep(0.8)
+                    time.sleep(max(loop_delete_delay, 0.0))
                     state_path = Path(state_file)
                     if state_path.exists():
                         state_path.unlink()
@@ -555,7 +556,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertEqual(payload.get("final_status"), "state_removed")
             self.assertEqual(payload.get("expected_session_id"), "session-123")
 
-    def test_execute_next_claude_code_direct_auto_arms_ralph_loop(self) -> None:
+    def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
             paths = write_spec(root)
@@ -580,6 +581,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             env = dict(os.environ)
             env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+            env["FAKE_CLAUDE_LOOP_DELETE_DELAY"] = "0.0"
 
             proc = run_command(
                 [
@@ -624,6 +626,33 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             suggestion = json.loads((packet_dir / "result-suggestion.json").read_text(encoding="utf-8"))
             self.assertFalse(any("Ralph Loop" in issue for issue in suggestion.get("workflow_issues", [])))
+
+    def test_verify_claude_loop_detects_missing_second_iteration(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            fake_bin = root / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude(fake_bin)
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+            env["FAKE_CLAUDE_LOOP_DELETE_DELAY"] = "0.0"
+
+            proc = run_command(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-verify-claude-loop.py"),
+                    "--allow-live-run",
+                    "--workspace",
+                    str(root / "verify-workspace"),
+                    "--audit-timeout-seconds",
+                    "3",
+                ],
+                env=env,
+            )
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("last_iteration >= 2", proc.stderr)
+            self.assertIn("Verification result:", proc.stderr)
 
     def test_debug_log_toggle_emits_initiative_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

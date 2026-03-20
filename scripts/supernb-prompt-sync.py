@@ -9,6 +9,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -397,6 +398,28 @@ def write_prompt_session(
     session_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def wait_for_loop_audit_observed(loop_config: dict[str, Any], timeout_seconds: float = 4.0) -> dict[str, Any] | None:
+    summary_path = Path(loop_config["audit_summary_file"]).resolve()
+    deadline = time.time() + max(timeout_seconds, 0.5)
+    while time.time() < deadline:
+        if summary_path.is_file():
+            try:
+                payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                payload = None
+            if isinstance(payload, dict) and payload.get("state_observed"):
+                return payload
+        time.sleep(0.1)
+    if summary_path.is_file():
+        try:
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return None
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
 def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, Any]) -> tuple[bool, str]:
     if not loop_config["required"]:
         return False, "selected phase does not require Ralph Loop"
@@ -452,6 +475,13 @@ def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, A
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+
+    observed_payload = wait_for_loop_audit_observed(loop_config)
+    if not observed_payload or not observed_payload.get("state_observed"):
+        raise RuntimeError(
+            "Ralph Loop audit watcher did not confirm the state file after startup. "
+            "Do not treat this Claude session as loop-enforced until the audit summary records `state_observed: true`."
+        )
 
     plugin_id = plugin_metadata.get("id", "")
     return True, f"{plugin_id} | {proc.stdout.strip()}"

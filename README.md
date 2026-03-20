@@ -260,7 +260,7 @@ For a new product initiative:
    If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
-   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, and writes packet-local audit files.
+   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the state file, and then writes packet-local audit files.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
@@ -280,6 +280,14 @@ For prompt-first sessions in Claude Code:
 - the agent should read `.supernb/initiatives/<initiative-id>/prompt-session.md`
 - for planning and delivery, that internal command should first verify the Claude Code loop plugin environment, then start the Ralph Loop and keep iterating until the completion promise is honestly true
 - before ending the session, the agent should fill `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then import and apply it so execution packets and certification stay aligned
+
+To prove that your local direct Claude CLI path really triggers the bundled Ralph Loop hook lifecycle, run:
+
+```bash
+./scripts/supernb verify-claude-loop --allow-live-run
+```
+
+That command performs a real `claude -p` smoke verification in a disposable workspace and only passes if the audit trail shows a genuine second loop iteration plus `state_removed`.
 
 For an existing initiative created before the deeper templates and stricter gates were added:
 
