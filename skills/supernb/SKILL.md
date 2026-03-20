@@ -40,9 +40,10 @@ If UI/UX work needs the integrated design stack, route to plain local names like
 
 1. Resolve the active initiative first.
 2. In Claude Code, run `prompt-bootstrap --start-loop` before doing substantive work.
-3. Read the generated `prompt-session.md`, `next-command.md`, and current phase artifacts.
-4. Execute only the current phase scope unless the user explicitly asks to re-open an upstream phase.
-5. Before finishing, write a structured execution report and run managed closeout so the initiative state, packets, and certification records stay aligned.
+3. Read the generated `prompt-session.md`, `next-command.md`, `initiative-reassessment.md`, and current phase artifacts.
+4. Start with an initiative-wide reassessment so generic "use supernb to improve/upgrade this project" prompts do not collapse into current-phase-only patching.
+5. If the reassessment finds stale research, PRD, design, planning, or release artifacts, reopen the earliest affected phase instead of only editing the current phase.
+6. Before finishing, write a structured execution report and run managed closeout so the initiative state, packets, and certification records stay aligned.
 
 For Claude Code planning and delivery phases, `prompt-bootstrap --start-loop` first discovers or initializes the initiative, verifies the loop-enabled Claude plugin environment, then generates the Ralph Loop contract, audit files, and starts the loop in the current session. Do not let the agent stop on self-judged completion. Only allow exit when the completion promise is honestly true.
 

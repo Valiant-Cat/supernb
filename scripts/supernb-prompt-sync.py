@@ -205,6 +205,63 @@ def write_report_template(target: Path, phase: str, loop_config: dict[str, Any])
     target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def write_reassessment_template(target: Path, spec: dict[str, Any], selected_phase: str) -> None:
+    initiative_id = nested_get(spec, "initiative", "id")
+    lines = [
+        "# Initiative-Wide Reassessment",
+        "",
+        f"- Initiative ID: `{initiative_id}`",
+        f"- Current selected phase: `{selected_phase}`",
+        "- Trigger: generic prompt-first supernb upgrade or improvement request",
+        "- Status: pending",
+        "",
+        "## Mandatory Questions",
+        "",
+        "- What product, UX, architecture, reliability, or growth gaps are visible in the current repository state?",
+        "- Which current `.supernb` artifacts are missing, stale, too thin, or no longer match the real product/workspace state?",
+        "- What is the earliest affected phase that must be reopened before more delivery work should continue?",
+        "- Which documents must be upgraded before code changes can honestly count as completion-grade work?",
+        "",
+        "## Repository Gaps",
+        "",
+        "- Product and user-value gaps:",
+        "- UX and design gaps:",
+        "- Engineering, reliability, or trust gaps:",
+        "- Localization, analytics, or release gaps:",
+        "",
+        "## Artifact Drift",
+        "",
+        "| Artifact | Current gap or drift | Why it blocks a clean upgrade path |",
+        "| --- | --- | --- |",
+        "| research |  |  |",
+        "| prd |  |  |",
+        "| design |  |  |",
+        "| planning |  |  |",
+        "| delivery |  |  |",
+        "| release |  |  |",
+        "",
+        "## Reopen Decision",
+        "",
+        "- Earliest affected phase to reopen:",
+        "- Why this is the correct restart point:",
+        "- Can the current selected phase continue without reopening upstream work: yes/no",
+        "",
+        "## Required Upgrade Docs",
+        "",
+        "- Research upgrades required:",
+        "- PRD upgrades required:",
+        "- Design upgrades required:",
+        "- Planning upgrades required:",
+        "- Delivery or release upgrades required:",
+        "",
+        "## Execution Rule",
+        "",
+        "- If any upstream phase is materially stale, rerun prompt-bootstrap for that earlier phase before doing more implementation.",
+        "- Do not treat patching the current active phase as sufficient when the reassessment says upstream documents are out of date.",
+    ]
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def write_loop_prompt(
     target: Path,
     spec: dict[str, Any],
@@ -213,8 +270,11 @@ def write_loop_prompt(
     run_status: dict[str, Any],
     report_template_path: Path,
     loop_config: dict[str, Any],
+    reassessment_path: Path,
 ) -> None:
     supernb_command = str(SUPERNB_WRAPPER)
+    reopen_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--phase", "<earliest-affected-phase>"])
+    upgrade_command = shlex.join([supernb_command, "upgrade-artifacts", "--spec", str(spec_path)])
     import_command = shlex.join(
         [
             supernb_command,
@@ -255,12 +315,13 @@ def write_loop_prompt(
     next_command = run_status.get("next_command") or {}
     next_command_path = str(next_command.get("path", "")).strip()
     lines = [
-        f"Use supernb to complete the current {selected_phase} phase batch for initiative `{nested_get(spec, 'initiative', 'id')}`.",
+        f"Use supernb to continue the initiative `{nested_get(spec, 'initiative', 'id')}` through a prompt-first upgrade workflow.",
         "",
         "Mandatory rules:",
         "- Do not stop because you feel done. Keep iterating until the completion promise is actually true.",
         "- This loop depends on a Claude Code environment where the Ralph Loop stop-hook is enabled.",
-        "- Work only inside the current phase scope and current batch boundaries.",
+        "- Start with an initiative-wide reassessment before committing to the current phase scope.",
+        "- If the reassessment finds stale upstream artifacts, reopen the earliest affected phase instead of only patching the current phase.",
         "- Update affected initiative artifacts, tests, evidence, and git state as part of the batch.",
         "- Before stopping, fill the prompt report template with real evidence, then run the managed prompt closeout command so supernb imports it, applies certification, and only then emits the final promise when allowed.",
         "- If the stop-hook is unavailable in this Claude environment, do not pretend the batch is cleanly complete. Report the run as needs-follow-up and switch to a loop-enabled Claude environment.",
@@ -268,6 +329,7 @@ def write_loop_prompt(
         f"Spec: {spec_path}",
         f"Run status: {artifact_path(spec, 'run_status_json', ROOT_DIR)}",
         f"Phase packet: {artifact_path(spec, 'phase_packet_md', ROOT_DIR)}",
+        f"Reassessment notes: {reassessment_path}",
     ]
     if next_command_path:
         lines.append(f"Next command: {next_command_path}")
@@ -275,7 +337,13 @@ def write_loop_prompt(
         [
             f"Prompt report template: {report_template_path}",
             "",
+            "Reassessment requirements:",
+            f"- Fill `{reassessment_path}` before major edits.",
+            f"- If templates or sections are stale, run `{upgrade_command}` before rewriting the affected docs.",
+            f"- If reassessment says an earlier phase must be reopened, rerun `{reopen_command}` and continue from that earlier phase.",
+            "",
             "Completion criteria:",
+            "- The initiative-wide reassessment has been completed and any stale upstream artifacts were upgraded before implementation continues.",
             "- The current batch is implemented to the claimed depth.",
             "- Verification and review evidence are real and recorded.",
             "- The prompt report template contains real commands, tests, evidence artifacts, workflow trace, loop evidence, and commit information.",
@@ -322,11 +390,14 @@ def write_prompt_session(
     latest_packet: Path | None,
     report_template_path: Path,
     loop_config: dict[str, Any],
+    reassessment_path: Path,
 ) -> None:
     supernb_command = str(SUPERNB_WRAPPER)
     initiative_id = nested_get(spec, "initiative", "id")
     selected_phase = str(run_status.get("selected_phase", "")).strip()
     auto_start_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--start-loop"])
+    reopen_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--phase", "<earliest-affected-phase>"])
+    upgrade_command = shlex.join([supernb_command, "upgrade-artifacts", "--spec", str(spec_path)])
     import_command = shlex.join(
         [
             supernb_command,
@@ -379,9 +450,10 @@ def write_prompt_session(
         "## Mandatory Prompt-First Workflow",
         "",
         "1. Read the active `next-command.md`, `phase-packet.md`, and any active phase artifacts before making changes.",
-        "2. Implement only the current phase scope. Do not silently skip or jump phases.",
-        "3. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
-        "4. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
+        "2. Complete an initiative-wide reassessment before assuming the current selected phase is still the right place to continue.",
+        "3. If the reassessment finds stale upstream work, reopen the earliest affected phase instead of silently patching only the current phase.",
+        "4. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
+        "5. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
         "",
         "## Required Files",
         "",
@@ -390,10 +462,22 @@ def write_prompt_session(
         lines.append(f"- Next command: `{next_command_path}`")
     lines.append(f"- Phase packet: `{display_path(artifact_path(spec, 'phase_packet_md', ROOT_DIR), [project_root(spec, ROOT_DIR), ROOT_DIR])}`")
     lines.append(f"- Report template: `{report_template_path}`")
+    lines.append(f"- Initiative-wide reassessment: `{reassessment_path}`")
     if latest_packet is not None:
         lines.append(
             f"- Latest execution packet for this phase: `{display_path(latest_packet, [project_root(spec, ROOT_DIR), ROOT_DIR])}`"
         )
+    lines.extend(
+        [
+            "",
+            "## Reassessment Rule",
+            "",
+            f"- Fill `{reassessment_path}` before major edits so the whole initiative is re-evaluated against the real repository state.",
+            f"- If the initiative predates newer templates or is missing sections, run `{upgrade_command}` before deeper rewrites.",
+            f"- If reassessment identifies stale upstream artifacts, rerun `{reopen_command}` and continue from that earlier phase.",
+            "- Do not claim that a generic project upgrade is complete if research, PRD, design, or planning are now materially stale.",
+        ]
+    )
     if loop_config["required"]:
         lines.extend(
             [
@@ -745,12 +829,14 @@ def main() -> int:
     initiative_root = spec_path.parent
     prompt_session_path = initiative_root / "prompt-session.md"
     report_template_path = initiative_root / "prompt-report-template.json"
+    reassessment_path = initiative_root / "initiative-reassessment.md"
     loop_config = loop_settings(initiative_id, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
     write_report_template(report_template_path, selected_phase, loop_config)
-    write_loop_prompt(loop_config["prompt_file"], spec, spec_path, selected_phase, run_status, report_template_path, loop_config)
+    write_reassessment_template(reassessment_path, spec, selected_phase)
+    write_loop_prompt(loop_config["prompt_file"], spec, spec_path, selected_phase, run_status, report_template_path, loop_config, reassessment_path)
     write_loop_manifest(loop_config["manifest_file"], selected_phase, loop_config)
     latest_packet = latest_execution_packet(spec, selected_phase)
-    write_prompt_session(prompt_session_path, spec, spec_path, run_status_json, run_status, latest_packet, report_template_path, loop_config)
+    write_prompt_session(prompt_session_path, spec, spec_path, run_status_json, run_status, latest_packet, report_template_path, loop_config, reassessment_path)
     loop_started = False
     loop_start_summary = ""
     if args.start_loop:
@@ -781,6 +867,7 @@ def main() -> int:
             "run_status_json": display_path(run_status_json, [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "prompt_session": display_path(prompt_session_path, [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "report_template": display_path(report_template_path, [project_root(spec, ROOT_DIR), ROOT_DIR]),
+            "reassessment_path": display_path(reassessment_path, [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "loop_prompt": display_path(loop_config["prompt_file"], [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "loop_manifest": display_path(loop_config["manifest_file"], [project_root(spec, ROOT_DIR), ROOT_DIR]),
             "loop_required": loop_config["required"],
@@ -801,6 +888,7 @@ def main() -> int:
     print(f"Selected phase: {selected_phase}")
     print(f"Prompt session: {prompt_session_path}")
     print(f"Report template: {report_template_path}")
+    print(f"Initiative-wide reassessment: {reassessment_path}")
     print(f"Ralph Loop prompt: {loop_config['prompt_file']}")
     print(f"Ralph Loop manifest: {loop_config['manifest_file']}")
     if args.start_loop:

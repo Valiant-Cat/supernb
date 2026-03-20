@@ -19,7 +19,8 @@ Before substantive work:
 
 1. Resolve the active initiative.
 2. Run `./scripts/supernb prompt-bootstrap --initiative-id <initiative-id> --start-loop` or plain `./scripts/supernb prompt-bootstrap --start-loop` when the current repo should auto-discover or initialize the active initiative.
-3. Read the generated `prompt-session.md`, `next-command.md`, and active phase artifacts.
+3. Read the generated `prompt-session.md`, `next-command.md`, `initiative-reassessment.md`, and active phase artifacts.
+4. For generic improvement or upgrade requests, start with the initiative-wide reassessment and reopen the earliest stale upstream phase before continuing implementation.
 
 After substantive work:
 

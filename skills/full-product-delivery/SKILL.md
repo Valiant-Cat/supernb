@@ -34,6 +34,7 @@ Default to a product ambition that could plausibly support at least 10 million d
 1. Create or identify the initiative artifact set first.
    Save it in the product project's `.supernb/` workspace by default, not only inside the supernb repo.
    For prompt-first Claude Code sessions, immediately run `./scripts/supernb prompt-bootstrap ... --start-loop` so the initiative exists, the state is refreshed, and any required Ralph Loop is started before you begin.
+   In prompt-first mode, also complete the generated `initiative-reassessment.md` first so stale upstream phases are reopened before delivery work continues.
 2. Run research before locking the PRD.
 3. Run design before major frontend implementation.
 4. Use latest `superpowers` as the default implementation engine.

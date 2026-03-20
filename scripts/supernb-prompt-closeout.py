@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +57,58 @@ def default_report_json(spec: dict[str, Any]) -> Path:
     return artifact_path(spec, "run_status_md", ROOT_DIR).parent / "prompt-report-template.json"
 
 
+def default_reassessment_path(spec: dict[str, Any]) -> Path:
+    return artifact_path(spec, "run_status_md", ROOT_DIR).parent / "initiative-reassessment.md"
+
+
+def extract_reassessment_field(text: str, label: str) -> str:
+    pattern = rf"^- {re.escape(label)}:\s*(.*)$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def validate_reassessment(spec: dict[str, Any], spec_path: Path, phase: str) -> str | None:
+    reassessment_path = default_reassessment_path(spec)
+    if not reassessment_path.is_file():
+        return (
+            "Prompt closeout requires a completed initiative-wide reassessment, but the managed reassessment file is missing: "
+            f"{reassessment_path}. Run `{supernb_cli_prefix(ROOT_DIR)} prompt-sync --spec {spec_path}` or "
+            f"`{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --spec {spec_path}` before closing out this prompt-first batch."
+        )
+
+    text = reassessment_path.read_text(encoding="utf-8")
+    status = extract_reassessment_field(text, "Status")
+    earliest_phase = extract_reassessment_field(text, "Earliest affected phase to reopen")
+    continue_match = re.search(
+        r"^- Can the current selected phase continue without reopening upstream work\??:?\s*(.*)$",
+        text,
+        flags=re.MULTILINE,
+    )
+    can_continue = continue_match.group(1).strip().lower() if continue_match else ""
+
+    if not status or status == "pending":
+        return (
+            f"Prompt closeout requires a completed initiative-wide reassessment before {phase} can finish. "
+            f"Update `{reassessment_path}` and change `- Status:` from `pending` to a completed state first."
+        )
+    if not earliest_phase:
+        return (
+            f"Prompt closeout requires `{reassessment_path}` to record `Earliest affected phase to reopen` "
+            "before the batch can finish."
+        )
+    if can_continue not in {"yes", "no"}:
+        return (
+            f"Prompt closeout requires `{reassessment_path}` to answer whether the current phase can continue without reopening upstream work."
+        )
+    if can_continue == "no":
+        return (
+            f"Initiative-wide reassessment says the current `{phase}` batch cannot close out cleanly until an earlier phase is reopened. "
+            f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --spec {spec_path} --phase {earliest_phase}` "
+            "after updating the upstream artifacts."
+        )
+    return None
+
+
 def parse_execution_packet(stdout: str) -> Path:
     for raw_line in stdout.splitlines():
         line = raw_line.strip()
@@ -102,6 +155,23 @@ def main() -> int:
     report_json = Path(args.report_json).expanduser().resolve() if args.report_json else default_report_json(spec)
     if not report_json.is_file():
         print(f"Prompt report JSON not found: {report_json}", file=sys.stderr)
+        return 1
+
+    reassessment_error = validate_reassessment(spec, spec_path, phase)
+    if reassessment_error:
+        print(reassessment_error, file=sys.stderr)
+        append_debug_log(
+            spec,
+            ROOT_DIR,
+            "supernb-prompt-closeout",
+            "reassessment-blocked",
+            {
+                "initiative_id": initiative_id,
+                "phase": phase,
+                "report_json": str(report_json),
+                "reassessment_path": str(default_reassessment_path(spec)),
+            },
+        )
         return 1
 
     append_debug_log(

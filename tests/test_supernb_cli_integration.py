@@ -732,6 +732,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             managed_text = managed_claude_md.read_text(encoding="utf-8")
             self.assertIn("prompt-bootstrap --start-loop", managed_text)
             self.assertIn("use supernb", managed_text)
+            self.assertIn("initiative-wide reassessment", managed_text)
             self.assertTrue((temp_home / ".claude" / "skills" / "supernb" / "SKILL.md").is_file())
             self.assertTrue((temp_home / ".claude" / "skills" / "impeccable" / "SKILL.md").is_file())
 
@@ -792,6 +793,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertTrue(managed_claude_md.is_file())
             managed_text = managed_claude_md.read_text(encoding="utf-8")
             self.assertIn("prompt-bootstrap --start-loop --direct-bridge-fallback", managed_text)
+            self.assertIn("initiative-wide reassessment", managed_text)
 
             bootstrap_proc = run_command(
                 [
@@ -813,11 +815,26 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             session_path = paths["initiative_root"] / "prompt-session.md"
             report_template = paths["initiative_root"] / "prompt-report-template.json"
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
             loop_manifest = paths["initiative_root"] / "ralph-loop-planning.json"
             audit_summary_path = paths["initiative_root"] / "ralph-loop-planning-audit.json"
             self.assertTrue(session_path.is_file())
             self.assertTrue(report_template.is_file())
+            self.assertTrue(reassessment_path.is_file())
             self.assertTrue(loop_manifest.is_file())
+
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            self.assertIn("Initiative-Wide Reassessment", reassessment_text)
+            self.assertIn("Earliest affected phase to reopen", reassessment_text)
+            reassessment_path.write_text(
+                reassessment_text.replace("- Status: pending", "- Status: completed")
+                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
+                .replace(
+                    "- Can the current selected phase continue without reopening upstream work: yes/no",
+                    "- Can the current selected phase continue without reopening upstream work: yes",
+                ),
+                encoding="utf-8",
+            )
 
             loop_manifest_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
             state_file = Path(loop_manifest_payload["state_file"])
@@ -903,6 +920,40 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Recorded result status: succeeded", closeout_proc.stdout)
             self.assertIn("Certification run: yes (apply)", closeout_proc.stdout)
 
+    def test_prompt_closeout_blocks_when_initiative_reassessment_is_still_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            run_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(paths["spec_path"]),
+            )
+            self.assertEqual(run_proc.returncode, 0, msg=run_proc.stderr)
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"])],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            self.assertTrue(reassessment_path.is_file())
+            self.assertIn("- Status: pending", reassessment_path.read_text(encoding="utf-8"))
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                ],
+            )
+
+            self.assertNotEqual(closeout_proc.returncode, 0)
+            self.assertIn("initiative-wide reassessment", closeout_proc.stderr)
+            self.assertIn("pending", closeout_proc.stderr)
+            self.assertNotIn("Execution packet:", closeout_proc.stdout)
+
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -920,13 +971,21 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             session_path = paths["initiative_root"] / "prompt-session.md"
             report_template = paths["initiative_root"] / "prompt-report-template.json"
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
             self.assertTrue(session_path.is_file())
             self.assertTrue(report_template.is_file())
+            self.assertTrue(reassessment_path.is_file())
 
             session_text = session_path.read_text(encoding="utf-8")
             self.assertIn("Prompt Session Contract", session_text)
             self.assertIn("next-command.md", session_text)
             self.assertIn("prompt-closeout", session_text)
+            self.assertIn("initiative-wide reassessment", session_text)
+            self.assertIn("initiative-reassessment.md", session_text)
+
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            self.assertIn("Initiative-Wide Reassessment", reassessment_text)
+            self.assertIn("Earliest affected phase to reopen", reassessment_text)
 
             template_payload = json.loads(report_template.read_text(encoding="utf-8"))
             self.assertIn("workflow_trace", template_payload)
@@ -1074,6 +1133,18 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
             )
             self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            reassessment_path.write_text(
+                reassessment_text.replace("- Status: pending", "- Status: completed")
+                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
+                .replace(
+                    "- Can the current selected phase continue without reopening upstream work: yes/no",
+                    "- Can the current selected phase continue without reopening upstream work: yes",
+                ),
+                encoding="utf-8",
+            )
 
             report_template = paths["initiative_root"] / "prompt-report-template.json"
             payload = json.loads(report_template.read_text(encoding="utf-8"))

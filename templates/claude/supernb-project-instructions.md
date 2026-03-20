@@ -15,11 +15,12 @@ Do not ask the user to remember the detailed command sequence.
 
 1. Run `{{SUPERNB_ROOT}}/scripts/supernb prompt-bootstrap --start-loop --direct-bridge-fallback` before substantive work.
 2. Let that command auto-discover the active initiative. If no initiative exists yet, let it initialize one for the current project first.
-3. Read the generated `.supernb/initiatives/<initiative-id>/prompt-session.md`, `next-command.md`, and current phase artifacts.
-4. Execute only the active phase scope unless the user explicitly asks to reopen an upstream phase.
-5. If the active phase is `planning` or `delivery`, honor Ralph Loop and do not stop on self-judged completion.
-6. Before claiming completion, update `prompt-report-template.json`, then run `prompt-closeout` so `.supernb` state, packets, certification, and logs stay aligned.
-7. For planning and delivery, only echo the final `<promise>...</promise>` line after `prompt-closeout` succeeds.
+3. Read the generated `.supernb/initiatives/<initiative-id>/prompt-session.md`, `next-command.md`, `initiative-reassessment.md`, and current phase artifacts.
+4. Start with an initiative-wide reassessment. Compare the real repository state against research, PRD, design, planning, delivery, and release artifacts before deciding the work is only a current-phase patch.
+5. If the reassessment finds stale upstream artifacts, reopen the earliest affected phase instead of only editing the current active phase.
+6. If the active phase is `planning` or `delivery`, honor Ralph Loop and do not stop on self-judged completion.
+7. Before claiming completion, update `prompt-report-template.json`, then run `prompt-closeout` so `.supernb` state, packets, certification, and logs stay aligned.
+8. For planning and delivery, only echo the final `<promise>...</promise>` line after `prompt-closeout` succeeds.
 
 ## Skill naming rule
 
