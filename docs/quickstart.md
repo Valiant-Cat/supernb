@@ -6,7 +6,7 @@ This page is now the shortest path to choose the right `supernb` install story f
 
 ### Claude Code
 
-Start here if you want prompt-first `supernb` delivery with managed Ralph Loop support.
+Start here if you want prompt-first `supernb` delivery with managed Ralph Loop support. Prefer the user-global install first; add a project-local override only when a repo needs its own Claude instructions.
 
 - Platform page: [Supernb for Claude Code](./platforms/claude-code.md)
 - Compatibility install doc: [claude-code.md](./install/claude-code.md)

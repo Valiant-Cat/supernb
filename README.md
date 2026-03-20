@@ -95,6 +95,12 @@ Quick install:
 
 ```bash
 ./scripts/supernb build-impeccable
+./scripts/supernb install-claude-code "$HOME"
+```
+
+Optional project-local override:
+
+```bash
 ./scripts/supernb install-claude-code /path/to/your-project
 ```
 

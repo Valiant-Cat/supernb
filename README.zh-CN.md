@@ -95,6 +95,12 @@
 
 ```bash
 ./scripts/supernb build-impeccable
+./scripts/supernb install-claude-code "$HOME"
+```
+
+项目级覆盖可选：
+
+```bash
 ./scripts/supernb install-claude-code /path/to/your-project
 ```
 

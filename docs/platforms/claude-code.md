@@ -12,23 +12,30 @@
 
 ## Quick Install
 
-Project-local install:
-
-```bash
-./scripts/supernb build-impeccable
-./scripts/supernb install-claude-code /path/to/your-project
-```
-
-User-global install:
+Recommended user-global install:
 
 ```bash
 ./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code "$HOME"
 ```
 
+Optional project-local override:
+
+```bash
+./scripts/supernb build-impeccable
+./scripts/supernb install-claude-code /path/to/your-project
+```
+
 ## Manual Install
 
-If you want to use the raw script directly:
+User-global with the raw script:
+
+```bash
+./scripts/build-impeccable-dist.sh
+./scripts/install-claude-code.sh "$HOME"
+```
+
+Optional project-local override:
 
 ```bash
 ./scripts/build-impeccable-dist.sh
@@ -76,6 +83,8 @@ make update-upstreams
 
 ## How It Works
 
+- `install-claude-code "$HOME"` is the recommended default because it keeps the Claude loop runtime and managed instructions consistent across projects.
+- Project-local install remains available when one repository needs its own managed `CLAUDE.md` override or isolated Claude skills.
 - `install-claude-code` writes managed `CLAUDE.md` guidance so simple prompts like `use supernb to improve this project` route through the prompt-first control plane.
 - For prompt-first planning and delivery, `prompt-bootstrap --start-loop` verifies `supernb-loop@supernb`, starts the Ralph Loop contract, and writes audit evidence alongside the initiative.
 - For direct `claude-code` runs, `execute-next` auto-arms Ralph Loop and injects the bundled plugin via `--plugin-dir`.

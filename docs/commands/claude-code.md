@@ -66,7 +66,8 @@ If you want to prove the real local CLI path is loop-capable end to end, run `./
 
 ## Notes
 
-- `supernb` skills may be installed project-locally or user-globally, depending on how you ran the installer.
+- Recommended default: install Claude Code assets user-globally with `./scripts/supernb install-claude-code "$HOME"`.
+- Use a project-local install only when one repository needs its own managed `CLAUDE.md` override or isolated Claude skills.
 - upstream `superpowers` remains the main workflow engine
 - for prompt-first planning and delivery, Claude Code should run in a Ralph Loop-enabled environment instead of relying on self-judged completion
 - `prompt-bootstrap --start-loop` now auto-discovers or initializes the initiative and verifies the loop-enabled Claude plugin before it reports success
