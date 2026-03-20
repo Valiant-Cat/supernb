@@ -64,4 +64,4 @@ For Claude Code prompt-first planning and delivery:
 
 Without the stop hook, the loop contract is not enforceable. In that case, do not treat the batch as cleanly complete.
 
-For direct `./scripts/supernb execute-next --harness claude-code` runs on `planning` or `delivery`, `supernb` now auto-arms the same Ralph Loop contract and packet-local audit files before invoking Claude Code. Those direct runs therefore require the same loop-enabled plugin environment.
+For direct `./scripts/supernb execute-next --harness claude-code` runs on `planning` or `delivery`, `supernb` now auto-arms the same Ralph Loop contract, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, and writes packet-local audit files before invoking Claude Code. That direct path does not depend on the user-global plugin install in the same way prompt-first sessions do.

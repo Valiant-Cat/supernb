@@ -11,13 +11,13 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from lib.supernb_common import (
     PHASES,
-    assert_ralph_loop_environment,
     append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
@@ -32,6 +32,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
 RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
 RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
+RALPH_LOOP_PLUGIN_DIR = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin"
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
@@ -404,7 +405,13 @@ def resolve_harness(args: argparse.Namespace, spec: dict[str, Any], project_dir:
     raise ValueError(f"Could not auto-detect a harness because multiple supported CLIs are installed: {', '.join(available)}. Pass --harness explicitly or set delivery.harness_preference in initiative.yaml.")
 
 
-def build_execution_command(harness: str, project_dir: Path, response_path: Path, cli_args: list[str]) -> list[str]:
+def build_execution_command(
+    harness: str,
+    project_dir: Path,
+    response_path: Path,
+    cli_args: list[str],
+    loop_contract: dict[str, Any] | None = None,
+) -> list[str]:
     if harness == "codex":
         return [
             "codex",
@@ -422,15 +429,25 @@ def build_execution_command(harness: str, project_dir: Path, response_path: Path
             "-",
         ]
     if harness == "claude-code":
-        return [
+        command = [
             "claude",
             "-p",
             "--output-format",
             "text",
             "--permission-mode",
             "auto",
-            *cli_args,
         ]
+        if loop_contract:
+            command.extend(
+                [
+                    "--plugin-dir",
+                    str(loop_contract["plugin_dir"]),
+                    "--session-id",
+                    loop_contract["session_id"],
+                ]
+            )
+        command.extend(cli_args)
+        return command
     raise ValueError(f"Direct execution is not supported for harness: {harness}")
 
 
@@ -443,6 +460,7 @@ def slugify(value: str) -> str:
 def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path, project_dir: Path) -> dict[str, Any]:
     slug = slugify(f"{initiative_id}-{phase}-{packet_dir.name}")
     completion_promise = f"SUPERNB {initiative_id} {phase} batch complete"
+    session_id = str(uuid.uuid4())
     state_file = project_dir / ".claude" / f"superpower-loop-{slug}.local.md"
     prompt_file = packet_dir / "ralph-loop-prompt.md"
     audit_summary_file = packet_dir / "ralph-loop-audit.json"
@@ -461,10 +479,12 @@ def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path,
     ]
     return {
         "completion_promise": completion_promise,
+        "session_id": session_id,
         "state_file": state_file,
         "prompt_file": prompt_file,
         "audit_summary_file": audit_summary_file,
         "audit_events_file": audit_events_file,
+        "plugin_dir": RALPH_LOOP_PLUGIN_DIR,
         "max_iterations": LOOP_MAX_ITERATIONS.get(phase, 4),
         "start_command": start_command,
         "start_command_text": shlex.join(start_command),
@@ -474,6 +494,8 @@ def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path,
 def direct_loop_policy(loop_contract: dict[str, Any]) -> str:
     return (
         "\n\nClaude Code Ralph Loop contract:\n"
+        f"- Session id: `{loop_contract['session_id']}`.\n"
+        f"- Session-local plugin dir: `{loop_contract['plugin_dir']}`.\n"
         f"- Ralph Loop has been armed for this run with state file `{loop_contract['state_file']}`.\n"
         f"- External audit summary: `{loop_contract['audit_summary_file']}`.\n"
         f"- External audit events: `{loop_contract['audit_events_file']}`.\n"
@@ -508,18 +530,74 @@ def start_loop_audit_watcher(loop_contract: dict[str, Any], project_dir: Path, e
     )
 
 
+def local_ralph_loop_plugin_metadata() -> dict[str, str]:
+    plugin_json = RALPH_LOOP_PLUGIN_DIR / "plugin.json"
+    if not plugin_json.is_file():
+        raise FileNotFoundError(f"Ralph Loop Claude plugin manifest not found: {plugin_json}")
+    try:
+        payload = json.loads(plugin_json.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Ralph Loop Claude plugin manifest is invalid JSON: {plugin_json}") from exc
+    name = str(payload.get("name", "")).strip() or "superpowers"
+    version = str(payload.get("version", "")).strip()
+    return {
+        "id": "superpowers@frad-dotclaude",
+        "name": name,
+        "version": version,
+        "source": str(RALPH_LOOP_PLUGIN_DIR),
+        "mode": "session-local-plugin-dir",
+    }
+
+
+def finalize_loop_audit_summary(loop_contract: dict[str, Any], payload: dict[str, Any], event: str) -> dict[str, Any]:
+    summary_path = Path(loop_contract["audit_summary_file"]).resolve()
+    events_path = Path(loop_contract["audit_events_file"]).resolve()
+    payload = dict(payload)
+    payload.update(
+        {
+            "removed_after_observation": True,
+            "last_observed_at": utc_now(),
+            "final_status": "state_removed",
+            "watcher_finished_at": utc_now(),
+        }
+    )
+    write_json(summary_path, payload)
+    with events_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "timestamp": utc_now(),
+                    "event": event,
+                    "last_iteration": int(payload.get("last_iteration", 0) or 0),
+                    "session_id": str(payload.get("last_session_id", "")),
+                },
+                ensure_ascii=True,
+            )
+            + "\n"
+        )
+    return payload
+
+
 def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -> dict[str, str]:
     if not RALPH_LOOP_SETUP_SCRIPT.is_file():
         raise FileNotFoundError(f"Ralph Loop setup script not found: {RALPH_LOOP_SETUP_SCRIPT}")
     if not RALPH_LOOP_AUDIT_WATCHER.is_file():
         raise FileNotFoundError(f"Ralph Loop audit watcher not found: {RALPH_LOOP_AUDIT_WATCHER}")
+    if not RALPH_LOOP_PLUGIN_DIR.is_dir():
+        raise FileNotFoundError(f"Ralph Loop Claude plugin directory not found: {RALPH_LOOP_PLUGIN_DIR}")
+    stop_hook = RALPH_LOOP_PLUGIN_DIR.parent / "hooks" / "stop-hook.sh"
+    if not stop_hook.is_file():
+        raise FileNotFoundError(f"Ralph Loop stop hook not found: {stop_hook}")
 
-    plugin_metadata = assert_ralph_loop_environment(project_dir)
+    plugin_metadata = local_ralph_loop_plugin_metadata()
+    loop_env = dict(os.environ)
+    loop_env["CLAUDE_CODE_SESSION_ID"] = loop_contract["session_id"]
     proc = subprocess.run(
         loop_contract["start_command"],
         cwd=project_dir,
         capture_output=True,
         text=True,
+        env=loop_env,
     )
     if proc.returncode != 0:
         message = proc.stderr.strip() or proc.stdout.strip() or "unknown Ralph Loop setup error"
@@ -529,12 +607,13 @@ def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -
     if not state_file.is_file():
         raise RuntimeError(f"Ralph Loop setup completed without creating the state file: {state_file}")
 
-    start_loop_audit_watcher(loop_contract, project_dir)
+    start_loop_audit_watcher(loop_contract, project_dir, loop_contract["session_id"])
     return plugin_metadata
 
 
 def wait_for_loop_audit_summary(loop_contract: dict[str, Any], timeout_seconds: float = 12.0) -> dict[str, Any] | None:
     summary_path = Path(loop_contract["audit_summary_file"]).resolve()
+    state_path = Path(loop_contract["state_file"]).resolve()
     deadline = time.time() + max(timeout_seconds, 0.5)
     while time.time() < deadline:
         if summary_path.is_file():
@@ -544,6 +623,8 @@ def wait_for_loop_audit_summary(loop_contract: dict[str, Any], timeout_seconds: 
                 payload = None
             if isinstance(payload, dict) and str(payload.get("final_status", "")).strip() not in {"", "watching"}:
                 return payload
+            if isinstance(payload, dict) and not state_path.exists() and payload.get("state_observed"):
+                return finalize_loop_audit_summary(loop_contract, payload, "state-removed-confirmed")
         time.sleep(0.2)
     if summary_path.is_file():
         try:
@@ -551,6 +632,8 @@ def wait_for_loop_audit_summary(loop_contract: dict[str, Any], timeout_seconds: 
         except json.JSONDecodeError:
             return None
         if isinstance(payload, dict):
+            if str(payload.get("final_status", "")).strip() in {"", "watching"} and not state_path.exists() and payload.get("state_observed"):
+                return finalize_loop_audit_summary(loop_contract, payload, "state-removed-timeout-confirmed")
             return payload
     return None
 
@@ -587,10 +670,12 @@ def serialize_loop_contract(loop_contract: dict[str, Any] | None) -> dict[str, A
         return None
     return {
         "completion_promise": loop_contract["completion_promise"],
+        "session_id": loop_contract["session_id"],
         "state_file": str(loop_contract["state_file"]),
         "prompt_file": str(loop_contract["prompt_file"]),
         "audit_summary_file": str(loop_contract["audit_summary_file"]),
         "audit_events_file": str(loop_contract["audit_events_file"]),
+        "plugin_dir": str(loop_contract["plugin_dir"]),
         "max_iterations": loop_contract["max_iterations"],
         "start_command": list(loop_contract["start_command"]),
         "start_command_text": loop_contract["start_command_text"],
@@ -2201,6 +2286,8 @@ def loop_execution_findings(
         issues.append("Ralph Loop audit summary completion_promise does not match loop_execution.completion_promise.")
     if ensure_string(audit_summary.get("state_file")) != state_file:
         issues.append("Ralph Loop audit summary state_file does not match loop_execution.state_file.")
+    expected_session = ensure_string(audit_summary.get("expected_session_id"))
+    observed_session = ensure_string(audit_summary.get("last_session_id"))
     if not audit_summary.get("state_observed"):
         issues.append("Ralph Loop audit summary never observed the state file.")
     if not audit_summary.get("removed_after_observation"):
@@ -2213,13 +2300,15 @@ def loop_execution_findings(
     if final_iteration > last_iteration:
         issues.append("loop_execution.final_iteration cannot exceed the last iteration recorded by the audit summary.")
     if harness == "claude-code-prompt":
-        expected_session = ensure_string(audit_summary.get("expected_session_id"))
-        observed_session = ensure_string(audit_summary.get("last_session_id"))
         if not expected_session:
             issues.append("Prompt-first Ralph Loop audit summary must record the expected Claude session id.")
         elif observed_session != expected_session:
             issues.append("Prompt-first Ralph Loop audit summary session id does not match the active Claude session.")
     if harness == "claude-code":
+        if not expected_session:
+            issues.append("Direct Claude Code Ralph Loop audit summary must record the generated Claude session id.")
+        elif observed_session != expected_session:
+            issues.append("Direct Claude Code Ralph Loop audit summary session id does not match the generated Claude session.")
         promise_text = extract_promise_text(response_text)
         if promise_text != completion_promise:
             issues.append("Direct Claude Code execution must end with the exact Ralph Loop completion promise tag.")
@@ -2659,6 +2748,8 @@ def write_summary(
                 "",
                 "## Ralph Loop",
                 "",
+                f"- Session id: `{loop_contract['session_id']}`",
+                f"- Plugin dir: `{display_path(Path(loop_contract['plugin_dir']))}`",
                 f"- State file: `{display_path(Path(loop_contract['state_file']))}`",
                 f"- Prompt file: `{display_path(Path(loop_contract['prompt_file']))}`",
                 f"- Audit summary: `{display_path(Path(loop_contract['audit_summary_file']))}`",
@@ -2796,7 +2887,7 @@ def main() -> int:
             status = "unsupported"
             error_message = f"{binary} CLI is not installed or not on PATH."
         else:
-            command_argv = build_execution_command(harness, project_dir, response_path, args.cli_arg)
+            command_argv = build_execution_command(harness, project_dir, response_path, args.cli_arg, direct_loop_contract)
 
     write_json(
         request_path,
@@ -2859,12 +2950,17 @@ def main() -> int:
                 )
 
         if status != "failed":
+            run_env = None
+            if direct_loop_contract:
+                run_env = dict(os.environ)
+                run_env["CLAUDE_CODE_SESSION_ID"] = direct_loop_contract["session_id"]
             proc = subprocess.run(
                 command_argv,
                 input=prompt_with_report_text,
                 text=True,
                 capture_output=True,
                 cwd=str(project_dir),
+                env=run_env,
             )
             exit_code = proc.returncode
             stdout_path.write_text(proc.stdout, encoding="utf-8")

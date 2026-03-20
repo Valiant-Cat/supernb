@@ -467,6 +467,44 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertIn("did not observe the state file being removed", combined)
             self.assertIn("final_status must be state_removed", combined)
 
+    def test_wait_for_loop_audit_summary_finalizes_removed_state_after_watcher_race(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            packet_dir.mkdir()
+            loop_contract = {
+                "state_file": root / "project" / ".claude" / "superpower-loop-demo.local.md",
+                "audit_summary_file": packet_dir / "ralph-loop-audit.json",
+                "audit_events_file": packet_dir / "ralph-loop-audit.ndjson",
+                "completion_promise": "SUPERNB demo planning batch complete",
+                "max_iterations": 6,
+                "session_id": "session-demo",
+                "prompt_file": packet_dir / "ralph-loop-prompt.md",
+                "plugin_dir": ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin",
+                "start_command": [],
+                "start_command_text": "",
+            }
+
+            execute_next.write_json(
+                loop_contract["audit_summary_file"],
+                {
+                    "state_file": str(loop_contract["state_file"]),
+                    "completion_promise": loop_contract["completion_promise"],
+                    "expected_session_id": loop_contract["session_id"],
+                    "state_observed": True,
+                    "removed_after_observation": False,
+                    "last_iteration": 1,
+                    "last_session_id": loop_contract["session_id"],
+                    "final_status": "watching",
+                },
+            )
+
+            payload = execute_next.wait_for_loop_audit_summary(loop_contract, timeout_seconds=0.1)
+            self.assertIsNotNone(payload)
+            self.assertEqual(payload.get("final_status"), "state_removed")
+            self.assertTrue(payload.get("removed_after_observation"))
+            self.assertTrue((packet_dir / "ralph-loop-audit.ndjson").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

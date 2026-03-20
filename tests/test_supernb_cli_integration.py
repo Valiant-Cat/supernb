@@ -606,12 +606,18 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             loop_contract = request_payload.get("ralph_loop") or {}
             self.assertTrue(loop_contract)
             self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("id"), "superpowers@frad-dotclaude")
+            self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("mode"), "session-local-plugin-dir")
+            self.assertIn("--plugin-dir", request_payload.get("command", []))
+            self.assertIn("--session-id", request_payload.get("command", []))
+            self.assertEqual(loop_contract.get("plugin_dir"), str(ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin"))
 
             audit_summary_path = packet_dir / "ralph-loop-audit.json"
             audit_summary = json.loads(audit_summary_path.read_text(encoding="utf-8"))
             self.assertEqual(audit_summary.get("final_status"), "state_removed")
             self.assertTrue(audit_summary.get("state_observed"))
             self.assertTrue(audit_summary.get("removed_after_observation"))
+            self.assertEqual(audit_summary.get("expected_session_id"), loop_contract.get("session_id"))
+            self.assertEqual(audit_summary.get("last_session_id"), loop_contract.get("session_id"))
 
             response_text = (packet_dir / "response.md").read_text(encoding="utf-8")
             self.assertIn("<promise>SUPERNB", response_text)

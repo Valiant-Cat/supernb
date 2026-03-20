@@ -61,7 +61,7 @@ Then apply the resulting packet:
 
 For certifiable packets, Claude Code responses must include the structured `REPORT JSON` block that `execute-next` asks for.
 `--dry-run` packets are preview-only and should be rerun before certification.
-For `planning` and `delivery`, direct `claude-code` bridging now auto-arms Ralph Loop and writes packet-local audit files before invoking Claude Code, so the active Claude environment must have `superpowers@frad-dotclaude` enabled.
+For `planning` and `delivery`, direct `claude-code` bridging now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, and writes packet-local audit files before invoking Claude Code.
 
 ## Notes
 

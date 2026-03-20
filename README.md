@@ -260,7 +260,7 @@ For a new product initiative:
    If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-sync --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
-   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop and writes packet-local audit files, but it requires a Claude Code environment with `superpowers@frad-dotclaude` enabled.
+   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, and writes packet-local audit files.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.
