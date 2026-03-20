@@ -33,7 +33,7 @@ execute_next = load_module("supernb_execute_next_verify", "scripts/supernb-execu
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run a real Claude CLI Ralph Loop smoke verification with the bundled dotclaude plugin."
+        description="Run a real Claude CLI Ralph Loop smoke verification with the bundled supernb loop plugin."
     )
     parser.add_argument(
         "--workspace",

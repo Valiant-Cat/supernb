@@ -14,8 +14,8 @@ Do not use this for vague "finish the whole product" prompts. Use it for bounded
 ## Install
 
 ```bash
-claude plugin marketplace add FradSer/dotclaude
-claude plugin install superpowers@frad-dotclaude
+claude plugin marketplace add /path/to/supernb/bundles/claude-loop-marketplace
+claude plugin install supernb-loop@supernb
 ```
 
 ## Conflict Rule
@@ -44,7 +44,7 @@ Bad loop tasks:
 
 ## Notes
 
-The actual loop implementation inspected in `dotclaude` is based on:
+The actual loop implementation used by `supernb` is based on:
 
 - `scripts/setup-superpower-loop.sh`
 - `hooks/stop-hook.sh`
@@ -58,7 +58,7 @@ For Claude Code prompt-first planning and delivery:
 1. Run `./scripts/supernb prompt-bootstrap --start-loop` inside the active Claude Code session.
 2. Read `.supernb/initiatives/<initiative-id>/prompt-session.md`.
 3. That command auto-discovers the active initiative in the current repo, or initializes one first if the repo has none yet.
-4. It then checks that the active Claude Code environment exposes `superpowers@frad-dotclaude`, then writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json`, `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.json`, and `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.ndjson`.
+4. It then checks that the active Claude Code environment exposes `supernb-loop@supernb`, then writes `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>.json`, `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.json`, and `.supernb/initiatives/<initiative-id>/ralph-loop-<phase>-audit.ndjson`.
 5. It then starts the Ralph Loop for the current session.
 6. Work the bounded batch until the completion promise is honestly true.
 7. Fill `prompt-report-template.json` with real loop evidence, then run `./scripts/supernb prompt-closeout ...`.
@@ -66,7 +66,7 @@ For Claude Code prompt-first planning and delivery:
 
 Without the stop hook, the loop contract is not enforceable. In that case, do not treat the batch as cleanly complete.
 
-For direct `./scripts/supernb execute-next --harness claude-code` runs on `planning` or `delivery`, `supernb` now auto-arms the same Ralph Loop contract, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files before invoking Claude Code. That direct path does not depend on the user-global plugin install in the same way prompt-first sessions do.
+For direct `./scripts/supernb execute-next --harness claude-code` runs on `planning` or `delivery`, `supernb` now auto-arms the same Ralph Loop contract, injects the bundled `supernb-loop` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files before invoking Claude Code. That direct path does not depend on the user-global plugin install in the same way prompt-first sessions do.
 
 To verify the real local `claude -p --plugin-dir ... --session-id ...` path, run:
 

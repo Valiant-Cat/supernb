@@ -1,0 +1,23 @@
+{
+  "name": "supernb",
+  "metadata": {
+    "description": "Supernb-maintained Claude Code loop runtime marketplace"
+  },
+  "owner": {
+    "name": "supernb",
+    "email": "noreply@supernb.local"
+  },
+  "plugins": [
+    {
+      "name": "supernb-loop",
+      "version": "1.0.0",
+      "description": "Ralph Loop stop-hook runtime used by supernb for Claude Code prompt-first and direct bridge execution",
+      "author": {
+        "name": "supernb",
+        "email": "noreply@supernb.local"
+      },
+      "source": "./supernb-loop",
+      "category": "productivity"
+    }
+  ]
+}

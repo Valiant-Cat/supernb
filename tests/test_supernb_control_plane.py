@@ -724,7 +724,7 @@ class SupernbControlPlaneTests(unittest.TestCase):
                 "max_iterations": 6,
                 "session_id": "session-demo",
                 "prompt_file": packet_dir / "ralph-loop-prompt.md",
-                "plugin_dir": ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin",
+                "plugin_dir": ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / ".claude-plugin",
                 "start_command": [],
                 "start_command_text": "",
             }
@@ -774,7 +774,7 @@ class SupernbControlPlaneTests(unittest.TestCase):
                 "max_iterations": 6,
                 "session_id": "session-demo",
                 "prompt_file": packet_dir / "ralph-loop-prompt.md",
-                "plugin_dir": ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin",
+                "plugin_dir": ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / ".claude-plugin",
                 "start_command": [],
                 "start_command_text": "",
             }

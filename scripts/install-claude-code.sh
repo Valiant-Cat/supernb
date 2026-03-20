@@ -9,6 +9,8 @@ TARGET_DIR="${1:-${PWD}}"
 CLAUDE_DIR="${TARGET_DIR}/.claude"
 IMPECCABLE_CLAUDE_DIR="${ROOT_DIR}/.supernb-cache/impeccable-dist/claude-code/.claude"
 BUNDLED_SKILLS_DIR="${ROOT_DIR}/bundles/skills"
+RALPH_LOOP_MARKETPLACE_DIR="${ROOT_DIR}/bundles/claude-loop-marketplace"
+RALPH_LOOP_PLUGIN_ID="supernb-loop@supernb"
 PROJECT_INSTRUCTIONS_TEMPLATE="${ROOT_DIR}/templates/claude/supernb-project-instructions.md"
 USER_INSTRUCTIONS_TEMPLATE="${ROOT_DIR}/templates/claude/supernb-user-instructions.md"
 INSTALL_SCOPE_LABEL="project-local"
@@ -99,16 +101,16 @@ ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/flutter-l10n-translation" "${CL
 ensure_symlink_if_missing "${BUNDLED_SKILLS_DIR}/android-i18n-translation" "${CLAUDE_DIR}/skills/android-i18n-translation" "android-i18n-translation"
 ensure_managed_claude_md_block
 
-superpowers_plugin_list() {
+claude_plugin_list() {
   (cd "${TARGET_DIR}" && claude plugin list 2>/dev/null || true)
 }
 
-superpowers_plugin_id_from_list() {
+claude_plugin_id_from_list() {
   local plugin_list="$1"
-  printf '%s\n' "${plugin_list}" | grep -Eo 'superpowers@[^[:space:]]+' | head -n 1 || true
+  printf '%s\n' "${plugin_list}" | grep -Eo '[A-Za-z0-9_.-]+@[^[:space:]]+' | head -n 1 || true
 }
 
-superpowers_plugin_status_from_list() {
+claude_plugin_status_from_list() {
   local plugin_list="$1"
   local plugin_id="$2"
   local status_line
@@ -125,96 +127,58 @@ superpowers_plugin_status_from_list() {
   echo "unknown"
 }
 
-preserve_project_loop_plugin_mode_if_active() {
-  if [[ "${INSTALL_SCOPE_LABEL}" != "project-local" ]]; then
-    return 1
-  fi
-
-  local plugin_list="$1"
-  local frad_status
-  frad_status="$(superpowers_plugin_status_from_list "${plugin_list}" "superpowers@frad-dotclaude")"
-  if [[ "${frad_status}" != "enabled" ]]; then
-    return 1
-  fi
-
-  if (cd "${TARGET_DIR}" && claude plugin disable superpowers@claude-plugins-official --scope project >/dev/null 2>&1); then
-    echo "  preserved Ralph Loop project mode: project scope keeps superpowers@frad-dotclaude enabled and superpowers@claude-plugins-official disabled"
-  else
-    echo "  preserved Ralph Loop project mode: superpowers@frad-dotclaude already enabled for this project"
-  fi
-  return 0
-}
-
-install_default_superpowers_plugin() {
+install_supernb_loop_plugin() {
   if ! command -v claude >/dev/null 2>&1; then
     echo "  skipped plugin install: claude CLI not found"
     return 0
   fi
 
-  if [[ "${INSTALL_SCOPE_LABEL}" == "user-global" ]]; then
-    (cd "${TARGET_DIR}" && claude plugin marketplace add FradSer/dotclaude >/dev/null 2>&1 || true)
-
-    if (cd "${TARGET_DIR}" && claude plugin enable superpowers@frad-dotclaude --scope user >/dev/null 2>&1); then
-      echo "  enabled: Claude Code plugin superpowers@frad-dotclaude (user-global Ralph Loop mode)"
-    elif (cd "${TARGET_DIR}" && claude plugin install superpowers@frad-dotclaude --scope user >/dev/null 2>&1); then
-      echo "  installed: Claude Code plugin superpowers@frad-dotclaude (user-global Ralph Loop mode)"
-    else
-      echo "  failed: could not install or enable superpowers@frad-dotclaude at user scope" >&2
-      exit 1
-    fi
-
-    (cd "${TARGET_DIR}" && claude plugin disable superpowers@claude-plugins-official --scope user >/dev/null 2>&1 || true)
-    (cd "${TARGET_DIR}" && claude plugin disable superpowers@superpowers-marketplace --scope user >/dev/null 2>&1 || true)
-    echo "  enforced: user-global strict mode uses superpowers@frad-dotclaude and disables competing user-scope superpowers plugins"
-    return 0
+  if [[ ! -d "${RALPH_LOOP_MARKETPLACE_DIR}" ]]; then
+    echo "  failed: bundled supernb Claude loop marketplace not found at ${RALPH_LOOP_MARKETPLACE_DIR}" >&2
+    exit 1
   fi
 
+  local install_scope="project"
   local plugin_list
   local plugin_id
   local plugin_status
 
-  plugin_list="$(superpowers_plugin_list)"
-  if preserve_project_loop_plugin_mode_if_active "${plugin_list}"; then
+  if [[ "${INSTALL_SCOPE_LABEL}" == "user-global" ]]; then
+    install_scope="user"
+  fi
+
+  (cd "${TARGET_DIR}" && claude plugin marketplace add "${RALPH_LOOP_MARKETPLACE_DIR}" --scope "${install_scope}" >/dev/null 2>&1 || true)
+
+  plugin_list="$(claude_plugin_list)"
+  plugin_status="$(claude_plugin_status_from_list "${plugin_list}" "${RALPH_LOOP_PLUGIN_ID}")"
+  if [[ "${plugin_status}" == "enabled" ]]; then
+    echo "  already enabled: Claude Code plugin ${RALPH_LOOP_PLUGIN_ID}"
     return 0
   fi
-  plugin_id="$(superpowers_plugin_id_from_list "${plugin_list}")"
 
-  if [[ -n "${plugin_id}" ]]; then
-    plugin_status="$(superpowers_plugin_status_from_list "${plugin_list}" "${plugin_id}")"
-    if [[ "${plugin_status}" == "disabled" ]]; then
-      if (cd "${TARGET_DIR}" && claude plugin enable "${plugin_id}"); then
-        echo "  enabled: Claude Code plugin ${plugin_id}"
-      else
-        echo "  installed but still disabled: Claude Code plugin ${plugin_id}"
-      fi
+  if [[ "${plugin_status}" == "disabled" ]]; then
+    if (cd "${TARGET_DIR}" && claude plugin enable "${RALPH_LOOP_PLUGIN_ID}" --scope "${install_scope}" >/dev/null 2>&1); then
+      echo "  enabled: Claude Code plugin ${RALPH_LOOP_PLUGIN_ID}"
       return 0
     fi
+  fi
 
-    echo "  already installed: Claude Code plugin ${plugin_id}"
+  if (cd "${TARGET_DIR}" && claude plugin install "${RALPH_LOOP_PLUGIN_ID}" --scope "${install_scope}" >/dev/null 2>&1); then
+    echo "  installed: Claude Code plugin ${RALPH_LOOP_PLUGIN_ID}"
     return 0
   fi
 
-  if (cd "${TARGET_DIR}" && claude plugin install superpowers@claude-plugins-official); then
-    echo "  installed: Claude Code plugin superpowers@claude-plugins-official"
-    return 0
-  fi
-
-  echo "  official plugin install failed; trying marketplace fallback"
-  if (cd "${TARGET_DIR}" && claude plugin marketplace add obra/superpowers-marketplace && claude plugin install superpowers@superpowers-marketplace); then
-    echo "  installed: Claude Code plugin superpowers@superpowers-marketplace"
-    return 0
-  fi
-
-  echo "  could not install Claude Code superpowers plugin automatically"
+  echo "  failed: could not install or enable ${RALPH_LOOP_PLUGIN_ID} in ${install_scope} scope" >&2
+  exit 1
 }
 
 echo "Checking Claude Code plugin:"
-install_default_superpowers_plugin
+install_supernb_loop_plugin
 
 cat <<EOF
 Installed Claude Code ${INSTALL_SCOPE_LABEL} assets into ${TARGET_DIR}
 
-User-global installs now maintain ~/.claude/CLAUDE.md and configure user-scope Ralph Loop mode so simple prompts like:
+User-global installs now maintain ~/.claude/CLAUDE.md and configure the bundled supernb loop plugin so simple prompts like:
   use supernb to improve this project
 work across projects without restating the full workflow.
 
@@ -222,12 +186,10 @@ Project-local installs also maintain a managed CLAUDE.md block so simple prompts
   use supernb to improve this project
 still route through the full supernb prompt-first workflow.
 
-Ralph Loop-enabled alternative for Claude Code prompt-first planning or delivery:
-  claude plugin marketplace add FradSer/dotclaude
-  claude plugin install superpowers@frad-dotclaude
+The managed Ralph Loop provider is the bundled `supernb-loop@supernb` plugin from:
+  ${RALPH_LOOP_MARKETPLACE_DIR}
 
-Do not use both same-named superpowers plugins side by side.
-Use a Ralph Loop-enabled Claude Code environment for prompt-first planning or delivery sessions that must not self-terminate.
+Use that managed Claude Code environment for prompt-first planning or delivery sessions that must not self-terminate.
 
 Restart Claude Code after bootstrap if the plugin was newly installed.
 EOF

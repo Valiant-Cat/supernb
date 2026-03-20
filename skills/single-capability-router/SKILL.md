@@ -86,7 +86,7 @@ Route to `i18n-localization-governance` when the user asks for:
 Route to the Ralph Loop flow when:
 
 - the current Claude Code session is doing prompt-first planning or delivery and must not self-terminate
-- the environment intentionally uses the stop-hook-enabled dotclaude loop stack
+- the environment intentionally uses the stop-hook-enabled bundled supernb loop stack
 - the task is bounded
 - honest completion can be verified
 

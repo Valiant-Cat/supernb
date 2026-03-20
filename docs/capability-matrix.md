@@ -96,7 +96,7 @@ Observed localization workflows:
 - the same externalization principle should be enforced for web and other stacks, even if a different concrete i18n toolchain is used
 - stack-specific behavior should follow `docs/i18n-stack-guidance.md`
 
-## 5. `dotclaude` Superpower Loop Layer
+## 5. Bundled `supernb-loop` Ralph Loop Layer
 
 Observed specialist additions:
 

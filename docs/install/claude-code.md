@@ -6,7 +6,7 @@
 - local `supernb` skills for orchestration
 - bundled `sensortower-research` and translation skills as managed Claude Code skills in the selected install scope
 - built `impeccable` Claude Code bundle for UI/UX work
-- `superpowers@frad-dotclaude` when you need Ralph Loop enforcement for Claude Code prompt-first planning or delivery
+- `supernb-loop@supernb` when you need Ralph Loop enforcement for Claude Code prompt-first planning or delivery
 
 ## 1. Bootstrap
 
@@ -125,7 +125,7 @@ This also scans managed `SKILL.md` files for hardcoded harness-specific script/r
 What the script does:
 
 - for user-global installs into `"$HOME"`, writes or updates `~/.claude/CLAUDE.md` so any project session can map a simple `use supernb` prompt into the managed workflow
-- for user-global installs into `"$HOME"`, installs or enables `superpowers@frad-dotclaude` at user scope and disables competing same-name user-scope `superpowers` plugins
+- for user-global installs into `"$HOME"`, installs or enables `supernb-loop@supernb` at user scope from the bundled local marketplace
 - symlinks each `supernb` skill directory directly into `<target>/.claude/skills/`
 - symlinks bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation` into `<target>/.claude/skills/`
 - symlinks `impeccable` skills from the isolated local build cache into `<target>/.claude/skills/`
@@ -138,15 +138,14 @@ What the script does:
 Use this mode when Claude Code is going to run prompt-first `supernb` planning or delivery and you need the session to keep iterating until the completion promise is actually true.
 
 ```bash
-claude plugin marketplace add FradSer/dotclaude
-claude plugin install superpowers@frad-dotclaude
+claude plugin marketplace add /path/to/supernb/bundles/claude-loop-marketplace
+claude plugin install supernb-loop@supernb
 ```
 
 Rules:
 
-- do not keep both same-named `superpowers` plugins installed side by side in one Claude Code environment
 - keep the latest `obra/superpowers` as the default baseline in environments that do not need Ralph Loop
-- use the Frad plugin in the Claude Code environment that will run the bounded prompt-first planning or delivery batch
+- use the bundled `supernb-loop@supernb` plugin in the Claude Code environment that will run the bounded prompt-first planning or delivery batch
 - do not use this mode for vague unbounded prompts
 
 ## 5. Recommended Session Flow
@@ -172,7 +171,7 @@ Expected behavior:
 
 2. That command auto-discovers the active initiative in the current repo. If the repo has no initiative yet, it initializes one first and then continues.
 3. It reads `.supernb/initiatives/<initiative-id>/prompt-session.md`.
-4. For planning and delivery on Claude Code, that same command first verifies that the active Claude environment has `superpowers@frad-dotclaude` enabled, then starts the generated Ralph Loop contract in the current Claude session and writes loop audit files alongside the initiative.
+4. For planning and delivery on Claude Code, that same command first verifies that the active Claude environment has `supernb-loop@supernb` enabled, then starts the generated Ralph Loop contract in the current Claude session and writes loop audit files alongside the initiative.
 5. It performs the requested phase work.
 6. Before stopping, it fills `.supernb/initiatives/<initiative-id>/prompt-report-template.json`, then runs `prompt-closeout`.
 7. For planning and delivery, `prompt-closeout` must succeed before the session is allowed to echo the final Ralph Loop completion promise.
@@ -194,7 +193,7 @@ make apply-execution INITIATIVE_ID=2026-03-19-my-product PACKET=/path/to/packet 
 
 When you switch from `DRY_RUN=1` to a real bridged run, keep the `REPORT JSON` block in Claude Code's final response.
 Without that block, the packet is marked `needs-follow-up` and certification will not treat it as clean execution evidence.
-For direct `claude-code` planning or delivery runs, `execute-next` also auto-arms Ralph Loop, injects the bundled `dotclaude` plugin via a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files. Prompt-first sessions still need the active Claude environment to have `superpowers@frad-dotclaude` enabled because the running session cannot retrofit its own hooks.
+For direct `claude-code` planning or delivery runs, `execute-next` also auto-arms Ralph Loop, injects the bundled `supernb-loop` plugin via a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files. Prompt-first sessions still need the active Claude environment to have `supernb-loop@supernb` enabled because the running session cannot retrofit its own hooks.
 
 If you want a real local smoke check for the direct CLI path, run:
 

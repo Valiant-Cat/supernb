@@ -28,7 +28,8 @@ from lib.supernb_common import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
+RALPH_LOOP_PLUGIN_ROOT = ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop"
+RALPH_LOOP_SETUP_SCRIPT = RALPH_LOOP_PLUGIN_ROOT / "scripts" / "setup-superpower-loop.sh"
 RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
 SUPERNB_WRAPPER = ROOT_DIR / "scripts" / "supernb"
 EXECUTE_NEXT_SCRIPT = ROOT_DIR / "scripts" / "supernb-execute-next.py"
@@ -298,7 +299,7 @@ def write_loop_manifest(target: Path, phase: str, loop_config: dict[str, Any]) -
         "required": loop_config["required"],
         "mode": "ralph-loop" if loop_config["required"] else "optional",
         "stop_hook_required": loop_config["required"],
-        "stop_hook_provider": "FradSer/dotclaude superpowers stop-hook",
+        "stop_hook_provider": "supernb-loop stop-hook",
         "completion_promise": loop_config["completion_promise"],
         "state_file": str(loop_config["state_file"]),
         "prompt_file": str(loop_config["prompt_file"]),
@@ -410,7 +411,7 @@ def write_prompt_session(
                 f"- Managed auto-start command: `{auto_start_command}`",
                 f"- Start command: `{loop_config['start_command_text']}`",
                 f"- Managed closeout command: `{closeout_command}`",
-                "- Claude Code must have the FradSer/dotclaude Ralph Loop stop-hook enabled for this contract to be enforceable.",
+                "- Claude Code must have the managed supernb Ralph Loop stop-hook enabled for this contract to be enforceable.",
                 "- Do not let the agent stop on self-judgment alone. The Ralph Loop completion promise must only be echoed after the managed closeout command succeeds.",
             ]
         )

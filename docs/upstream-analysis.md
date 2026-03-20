@@ -33,7 +33,7 @@ What matters for `supernb`:
 - its strength is software execution discipline, not market research or UI review
 - it should be the default `supernb` base because it is broader and currently newer than the Frad fork
 
-## `FradSer/dotclaude`
+## Historical Note: `FradSer/dotclaude`
 
 Repository role: plugin marketplace with multiple Claude Code plugins.
 
@@ -49,7 +49,7 @@ Observed structure:
 What it is:
 
 - a curated plugin marketplace for Claude Code
-- the relevant piece for `supernb` is the `superpowers@frad-dotclaude` plugin
+- historically, the relevant piece for `supernb` was the `superpowers@frad-dotclaude` plugin
 - that plugin adds BDD-focused execution and a stronger agent-team story than upstream `obra/superpowers`
 - it reuses the same plugin name, `superpowers`, and overlaps several skill names with the upstream project
 
@@ -119,13 +119,13 @@ Why it matters for `supernb`:
 
 1. Research intelligence: `sensortower-research`
 2. Default product planning and software execution: latest `obra/superpowers`
-3. Claude Code Ralph Loop persistence layer for prompt-first planning and delivery: `superpowers@frad-dotclaude`
+3. Claude Code Ralph Loop persistence layer for prompt-first planning and delivery: bundled `supernb-loop@supernb`
 4. UI/UX generation and enforcement: `impeccable`
 
 Conflict note:
 
 - both upstreams use the plugin name `superpowers`
 - both define overlapping skills like `brainstorming`, `writing-plans`, `executing-plans`, and `systematic-debugging`
-- because of that, `supernb` does not treat `dotclaude` as a co-equal default baseline install, but it does require its Ralph Loop stop-hook behavior when Claude Code is used for prompt-first planning or delivery
+- the current runtime no longer depends on `dotclaude`; the required Ralph Loop stop-hook behavior is now bundled into `supernb-loop@supernb`
 
 That layering is the basis of the repository structure and skills in this repo.

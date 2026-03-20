@@ -11,7 +11,7 @@
 1. `superpowers` 负责软件交付方法学。
 2. `sensortower-research` 负责市场与竞品证据。
 3. `impeccable` 负责 UI/UX 方向与质量治理。
-4. `dotclaude/superpowers` 负责 Claude Code prompt-first planning / delivery 所需的 Ralph Loop 持久执行增强。
+4. 现在由内置 `supernb-loop@supernb` 负责 Claude Code prompt-first planning / delivery 所需的 Ralph Loop 持久执行增强。
 5. 本地化 skills 负责把 i18n 变成工程约束，而不是收尾动作。
 
 所以 `supernb` 的设计中心不是“再增加一个更强的 agent”，而是：
@@ -267,7 +267,7 @@
 - verification
 - worktree discipline
 
-### 7.2 `FradSer/dotclaude` 中的 `superpowers`
+### 7.2 历史上的 `FradSer/dotclaude` `superpowers`
 
 定位：Claude Code 下的可选 persistence enhancer
 
@@ -375,7 +375,7 @@
 3. 不要把 phase gate 退化成“写了个文件就算完成”。
 4. 不要把 delivery 退化成一次大 prompt 全做完。
 5. 不要把 i18n 从工程约束降级为可选事项。
-6. 不要让 dotclaude loop 变成默认执行路径。
+6. 不要让 Ralph Loop 变成默认执行路径；当前实现已经内建到 `supernb-loop@supernb`。
 7. 不要失去 execution packet 这层审计与回放能力。
 
 ## 10. 对 `supernb` 当前定位的最终定义

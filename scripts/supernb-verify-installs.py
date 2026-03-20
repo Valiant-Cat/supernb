@@ -14,6 +14,7 @@ from typing import Iterable
 ROOT_DIR = Path(__file__).resolve().parent.parent
 HOME_DIR = Path.home()
 SUPERS_PLUGIN = "superpowers@git+https://github.com/obra/superpowers.git"
+RALPH_LOOP_PLUGIN_ID = "supernb-loop@supernb"
 KEY_IMPECCABLE_SKILLS = ["impeccable", "audit", "frontend-design", "polish"]
 KEY_SUPERPOWERS_SKILLS = ["brainstorming", "executing-plans", "writing-plans"]
 HARD_PATH_PATTERNS = [
@@ -224,24 +225,19 @@ def parse_claude_plugin_state(require_ralph_loop: bool = False) -> tuple[str | N
         return None, None, ["Claude Code plugin superpowers is not installed"]
     enabled = sorted(plugin for plugin, status in inventory.items() if status == "enabled")
     if require_ralph_loop:
-        plugin_id = "superpowers@frad-dotclaude" if "superpowers@frad-dotclaude" in inventory else next(iter(inventory))
+        plugin_id = RALPH_LOOP_PLUGIN_ID if RALPH_LOOP_PLUGIN_ID in inventory else next(iter(inventory))
         plugin_status = inventory.get(plugin_id)
     else:
-        for candidate in ["superpowers@frad-dotclaude", "superpowers@claude-plugins-official", "superpowers@superpowers-marketplace"]:
+        for candidate in [RALPH_LOOP_PLUGIN_ID, "superpowers@claude-plugins-official", "superpowers@superpowers-marketplace"]:
             if candidate in inventory:
                 plugin_id = candidate
                 plugin_status = inventory.get(candidate)
                 break
         if plugin_id is None:
             plugin_id, plugin_status = next(iter(inventory.items()))
-    if "superpowers@frad-dotclaude" in enabled and "superpowers@claude-plugins-official" in enabled:
+    if require_ralph_loop and RALPH_LOOP_PLUGIN_ID not in enabled:
         return plugin_id, plugin_status, [
-            "Claude Code has both `superpowers@frad-dotclaude` and `superpowers@claude-plugins-official` enabled. "
-            "Disable the official plugin in the active Claude scope before relying on Ralph Loop prompt-first execution."
-        ]
-    if require_ralph_loop and "superpowers@frad-dotclaude" not in enabled:
-        return plugin_id, plugin_status, [
-            "Claude Code user-global strict mode requires `superpowers@frad-dotclaude` to be enabled for prompt-first Ralph Loop execution."
+            f"Claude Code prompt-first Ralph Loop execution requires `{RALPH_LOOP_PLUGIN_ID}` to be enabled."
         ]
     if plugin_status != "enabled":
         return plugin_id, plugin_status, [f"Claude Code plugin {plugin_id} is not enabled"]

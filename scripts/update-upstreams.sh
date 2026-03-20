@@ -24,7 +24,6 @@ Usage: ./scripts/update-upstreams.sh [--skip-impeccable-build] [--report-file <p
 
 Clones or fast-forwards:
   - obra/superpowers
-  - FradSer/dotclaude
   - pbakaus/impeccable
 
 By default it also builds impeccable dist bundles.
@@ -161,7 +160,6 @@ update_repo() {
 }
 
 update_repo "superpowers" "https://github.com/obra/superpowers.git"
-update_repo "dotclaude" "https://github.com/FradSer/dotclaude.git"
 update_repo "impeccable" "https://github.com/pbakaus/impeccable.git"
 
 if [[ "${BUILD_IMPECCABLE}" -eq 1 ]]; then

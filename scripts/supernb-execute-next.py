@@ -31,9 +31,11 @@ from lib.supernb_common import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DISPLAY_ROOTS = [ROOT_DIR]
-RALPH_LOOP_SETUP_SCRIPT = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / "scripts" / "setup-superpower-loop.sh"
 RALPH_LOOP_AUDIT_WATCHER = ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"
-RALPH_LOOP_PLUGIN_DIR = ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin"
+RALPH_LOOP_PLUGIN_ROOT = ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop"
+RALPH_LOOP_SETUP_SCRIPT = RALPH_LOOP_PLUGIN_ROOT / "scripts" / "setup-superpower-loop.sh"
+RALPH_LOOP_PLUGIN_DIR = RALPH_LOOP_PLUGIN_ROOT / ".claude-plugin"
+RALPH_LOOP_PLUGIN_ID = "supernb-loop@supernb"
 SUPPORTED_HARNESSES = ["auto", "codex", "claude-code", "opencode"]
 DIRECT_EXECUTION_HARNESSES = {"codex", "claude-code"}
 REPORT_START = "SUPERNB_EXECUTION_REPORT_JSON_START"
@@ -499,7 +501,7 @@ def direct_loop_policy(loop_contract: dict[str, Any]) -> str:
     return (
         "\n\nClaude Code Ralph Loop contract:\n"
         f"- Session id: `{loop_contract['session_id']}`.\n"
-        f"- Session-local plugin dir: `{loop_contract['plugin_dir']}`.\n"
+        f"- Session-local bundled supernb loop plugin dir: `{loop_contract['plugin_dir']}`.\n"
         f"- Ralph Loop has been armed for this run with state file `{loop_contract['state_file']}`.\n"
         f"- External audit summary: `{loop_contract['audit_summary_file']}`.\n"
         f"- External audit events: `{loop_contract['audit_events_file']}`.\n"
@@ -542,10 +544,10 @@ def local_ralph_loop_plugin_metadata() -> dict[str, str]:
         payload = json.loads(plugin_json.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"Ralph Loop Claude plugin manifest is invalid JSON: {plugin_json}") from exc
-    name = str(payload.get("name", "")).strip() or "superpowers"
+    name = str(payload.get("name", "")).strip() or "supernb-loop"
     version = str(payload.get("version", "")).strip()
     return {
-        "id": "superpowers@frad-dotclaude",
+        "id": RALPH_LOOP_PLUGIN_ID,
         "name": name,
         "version": version,
         "source": str(RALPH_LOOP_PLUGIN_DIR),
@@ -599,7 +601,7 @@ def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -
         raise FileNotFoundError(f"Ralph Loop audit watcher not found: {RALPH_LOOP_AUDIT_WATCHER}")
     if not RALPH_LOOP_PLUGIN_DIR.is_dir():
         raise FileNotFoundError(f"Ralph Loop Claude plugin directory not found: {RALPH_LOOP_PLUGIN_DIR}")
-    stop_hook = RALPH_LOOP_PLUGIN_DIR.parent / "hooks" / "stop-hook.sh"
+    stop_hook = RALPH_LOOP_PLUGIN_ROOT / "hooks" / "stop-hook.sh"
     if not stop_hook.is_file():
         raise FileNotFoundError(f"Ralph Loop stop hook not found: {stop_hook}")
 

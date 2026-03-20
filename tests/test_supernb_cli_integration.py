@@ -46,7 +46,7 @@ def write_fake_claude(bin_dir: Path) -> Path:
             from pathlib import Path
 
             args = sys.argv[1:]
-            plugin_id = os.environ.get("FAKE_CLAUDE_PLUGIN_ID", "superpowers@frad-dotclaude")
+            plugin_id = os.environ.get("FAKE_CLAUDE_PLUGIN_ID", "supernb-loop@supernb")
             plugin_status = os.environ.get("FAKE_CLAUDE_PLUGIN_STATUS", "enabled")
 
             if args[:2] == ["plugin", "list"]:
@@ -148,19 +148,11 @@ def write_fake_claude_for_install(bin_dir: Path, log_path: Path) -> Path:
 
             if args[:3] == ["plugin", "marketplace", "add"]:
                 sys.exit(0)
-            if args[:3] == ["plugin", "enable", "superpowers@frad-dotclaude"]:
+            if args[:3] == ["plugin", "enable", "supernb-loop@supernb"]:
                 sys.exit(1)
-            if args[:3] == ["plugin", "install", "superpowers@frad-dotclaude"]:
-                sys.exit(0)
-            if args[:3] == ["plugin", "disable", "superpowers@claude-plugins-official"]:
-                sys.exit(0)
-            if args[:3] == ["plugin", "disable", "superpowers@superpowers-marketplace"]:
+            if args[:3] == ["plugin", "install", "supernb-loop@supernb"]:
                 sys.exit(0)
             if args[:2] == ["plugin", "list"]:
-                print("superpowers@frad-dotclaude")
-                print("  Version: 1.0.0")
-                print("  Scope: User")
-                print("  Status: enabled")
                 sys.exit(0)
 
             print("unsupported fake install claude invocation", file=sys.stderr)
@@ -520,9 +512,9 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertTrue((temp_home / ".claude" / "skills" / "impeccable" / "SKILL.md").is_file())
 
             logged_calls = log_path.read_text(encoding="utf-8")
-            self.assertIn("plugin marketplace add FradSer/dotclaude", logged_calls)
-            self.assertIn("plugin install superpowers@frad-dotclaude --scope user", logged_calls)
-            self.assertIn("plugin disable superpowers@claude-plugins-official --scope user", logged_calls)
+            self.assertIn("plugin marketplace add", logged_calls)
+            self.assertIn("bundles/claude-loop-marketplace", logged_calls)
+            self.assertIn("plugin install supernb-loop@supernb --scope user", logged_calls)
 
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -887,11 +879,14 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             request_payload = json.loads((packet_dir / "request.json").read_text(encoding="utf-8"))
             loop_contract = request_payload.get("ralph_loop") or {}
             self.assertTrue(loop_contract)
-            self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("id"), "superpowers@frad-dotclaude")
+            self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("id"), "supernb-loop@supernb")
             self.assertEqual(request_payload.get("ralph_loop_plugin", {}).get("mode"), "session-local-plugin-dir")
             self.assertIn("--plugin-dir", request_payload.get("command", []))
             self.assertIn("--session-id", request_payload.get("command", []))
-            self.assertEqual(loop_contract.get("plugin_dir"), str(ROOT_DIR / "upstreams" / "dotclaude" / "superpowers" / ".claude-plugin"))
+            self.assertEqual(
+                loop_contract.get("plugin_dir"),
+                str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / ".claude-plugin"),
+            )
 
             audit_summary_path = packet_dir / "ralph-loop-audit.json"
             audit_summary = json.loads(audit_summary_path.read_text(encoding="utf-8"))

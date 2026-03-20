@@ -1,0 +1,22 @@
+{
+  "name": "supernb-loop",
+  "version": "1.0.0",
+  "description": "Supernb Ralph Loop runtime for Claude Code prompt-first and direct bridge execution",
+  "author": {
+    "name": "supernb",
+    "email": "noreply@supernb.local"
+  },
+  "license": "MIT",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

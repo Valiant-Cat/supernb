@@ -5,7 +5,7 @@
 `supernb` is an orchestration layer that combines five capabilities into one product-building workflow:
 
 - the latest `obra/superpowers` as the default planning and delivery engine
-- `superpowers@frad-dotclaude` as the Ralph Loop enforcement layer for Claude Code prompt-first planning and delivery
+- bundled `supernb-loop@supernb` as the Ralph Loop enforcement layer for Claude Code prompt-first planning and delivery
 - `impeccable` for UI/UX generation, critique, design-system definition, and post-implementation quality control
 - bundled `sensortower-research` for competitor analysis, review mining, and evidence-backed PRD work
 - bundled translation skills for localization extraction, key sync, and multi-language completion
@@ -57,10 +57,9 @@ As inspected locally on 2026-03-19:
   - package version: `5.0.4`
   - provides a mature skills-based software delivery workflow
   - key strengths: brainstorming, plans, TDD, subagent-driven development, review, worktrees
-- `FradSer/dotclaude`
-  - relevant plugin: `superpowers` version `2.0.0`
-  - key addition: BDD-oriented execution plus optional Superpower Loop state/hook automation
-  - `ralph-loop` is not a separate repo here; it is the loop machinery in `scripts/setup-superpower-loop.sh` and `hooks/stop-hook.sh`
+- bundled `supernb-loop@supernb`
+  - managed Claude Code loop plugin maintained in this repository
+  - provides the stop-hook-backed Ralph Loop runtime used by prompt-first and direct Claude Code execution
 - `pbakaus/impeccable`
   - package version: `1.5.1`
   - cross-provider design skill system with 20 commands and a provider build pipeline
@@ -165,7 +164,7 @@ These names align best with the bundled skills and CLI scripts.
 
 What bootstrap does:
 
-- syncs `superpowers`, `dotclaude`, and `impeccable`
+- syncs `superpowers` and `impeccable`
 - installs bundled `sensortower-research`, `flutter-l10n-translation`, and `android-i18n-translation`
 - skips already installed skills instead of overwriting them
 - builds `impeccable` into an isolated local cache instead of mutating the upstream clone
@@ -182,7 +181,7 @@ That command:
 
 - updates `supernb` itself when the current repo is clean and on its default branch
 - safely skips self-update when your worktree is dirty or you are on a non-default branch
-- updates `superpowers`, `dotclaude`, and `impeccable`
+- updates `superpowers` and `impeccable`
 - rebuilds `impeccable` by default
 - writes JSON and Markdown update reports to `artifacts/updates/`
 
@@ -206,7 +205,7 @@ Direct Claude Code install into the current project:
 ```
 
 If you install into `"$HOME"` instead, the managed Claude Code skills live under `~/.claude/skills/`. In that user-global mode, target projects do not need their own `.claude/` directory.
-`install-claude-code "$HOME"` now also writes a managed `~/.claude/CLAUDE.md` block and configures user-scope Ralph Loop mode with `superpowers@frad-dotclaude`, so a simple prompt such as `use supernb to improve this project` can route correctly in any project session.
+`install-claude-code "$HOME"` now also writes a managed `~/.claude/CLAUDE.md` block and configures user-scope Ralph Loop mode with `supernb-loop@supernb`, so a simple prompt such as `use supernb to improve this project` can route correctly in any project session.
 
 For project-local Claude Code installs, `install-claude-code` also writes or updates a managed block in the project's `CLAUDE.md`.
 That project instruction block uses the same one-command flow and tells Claude that a simple user prompt such as `use supernb to improve this project` should automatically trigger the full `supernb` prompt-first workflow under the hood.
@@ -229,10 +228,10 @@ Detailed install guides:
 ## Default And Optional Engines
 
 - Default baseline for all supported harnesses: latest `obra/superpowers`
-- Claude Code Ralph Loop enforcement layer for prompt-first planning and delivery: `superpowers@frad-dotclaude`
+- Claude Code Ralph Loop enforcement layer for prompt-first planning and delivery: `supernb-loop@supernb`
 - `execute-next` direct bridging is currently implemented for Codex and Claude Code. OpenCode remains a prepared-prompt/manual-handoff path.
 - Do not install both `superpowers` plugins side by side in the same Claude Code environment. They share the same plugin name and overlapping skill names.
-- In `supernb`, `dotclaude` is treated as an execution add-on, not the primary workflow base.
+- In `supernb`, the Claude Code loop runtime is bundled and managed locally rather than depending on a separate upstream plugin repo.
 
 ## Initiative Control Plane
 
@@ -264,7 +263,7 @@ For a new product initiative:
    If you are using Claude Code by prompt rather than manually typing terminal commands, start with `./scripts/supernb prompt-bootstrap --initiative-id <initiative-id> --start-loop` once per work session so the agent gets a fresh session contract, report template, loop audit files, and an auto-started Ralph Loop for planning or delivery.
 4. Execute the current phase with `./scripts/supernb execute-next --initiative-id <initiative-id> [--harness ... --project-dir ...]`.
    Direct Codex and Claude Code runs must return the structured `REPORT JSON` block; otherwise the packet is downgraded to `needs-follow-up` and cannot cleanly certify.
-   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the state file, and then writes packet-local audit files.
+   For direct Claude Code planning or delivery runs, `execute-next` now auto-arms Ralph Loop, injects the bundled `supernb-loop` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the state file, and then writes packet-local audit files.
    `--dry-run` packets are preview-only and certification prefers the latest real non-dry-run packet.
    For OpenCode, this prepares the packet and prompt for manual execution rather than invoking the CLI directly.
 5. Apply the execution packet with `./scripts/supernb apply-execution --initiative-id <initiative-id> --packet <execution-packet-dir> [--certify|--apply-certification]`.

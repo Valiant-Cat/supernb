@@ -61,7 +61,7 @@ Then apply the resulting packet:
 
 For certifiable packets, Claude Code responses must include the structured `REPORT JSON` block that `execute-next` asks for.
 `--dry-run` packets are preview-only and should be rerun before certification.
-For `planning` and `delivery`, direct `claude-code` bridging now auto-arms Ralph Loop, injects the bundled `dotclaude` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files before invoking Claude Code.
+For `planning` and `delivery`, direct `claude-code` bridging now auto-arms Ralph Loop, injects the bundled `supernb-loop` plugin through a session-local `--plugin-dir`, binds a generated Claude session id, waits until the audit watcher has observed the loop state file, and then writes packet-local audit files before invoking Claude Code.
 If you want to prove the real local CLI path is loop-capable end to end, run `./scripts/supernb verify-claude-loop --allow-live-run`.
 
 ## Notes

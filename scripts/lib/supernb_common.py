@@ -12,7 +12,7 @@ from typing import Any
 
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 DEBUG_LOG_ENV_VAR = "SUPERNB_DEBUG_LOG"
-RALPH_LOOP_PLUGIN_ID = "superpowers@frad-dotclaude"
+RALPH_LOOP_PLUGIN_ID = "supernb-loop@supernb"
 SNAPSHOT_IGNORED_METADATA_FIELDS = {
     "Status",
     "Approval status",
@@ -329,7 +329,7 @@ def enabled_superpowers_plugins(project_dir: Path) -> list[str]:
     return sorted(
         plugin_id
         for plugin_id, metadata in inventory.items()
-        if plugin_id.startswith("superpowers@") and metadata.get("status") == "enabled"
+        if metadata.get("status") == "enabled"
     )
 
 
@@ -338,20 +338,14 @@ def assert_ralph_loop_environment(project_dir: Path) -> dict[str, str]:
     enabled = sorted(
         plugin_id
         for plugin_id, metadata in inventory.items()
-        if plugin_id.startswith("superpowers@") and metadata.get("status") == "enabled"
+        if metadata.get("status") == "enabled"
     )
     if RALPH_LOOP_PLUGIN_ID not in enabled:
         enabled_text = ", ".join(enabled) if enabled else "none"
         raise RuntimeError(
             "Ralph Loop requires an enabled Claude Code loop environment. "
-            f"Expected `{RALPH_LOOP_PLUGIN_ID}` but found enabled superpowers plugins: {enabled_text}. "
-            "Install or switch to the FradSer/dotclaude superpowers plugin before starting planning or delivery loop execution."
-        )
-    if len(enabled) > 1:
-        raise RuntimeError(
-            "Ralph Loop environment is ambiguous because multiple `superpowers@...` plugins are enabled in Claude Code: "
-            + ", ".join(enabled)
-            + ". Use a single loop-enabled superpowers plugin environment for planning or delivery execution."
+            f"Expected `{RALPH_LOOP_PLUGIN_ID}` but found enabled Claude Code plugins: {enabled_text}. "
+            "Install or enable the managed supernb loop plugin before starting planning or delivery loop execution."
         )
     return inventory[RALPH_LOOP_PLUGIN_ID]
 
