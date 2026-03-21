@@ -10,9 +10,11 @@ Follow these steps exactly.
 if [ -d "$HOME/.supernb/supernb/.git" ]; then
   git -C "$HOME/.supernb/supernb" pull --ff-only
 else
-  git clone https://github.com/WayJerry/supernb.git "$HOME/.supernb/supernb"
+  git clone https://github.com/<repo-owner>/supernb.git "$HOME/.supernb/supernb"
 fi
 ```
+
+Replace `<repo-owner>` with the owner of the `supernb` repository you are currently using.
 
 2. Build bundled provider assets:
 

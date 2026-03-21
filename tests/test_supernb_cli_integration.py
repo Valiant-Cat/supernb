@@ -894,6 +894,27 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("initiative-wide reassessment", verify_proc.stdout)
             self.assertIn("完善和升级", verify_proc.stdout)
 
+    def test_install_docs_and_scripts_do_not_hardcode_single_repo_owner(self) -> None:
+        tracked_paths = [
+            ROOT_DIR / "README.md",
+            ROOT_DIR / "README.zh-CN.md",
+            ROOT_DIR / "docs" / "platforms" / "claude-code.md",
+            ROOT_DIR / "docs" / "platforms" / "codex.md",
+            ROOT_DIR / "docs" / "platforms" / "opencode.md",
+            ROOT_DIR / "docs" / "quickstart.md",
+            ROOT_DIR / "docs" / "commands" / "claude-code.md",
+            ROOT_DIR / "scripts" / "bootstrap-supernb.sh",
+            ROOT_DIR / "scripts" / "install-claude-code-remote.sh",
+            ROOT_DIR / ".codex" / "INSTALL.md",
+            ROOT_DIR / ".opencode" / "INSTALL.md",
+        ]
+
+        for path in tracked_paths:
+            with self.subTest(path=path):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("raw.githubusercontent.com/WayJerry/supernb", text)
+                self.assertNotIn("github.com/WayJerry/supernb.git", text)
+
     def test_prompt_first_smoke_flow_from_managed_claude_md_to_closeout_promise(self) -> None:
         impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"
         if not impeccable_dir.is_dir():
@@ -1647,6 +1668,8 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 [
                     "bash",
                     str(ROOT_DIR / "scripts" / "install-claude-code-remote.sh"),
+                    "--repo-url",
+                    "https://github.com/Valiant-Cat/supernb.git",
                     "--repo-dir",
                     str(repo_dir),
                     "--skip-update",
@@ -1694,6 +1717,8 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 [
                     "bash",
                     str(ROOT_DIR / "scripts" / "install-claude-code-remote.sh"),
+                    "--repo-url",
+                    "https://github.com/Valiant-Cat/supernb.git",
                     "--repo-dir",
                     str(repo_dir),
                     "--project-dir",

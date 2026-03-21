@@ -94,13 +94,16 @@
 快速安装：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/<repo-owner>/supernb.git
 ```
 
 项目级覆盖可选：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir /path/to/your-project
+bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/<repo-owner>/supernb.git \
+  --project-dir /path/to/your-project
 ```
 
 平台页： [Supernb for Claude Code](./docs/platforms/claude-code.md)
@@ -112,7 +115,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/script
 快速安装：
 
 ```text
-Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.codex/INSTALL.md
+打开你当前正在浏览的仓库里的 `.codex/INSTALL.md`，并按照该仓库对应的说明执行。
 ```
 
 平台页： [Supernb for Codex](./docs/platforms/codex.md)
@@ -124,7 +127,7 @@ Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/su
 快速安装：
 
 ```text
-Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.opencode/INSTALL.md
+打开你当前正在浏览的仓库里的 `.opencode/INSTALL.md`，并按照该仓库对应的说明执行。
 ```
 
 平台页： [Supernb for OpenCode](./docs/platforms/opencode.md)

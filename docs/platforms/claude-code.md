@@ -15,14 +15,19 @@
 Recommended user-global remote install:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/<repo-owner>/supernb.git
 ```
 
 Optional project-local override:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir /path/to/your-project
+bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/<repo-owner>/supernb.git \
+  --project-dir /path/to/your-project
 ```
+
+Replace `<repo-owner>` with the GitHub owner of the `supernb` repository you are currently using.
 
 ## Manual Install
 

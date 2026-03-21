@@ -14,7 +14,7 @@
 Tell Codex:
 
 ```text
-Fetch and follow instructions from https://raw.githubusercontent.com/WayJerry/supernb/refs/heads/main/.codex/INSTALL.md
+Open the `.codex/INSTALL.md` file from the `supernb` repository you are currently browsing and follow that repo's instructions.
 ```
 
 ## Manual Install

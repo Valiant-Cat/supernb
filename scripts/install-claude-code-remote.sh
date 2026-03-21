@@ -5,28 +5,33 @@ set -euo pipefail
 REPO_DIR="${HOME}/.supernb/supernb"
 TARGET_DIR="${HOME}"
 SKIP_UPDATE=0
-REPO_URL="${SUPERNB_REMOTE_REPO_URL:-https://github.com/WayJerry/supernb.git}"
+REPO_URL="${SUPERNB_REMOTE_REPO_URL:-}"
 
 usage() {
   cat <<'EOF'
 One-command remote installer for `supernb` on Claude Code.
 
 Usage:
-  install-claude-code-remote.sh [--repo-dir <path>] [--project-dir <path>] [--skip-update]
+  install-claude-code-remote.sh [--repo-url <url>] [--repo-dir <path>] [--project-dir <path>] [--skip-update]
 
 Options:
+  --repo-url <url>       Git clone URL for the supernb repository. Recommended for mirrored repos.
   --repo-dir <path>      Where to clone or update supernb. Default: ~/.supernb/supernb
   --project-dir <path>   Optional project-local Claude Code install target. Default: $HOME
   --skip-update          Skip upstream sync/build step after cloning or updating
 
 Examples:
-  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
-  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir ~/projects/my-app
+  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) --repo-url https://github.com/<repo-owner>/supernb.git
+  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) --repo-url https://github.com/<repo-owner>/supernb.git --project-dir ~/projects/my-app
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --repo-url)
+      REPO_URL="${2:-}"
+      shift 2
+      ;;
     --repo-dir)
       REPO_DIR="${2:-}"
       shift 2
@@ -57,6 +62,11 @@ if [[ -d "${REPO_DIR}/.git" ]]; then
   echo "Updating supernb repo at ${REPO_DIR}..."
   bash "${REPO_DIR}/scripts/update-supernb.sh" --skip-upstreams
 else
+  if [[ -z "${REPO_URL}" ]]; then
+    echo "A repository URL is required when ${REPO_DIR} does not exist." >&2
+    echo "Pass --repo-url https://github.com/<repo-owner>/supernb.git or set SUPERNB_REMOTE_REPO_URL." >&2
+    exit 1
+  fi
   echo "Cloning supernb into ${REPO_DIR}..."
   git clone "${REPO_URL}" "${REPO_DIR}"
 fi

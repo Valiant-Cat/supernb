@@ -4,6 +4,7 @@ set -euo pipefail
 
 HARNESS=""
 REPO_DIR="${HOME}/.supernb/supernb"
+REPO_URL="${SUPERNB_REMOTE_REPO_URL:-}"
 PROJECT_DIR=""
 SKIP_UPDATE=0
 
@@ -15,14 +16,15 @@ Usage:
   bootstrap-supernb.sh [--harness <codex|claude-code|opencode>] [options]
 
 Options:
+  --repo-url <url>       Git clone URL for the supernb repository. Recommended for mirrored repos.
   --repo-dir <path>      Where to clone or update supernb. Default: ~/.supernb/supernb
   --project-dir <path>   Project directory for claude-code or opencode installs
   --skip-update          Skip upstream sync/build step
 
 Examples:
-  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh)
-  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness codex
-  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --harness claude-code --project-dir ~/projects/my-app
+  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git
+  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness codex
+  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness claude-code --project-dir ~/projects/my-app
 
 Prefer the platform-native install docs for day-to-day onboarding:
   Codex:       .codex/INSTALL.md
@@ -76,6 +78,10 @@ detect_harness() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --repo-url)
+      REPO_URL="${2:-}"
+      shift 2
+      ;;
     --harness)
       HARNESS="${2:-}"
       shift 2
@@ -123,8 +129,13 @@ if [[ -d "${REPO_DIR}/.git" ]]; then
   echo "Updating supernb repo at ${REPO_DIR}..."
   bash "${REPO_DIR}/scripts/update-supernb.sh" --skip-upstreams
 else
+  if [[ -z "${REPO_URL}" ]]; then
+    echo "A repository URL is required when ${REPO_DIR} does not exist." >&2
+    echo "Pass --repo-url https://github.com/<repo-owner>/supernb.git or set SUPERNB_REMOTE_REPO_URL." >&2
+    exit 1
+  fi
   echo "Cloning supernb into ${REPO_DIR}..."
-  git clone https://github.com/WayJerry/supernb.git "${REPO_DIR}"
+  git clone "${REPO_URL}" "${REPO_DIR}"
 fi
 
 if [[ "${SKIP_UPDATE}" -eq 0 ]]; then
