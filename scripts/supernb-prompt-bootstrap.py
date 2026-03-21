@@ -11,6 +11,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from lib.supernb_common import artifact_path as common_artifact_path
+from lib.supernb_common import load_spec
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 INIT_SCRIPT = ROOT_DIR / "scripts" / "init-initiative.sh"
@@ -64,6 +66,40 @@ def discover_initiative_specs(project_dir: Path) -> list[Path]:
         return (timestamp, str(path))
 
     return sorted((path.resolve() for path in candidates), key=sort_key, reverse=True)
+
+
+def read_markdown_field(path: Path, field_name: str) -> str:
+    if not path.is_file():
+        return ""
+    pattern = re.compile(r"^- ([^:]+):\s*(.*)$")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = pattern.match(line.strip())
+        if not match:
+            continue
+        key = match.group(1).strip().lower()
+        value = match.group(2).strip().strip("`")
+        if key == field_name.lower():
+            return value
+    return ""
+
+
+def normalize(value: str) -> str:
+    return value.strip().lower()
+
+
+def initiative_should_roll_into_follow_on(spec_path: Path) -> bool:
+    spec = load_spec(spec_path)
+    plan_file = common_artifact_path(spec, "plan_dir", ROOT_DIR) / "implementation-plan.md"
+    release_file = common_artifact_path(spec, "release_dir", ROOT_DIR) / "release-readiness.md"
+    delivery_status = normalize(read_markdown_field(plan_file, "Delivery status"))
+    release_status = normalize(read_markdown_field(release_file, "Release decision"))
+    return delivery_status in {"verified", "complete", "completed", "done"} and release_status in {
+        "ready",
+        "approved",
+        "ship-ready",
+        "shipped",
+        "released",
+    }
 
 
 def legacy_workspace_present(project_dir: Path) -> bool:
@@ -173,6 +209,25 @@ def main() -> int:
         return proc.returncode
 
     specs = discover_initiative_specs(project_dir)
+    if specs:
+        if args.phase == "auto" and initiative_should_roll_into_follow_on(specs[0]):
+            print(
+                f"Existing initiative `{specs[0].parent.name}` has already reached a release-ready cycle; "
+                "starting a new follow-on initiative for continued product upgrades."
+            )
+        else:
+            return prompt_sync(specs[0], args)
+
+    if specs and args.phase == "auto":
+        legacy_snapshot = snapshot_legacy_root(project_dir)
+        try:
+            spec_path = init_new_initiative(project_dir, args)
+            migrate_legacy_if_needed(spec_path, legacy_snapshot)
+            return prompt_sync(spec_path, args)
+        finally:
+            if legacy_snapshot is not None:
+                shutil.rmtree(legacy_snapshot.parent, ignore_errors=True)
+
     if specs:
         return prompt_sync(specs[0], args)
 

@@ -1094,6 +1094,89 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Recorded result status: succeeded", closeout_proc.stdout)
             self.assertIn("Certification run: yes (apply)", closeout_proc.stdout)
 
+    def test_init_initiative_uses_unique_id_when_same_day_slug_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            env = dict(os.environ)
+            env["PROJECT_DIR"] = str(project_dir)
+
+            first_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-follow-on", "Demo Follow On"],
+                env=env,
+            )
+            self.assertEqual(first_proc.returncode, 0, msg=first_proc.stderr)
+
+            second_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-follow-on", "Demo Follow On"],
+                env=env,
+            )
+            self.assertEqual(second_proc.returncode, 0, msg=second_proc.stderr)
+
+            specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(specs), 2)
+            initiative_ids = [path.parent.name for path in specs]
+            self.assertEqual(len(set(initiative_ids)), 2)
+            self.assertTrue(any(initiative_id.endswith("-2") for initiative_id in initiative_ids))
+
+    def test_prompt_bootstrap_creates_follow_on_initiative_after_release_ready_cycle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            env = dict(os.environ)
+            env["PROJECT_DIR"] = str(project_dir)
+            env["GOAL"] = "Ship a bounded release."
+            env["HARNESS"] = "claude-code"
+
+            init_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-follow-on", "Demo Follow On"],
+                env=env,
+            )
+            self.assertEqual(init_proc.returncode, 0, msg=init_proc.stderr)
+
+            specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(specs), 1)
+            old_spec = specs[0]
+            old_id = old_spec.parent.name
+            old_plan = project_dir / ".supernb" / "plans" / old_id / "implementation-plan.md"
+            old_release = project_dir / ".supernb" / "releases" / old_id / "release-readiness.md"
+            old_plan.write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: verified\n- Approved by: supernb\n- Approved on: 2026-03-21\n",
+                encoding="utf-8",
+            )
+            old_release.write_text(
+                "# Release Readiness\n\n- Release decision: ready\n- Approved by: supernb\n- Approved on: 2026-03-21\n",
+                encoding="utf-8",
+            )
+
+            bootstrap_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-bootstrap",
+                    "--project-dir",
+                    str(project_dir),
+                ],
+                cwd=project_dir,
+                env=env,
+            )
+            self.assertEqual(bootstrap_proc.returncode, 0, bootstrap_proc.stderr or bootstrap_proc.stdout)
+            self.assertIn("starting a new follow-on initiative", bootstrap_proc.stdout.lower())
+
+            specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(specs), 2)
+            newest_spec = max(specs, key=lambda path: path.stat().st_mtime)
+            newest_id = newest_spec.parent.name
+            self.assertNotEqual(newest_id, old_id)
+
+            run_status = json.loads((newest_spec.parent / "run-status.json").read_text(encoding="utf-8"))
+            self.assertEqual(run_status.get("selected_phase"), "research")
+            self.assertIn(str(newest_spec), bootstrap_proc.stdout)
+
     def test_prompt_closeout_blocks_when_initiative_reassessment_is_still_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))

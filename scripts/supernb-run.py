@@ -193,7 +193,12 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"]) and certification_snapshot_matches(certification_entry(spec, "design"), phase_artifact_snapshot(spec, "design", ROOT_DIR, DISPLAY_ROOTS))
     planning_complete = planning_status_complete and certification_passed(certification_entry(spec, "planning"), EXPECTED_GATE_STATUS["planning"]) and certification_snapshot_matches(certification_entry(spec, "planning"), phase_artifact_snapshot(spec, "planning", ROOT_DIR, DISPLAY_ROOTS))
     delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"]) and certification_snapshot_matches(certification_entry(spec, "delivery"), phase_artifact_snapshot(spec, "delivery", ROOT_DIR, DISPLAY_ROOTS))
-    release_complete = release_status_complete and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"]) and certification_snapshot_matches(certification_entry(spec, "release"), phase_artifact_snapshot(spec, "release", ROOT_DIR, DISPLAY_ROOTS))
+    release_complete = (
+        delivery_complete
+        and release_status_complete
+        and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"])
+        and certification_snapshot_matches(certification_entry(spec, "release"), phase_artifact_snapshot(spec, "release", ROOT_DIR, DISPLAY_ROOTS))
+    )
 
     spec_fields = {
         "research": spec_missing(

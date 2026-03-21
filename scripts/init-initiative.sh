@@ -45,7 +45,6 @@ if [[ -z "${SLUG}" ]]; then
   exit 1
 fi
 
-INIT_ID="${DATE_STAMP}-${SLUG}"
 if [[ -n "${PROJECT_DIR}" ]]; then
   PRODUCT_ROOT="$(resolve_dir "${PROJECT_DIR}")"
 elif [[ -n "${REPOSITORY}" && -d "${REPOSITORY}" ]]; then
@@ -58,6 +57,13 @@ fi
 
 PROJECT_DIR="${PRODUCT_ROOT}"
 ARTIFACTS_ROOT="${PRODUCT_ROOT}/.supernb"
+BASE_INIT_ID="${DATE_STAMP}-${SLUG}"
+INIT_ID="${BASE_INIT_ID}"
+COUNTER=2
+while [[ -e "${ARTIFACTS_ROOT}/initiatives/${INIT_ID}" ]]; do
+  INIT_ID="${BASE_INIT_ID}-${COUNTER}"
+  COUNTER=$((COUNTER + 1))
+done
 RESEARCH_DIR="${ARTIFACTS_ROOT}/research/${INIT_ID}"
 PRD_DIR="${ARTIFACTS_ROOT}/prd/${INIT_ID}"
 DESIGN_DIR="${ARTIFACTS_ROOT}/design/${INIT_ID}"
