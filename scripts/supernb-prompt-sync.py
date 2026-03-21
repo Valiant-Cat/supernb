@@ -805,7 +805,9 @@ def main() -> int:
         print(f"Initiative spec not found: {spec_path}", file=sys.stderr)
         return 1
 
+    print(f"supernb prompt-sync: preparing prompt-first artifacts for `{spec_path.parent.name}`...", flush=True)
     if not args.no_run:
+        print("supernb prompt-sync: refreshing control-plane state...", flush=True)
         command = [sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)]
         if args.phase != "auto":
             command.extend(["--phase", args.phase])
@@ -813,6 +815,8 @@ def main() -> int:
         if proc.returncode != 0:
             sys.stderr.write(proc.stderr)
             return proc.returncode
+    else:
+        print("supernb prompt-sync: skipping control-plane refresh because --no-run was requested.", flush=True)
 
     spec = load_spec(spec_path)
     initiative_id = nested_get(spec, "initiative", "id")
@@ -830,6 +834,7 @@ def main() -> int:
     prompt_session_path = initiative_root / "prompt-session.md"
     report_template_path = initiative_root / "prompt-report-template.json"
     reassessment_path = initiative_root / "initiative-reassessment.md"
+    print("supernb prompt-sync: writing prompt session, reassessment template, and loop artifacts...", flush=True)
     loop_config = loop_settings(initiative_id, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
     write_report_template(report_template_path, selected_phase, loop_config)
     write_reassessment_template(reassessment_path, spec, selected_phase)
@@ -870,6 +875,25 @@ def main() -> int:
             f"Ralph Loop is required for {selected_phase}, but this prompt-sync run did not request --start-loop. "
             f"Rerun `{rerun_command}` before treating this prompt session as completion-grade."
         )
+        if not args.no_run:
+            append_debug_log(
+                spec,
+                ROOT_DIR,
+                "supernb-prompt-sync",
+                "loop-required-blocked",
+                {
+                    "initiative_id": initiative_id,
+                    "selected_phase": selected_phase,
+                    "spec_path": str(spec_path),
+                    "rerun_command": rerun_command,
+                },
+            )
+            print(
+                f"Ralph Loop is required for {selected_phase}, and live prompt-first execution is blocked until this session is started with --start-loop.",
+                file=sys.stderr,
+            )
+            print(loop_warning, file=sys.stderr)
+            return 1
 
     append_debug_log(
         spec,

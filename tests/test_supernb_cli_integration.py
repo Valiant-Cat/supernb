@@ -1259,6 +1259,90 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             newest_spec = max(specs, key=lambda path: path.stat().st_mtime)
             self.assertNotEqual(newest_spec.parent.name, old_id)
 
+    def test_prompt_bootstrap_explicit_spec_creates_follow_on_from_completed_release_reassessment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            env = dict(os.environ)
+            env["PROJECT_DIR"] = str(project_dir)
+            env["GOAL"] = "Continue upgrading the product."
+            env["HARNESS"] = "claude-code"
+
+            init_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-follow-on", "Demo Follow On"],
+                env=env,
+            )
+            self.assertEqual(init_proc.returncode, 0, msg=init_proc.stderr)
+
+            old_spec = next((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            old_root = old_spec.parent
+            old_id = old_root.name
+            (old_root / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": old_id,
+                        "selected_phase": "release",
+                        "phases": {
+                            "delivery": {"status": "complete"},
+                            "release": {"status": "complete"},
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (old_root / "initiative-reassessment.md").write_text(
+                textwrap.dedent(
+                    f"""\
+                    # Initiative-Wide Reassessment
+
+                    - Initiative ID: `{old_id}`
+                    - Current selected phase: `release`
+                    - Trigger: generic prompt-first supernb upgrade or improvement request
+                    - Status: completed
+
+                    ## Reopen Decision
+
+                    - Earliest affected phase to reopen: None
+                    - Why this is the correct restart point: All phases are complete and certified
+                    - Can the current selected phase continue without reopening upstream work: yes
+
+                    ## Required Upgrade Docs
+
+                    - Planning upgrades required: Future batch items need plan updates
+
+                    ## Execution Rule
+
+                    - All phases complete. Initiative is ready for next development cycle.
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            bootstrap_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-bootstrap",
+                    "--spec",
+                    str(old_spec),
+                ],
+                cwd=project_dir,
+                env=env,
+            )
+            self.assertEqual(bootstrap_proc.returncode, 0, bootstrap_proc.stderr or bootstrap_proc.stdout)
+            self.assertIn("starting a new follow-on initiative", bootstrap_proc.stdout.lower())
+            self.assertIn("resolving initiative", bootstrap_proc.stdout.lower())
+            self.assertIn("refreshing prompt-first session", bootstrap_proc.stdout.lower())
+
+            specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(specs), 2)
+            newest_spec = max(specs, key=lambda path: path.stat().st_mtime)
+            self.assertNotEqual(newest_spec.parent.name, old_id)
+
     def test_prompt_closeout_blocks_when_initiative_reassessment_is_still_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -1637,6 +1721,36 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Ralph Loop is required for delivery", sync_proc.stdout)
             self.assertIn("--start-loop", sync_proc.stdout)
             self.assertIn("--direct-bridge-fallback", sync_proc.stdout)
+
+    def test_prompt_sync_blocks_live_loop_phase_without_start_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            run_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "delivery",
+            )
+            self.assertEqual(run_proc.returncode, 0, msg=run_proc.stderr)
+
+            sync_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-sync",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "delivery",
+                ],
+            )
+            self.assertNotEqual(sync_proc.returncode, 0)
+            self.assertIn("live prompt-first execution is blocked", sync_proc.stderr)
+            self.assertIn("Ralph Loop is required for delivery", sync_proc.stderr)
+            self.assertIn("--start-loop", sync_proc.stderr)
+            self.assertIn("refreshing control-plane state", sync_proc.stdout)
+            self.assertIn("writing prompt session", sync_proc.stdout)
 
     def test_prompt_sync_start_loop_creates_session_bound_state_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -2193,6 +2307,43 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn("do not exist", proc.stderr)
+            self.assertEqual(list(paths["executions_dir"].iterdir()), [])
+
+    def test_import_execution_blocks_prompt_first_when_reassessment_is_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_path.write_text(
+                textwrap.dedent(
+                    f"""\
+                    # Initiative-Wide Reassessment
+
+                    - Initiative ID: `{paths["initiative_root"].name}`
+                    - Current selected phase: `planning`
+                    - Trigger: generic prompt-first supernb upgrade or improvement request
+                    - Status: pending
+                    """
+                ),
+                encoding="utf-8",
+            )
+            report_path = Path(tmp_dir) / "report.json"
+            write_report_json(report_path)
+
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("initiative-wide reassessment", proc.stderr)
+            self.assertIn("pending", proc.stderr)
             self.assertEqual(list(paths["executions_dir"].iterdir()), [])
 
     def test_import_and_apply_execution_records_packet_source(self) -> None:

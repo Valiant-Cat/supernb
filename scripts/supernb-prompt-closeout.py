@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,10 +14,9 @@ from lib.supernb_common import (
     append_debug_log,
     artifact_path,
     load_spec,
-    markdown_field_from_text,
     nested_get,
-    project_root,
-    reassessment_indicates_next_development_cycle,
+    prompt_first_reassessment_blocker,
+    prompt_first_reassessment_path,
     resolve_spec_path,
     supernb_cli_prefix,
 )
@@ -61,60 +59,14 @@ def default_report_json(spec: dict[str, Any]) -> Path:
 
 
 def default_reassessment_path(spec: dict[str, Any]) -> Path:
-    return artifact_path(spec, "run_status_md", ROOT_DIR).parent / "initiative-reassessment.md"
-
-
-def extract_reassessment_field(text: str, label: str) -> str:
-    return markdown_field_from_text(text, label)
+    return prompt_first_reassessment_path(spec, ROOT_DIR)
 
 
 def validate_reassessment(spec: dict[str, Any], spec_path: Path, phase: str) -> str | None:
-    reassessment_path = default_reassessment_path(spec)
-    if not reassessment_path.is_file():
-        return (
-            "Prompt closeout requires a completed initiative-wide reassessment, but the managed reassessment file is missing: "
-            f"{reassessment_path}. Run `{supernb_cli_prefix(ROOT_DIR)} prompt-sync --spec {spec_path}` or "
-            f"`{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --spec {spec_path}` before closing out this prompt-first batch."
-        )
-
-    text = reassessment_path.read_text(encoding="utf-8")
-    status = extract_reassessment_field(text, "Status")
-    earliest_phase = extract_reassessment_field(text, "Earliest affected phase to reopen")
-    continue_match = re.search(
-        r"^- Can the current selected phase continue without reopening upstream work\??:?\s*(.*)$",
-        text,
-        flags=re.MULTILINE,
-    )
-    can_continue = continue_match.group(1).strip().lower() if continue_match else ""
-
-    if not status or status == "pending":
-        return (
-            f"Prompt closeout requires a completed initiative-wide reassessment before {phase} can finish. "
-            f"Update `{reassessment_path}` and change `- Status:` from `pending` to a completed state first."
-        )
-    if not earliest_phase:
-        return (
-            f"Prompt closeout requires `{reassessment_path}` to record `Earliest affected phase to reopen` "
-            "before the batch can finish."
-        )
-    if can_continue not in {"yes", "no"}:
-        return (
-            f"Prompt closeout requires `{reassessment_path}` to answer whether the current phase can continue without reopening upstream work."
-        )
-    if can_continue == "no":
-        return (
-            f"Initiative-wide reassessment says the current `{phase}` batch cannot close out cleanly until an earlier phase is reopened. "
-            f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --spec {spec_path} --phase {earliest_phase}` "
-            "after updating the upstream artifacts."
-        )
-    if reassessment_indicates_next_development_cycle(reassessment_path):
-        project_dir = project_root(spec, ROOT_DIR)
-        return (
-            "Initiative-wide reassessment says the current initiative has already completed its release-ready cycle and the request belongs in the next "
-            "development cycle. Do not close out more work into the current initiative. "
-            f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --project-dir {project_dir}` to start a new follow-on initiative."
-        )
-    return None
+    blocker = prompt_first_reassessment_blocker(spec, ROOT_DIR, spec_path, phase)
+    if blocker is None:
+        return None
+    return blocker.replace("Prompt-first execution", "Prompt closeout", 1).replace("continue cleanly", "close out cleanly", 1)
 
 
 def parse_execution_packet(stdout: str) -> Path:

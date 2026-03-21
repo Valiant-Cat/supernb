@@ -15,7 +15,9 @@ from lib.supernb_common import artifact_path as common_artifact_path
 from lib.supernb_common import load_json_file
 from lib.supernb_common import load_spec
 from lib.supernb_common import markdown_field
+from lib.supernb_common import project_root
 from lib.supernb_common import reassessment_indicates_next_development_cycle
+from lib.supernb_common import resolve_spec_path
 from lib.supernb_common import run_status_indicates_completed_cycle
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -175,6 +177,8 @@ def migrate_legacy_if_needed(spec_path: Path, legacy_snapshot: Path | None) -> N
 
 
 def prompt_sync(spec_path: Path, args: argparse.Namespace) -> int:
+    print(f"supernb prompt-bootstrap: refreshing prompt-first session for `{spec_path.parent.name}`...", flush=True)
+    sync_cwd = project_root(load_spec(spec_path), ROOT_DIR)
     command = [sys.executable, str(PROMPT_SYNC_SCRIPT), "--spec", str(spec_path)]
     if args.phase != "auto":
         command.extend(["--phase", args.phase])
@@ -185,37 +189,47 @@ def prompt_sync(spec_path: Path, args: argparse.Namespace) -> int:
     if args.direct_bridge_fallback:
         command.append("--direct-bridge-fallback")
 
-    proc = subprocess.run(command, cwd=project_dir_from_args(args))
+    proc = subprocess.run(command, cwd=sync_cwd)
     return proc.returncode
+
+
+def bootstrap_follow_on_from_spec(spec_path: Path, args: argparse.Namespace) -> int:
+    project_dir = project_root(load_spec(spec_path), ROOT_DIR)
+    print(
+        f"Existing initiative `{spec_path.parent.name}` has already reached a release-ready cycle; "
+        "starting a new follow-on initiative for continued product upgrades.",
+        flush=True,
+    )
+    print(f"supernb prompt-bootstrap: initializing follow-on initiative in `{project_dir}`...", flush=True)
+    new_spec = init_new_initiative(project_dir, args)
+    print(f"supernb prompt-bootstrap: continuing with new initiative `{new_spec.parent.name}`.", flush=True)
+    return prompt_sync(new_spec, args)
 
 
 def main() -> int:
     args = parse_args()
     project_dir = project_dir_from_args(args)
+    print(f"supernb prompt-bootstrap: resolving initiative from `{project_dir}`...", flush=True)
 
     if args.spec:
         spec_path = Path(args.spec).expanduser().resolve()
+        if args.phase == "auto" and initiative_should_roll_into_follow_on(spec_path):
+            return bootstrap_follow_on_from_spec(spec_path, args)
         return prompt_sync(spec_path, args)
 
     if args.initiative_id:
-        command = [sys.executable, str(PROMPT_SYNC_SCRIPT), "--initiative-id", args.initiative_id]
-        if args.phase != "auto":
-            command.extend(["--phase", args.phase])
-        if args.no_run:
-            command.append("--no-run")
-        if args.start_loop:
-            command.append("--start-loop")
-        if args.direct_bridge_fallback:
-            command.append("--direct-bridge-fallback")
-        proc = subprocess.run(command, cwd=project_dir)
-        return proc.returncode
+        spec_path = resolve_spec_path(args, ROOT_DIR)
+        if args.phase == "auto" and initiative_should_roll_into_follow_on(spec_path):
+            return bootstrap_follow_on_from_spec(spec_path, args)
+        return prompt_sync(spec_path, args)
 
     specs = discover_initiative_specs(project_dir)
     if specs:
         if args.phase == "auto" and initiative_should_roll_into_follow_on(specs[0]):
             print(
                 f"Existing initiative `{specs[0].parent.name}` has already reached a release-ready cycle; "
-                "starting a new follow-on initiative for continued product upgrades."
+                "starting a new follow-on initiative for continued product upgrades.",
+                flush=True,
             )
         else:
             return prompt_sync(specs[0], args)
@@ -223,8 +237,10 @@ def main() -> int:
     if specs and args.phase == "auto":
         legacy_snapshot = snapshot_legacy_root(project_dir)
         try:
+            print(f"supernb prompt-bootstrap: initializing follow-on initiative in `{project_dir}`...", flush=True)
             spec_path = init_new_initiative(project_dir, args)
             migrate_legacy_if_needed(spec_path, legacy_snapshot)
+            print(f"supernb prompt-bootstrap: continuing with new initiative `{spec_path.parent.name}`.", flush=True)
             return prompt_sync(spec_path, args)
         finally:
             if legacy_snapshot is not None:
@@ -243,8 +259,10 @@ def main() -> int:
 
     legacy_snapshot = snapshot_legacy_root(project_dir)
     try:
+        print(f"supernb prompt-bootstrap: initializing new initiative in `{project_dir}`...", flush=True)
         spec_path = init_new_initiative(project_dir, args)
         migrate_legacy_if_needed(spec_path, legacy_snapshot)
+        print(f"supernb prompt-bootstrap: continuing with new initiative `{spec_path.parent.name}`.", flush=True)
         return prompt_sync(spec_path, args)
     finally:
         if legacy_snapshot is not None:

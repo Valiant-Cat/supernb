@@ -463,6 +463,54 @@ def reassessment_indicates_next_development_cycle(reassessment_path: Path) -> bo
     return current_phase == "release" and any(signal in lowered for signal in cycle_signals)
 
 
+def prompt_first_reassessment_path(spec: dict[str, Any], root_dir: Path) -> Path:
+    return initiative_dir(spec, root_dir) / "initiative-reassessment.md"
+
+
+def prompt_first_reassessment_blocker(spec: dict[str, Any], root_dir: Path, spec_path: Path, phase: str) -> str | None:
+    reassessment_path = prompt_first_reassessment_path(spec, root_dir)
+    if not reassessment_path.is_file():
+        return (
+            "Prompt-first execution requires a completed initiative-wide reassessment, but the managed reassessment file is missing: "
+            f"{reassessment_path}. Run `{supernb_cli_prefix(root_dir)} prompt-sync --spec {spec_path}` or "
+            f"`{supernb_cli_prefix(root_dir)} prompt-bootstrap --spec {spec_path}` before continuing this prompt-first batch."
+        )
+
+    text = reassessment_path.read_text(encoding="utf-8")
+    status = normalized_choice(markdown_field_from_text(text, "Status"))
+    earliest_phase = normalized_choice(markdown_field_from_text(text, "Earliest affected phase to reopen"))
+    can_continue = normalized_choice(markdown_field_from_text(text, "Can the current selected phase continue without reopening upstream work"))
+
+    if not status or status == "pending":
+        return (
+            f"Prompt-first execution requires a completed initiative-wide reassessment before {phase} can finish. "
+            f"Update `{reassessment_path}` and change `- Status:` from `pending` to a completed state first."
+        )
+    if not earliest_phase:
+        return (
+            f"Prompt-first execution requires `{reassessment_path}` to record `Earliest affected phase to reopen` "
+            "before the batch can continue."
+        )
+    if can_continue not in {"yes", "no"}:
+        return (
+            f"Prompt-first execution requires `{reassessment_path}` to answer whether the current phase can continue without reopening upstream work."
+        )
+    if can_continue == "no":
+        return (
+            f"Initiative-wide reassessment says the current `{phase}` batch cannot continue cleanly until an earlier phase is reopened. "
+            f"Next step: run `{supernb_cli_prefix(root_dir)} prompt-bootstrap --spec {spec_path} --phase {earliest_phase}` "
+            "after updating the upstream artifacts."
+        )
+    if reassessment_indicates_next_development_cycle(reassessment_path):
+        project_dir = project_root(spec, root_dir)
+        return (
+            "Initiative-wide reassessment says the current initiative has already completed its release-ready cycle and the request belongs in the next "
+            "development cycle. Do not continue more work into the current initiative. "
+            f"Next step: run `{supernb_cli_prefix(root_dir)} prompt-bootstrap --project-dir {project_dir}` to start a new follow-on initiative."
+        )
+    return None
+
+
 def phase_targets(spec: dict[str, Any], phase: str, root_dir: Path) -> list[Path]:
     if phase == "research":
         root = artifact_path(spec, "research_dir", root_dir)

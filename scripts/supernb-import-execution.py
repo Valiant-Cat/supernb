@@ -16,6 +16,7 @@ from lib.supernb_common import (
     artifact_path as common_artifact_path,
     load_spec,
     nested_get,
+    prompt_first_reassessment_blocker,
     project_root as common_project_root,
     resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
@@ -193,6 +194,20 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+    if args.harness == "claude-code-prompt":
+        reassessment_blocker = prompt_first_reassessment_blocker(spec, ROOT_DIR, spec_path, args.phase)
+        if reassessment_blocker:
+            debug_log(
+                spec,
+                "reassessment-blocked",
+                {
+                    "spec_path": str(spec_path),
+                    "phase": args.phase,
+                    "harness": args.harness,
+                },
+            )
+            print(reassessment_blocker, file=sys.stderr)
+            return 1
     debug_log(
         spec,
         "start",
