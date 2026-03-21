@@ -35,6 +35,8 @@ What matters for `supernb`:
 
 ## Historical Note: `FradSer/dotclaude`
 
+This section is historical context only. The current `supernb` runtime, install flow, and Claude Code prompt-first path no longer depend on a local `dotclaude` upstream cache.
+
 Repository role: plugin marketplace with multiple Claude Code plugins.
 
 Observed structure:
@@ -127,5 +129,6 @@ Conflict note:
 - both upstreams use the plugin name `superpowers`
 - both define overlapping skills like `brainstorming`, `writing-plans`, `executing-plans`, and `systematic-debugging`
 - the current runtime no longer depends on `dotclaude`; the required Ralph Loop stop-hook behavior is now bundled into `supernb-loop@supernb`
+- the local ignored `upstreams/dotclaude/` cache was removed after the loop runtime was bundled into `supernb`
 
 That layering is the basis of the repository structure and skills in this repo.

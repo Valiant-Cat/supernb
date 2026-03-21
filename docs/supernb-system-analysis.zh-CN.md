@@ -269,7 +269,9 @@
 
 ### 7.2 历史上的 `FradSer/dotclaude` `superpowers`
 
-定位：Claude Code 下的可选 persistence enhancer
+说明：这一节只保留历史背景。当前 `supernb` 的运行时、安装链路、Claude Code prompt-first 主线已经不再依赖本地 `dotclaude` upstream 缓存。
+
+定位：历史上用于 Claude Code 持续执行增强的参考来源
 
 负责：
 
@@ -277,7 +279,7 @@
 - 更强的持续推进能力
 - BDD / agent-team 风格增强
 
-它不是默认底座，只是 delivery 阶段的可选强化器。
+它不是当前默认底座；相关 Ralph Loop 能力已经内建到 `supernb-loop@supernb`，本地 `upstreams/dotclaude` 缓存也已经移除。
 
 ### 7.3 `pbakaus/impeccable`
 
