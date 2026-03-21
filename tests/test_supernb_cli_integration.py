@@ -2598,6 +2598,110 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
             self.assertTrue(handoff_path.is_file())
 
+    def test_prompt_sync_blocks_live_delivery_when_only_control_plane_progress_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            spec = common.load_spec(paths["spec_path"])
+
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = paths["project_dir"] / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "add", str(app_path.relative_to(paths["project_dir"]))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "commit", "-m", "feat: initial app"], check=True, capture_output=True, text=True)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nDeliver the next bounded product batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            mark_reassessment_complete(paths, "delivery")
+
+            failed_packet = paths["executions_dir"] / "20260321-120000-delivery-claude-code-prompt"
+            failed_packet.mkdir(parents=True, exist_ok=True)
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "delivery",
+                packet_dir=failed_packet,
+                reason="apply-certification-failed",
+                detail="Previous delivery closeout failed without a real product batch.",
+            )
+
+            plan_path = paths["plan_dir"] / "implementation-plan.md"
+            plan_path.write_text("# Implementation Plan\n\n- Ready for execution: yes\n\n## Notes\n\n- Control-plane only update.\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "add", str(plan_path.relative_to(paths["project_dir"]))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(paths["project_dir"]), "commit", "-m", "docs: update delivery plan only"], check=True, capture_output=True, text=True)
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-sync",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "delivery",
+                ],
+                cwd=paths["project_dir"],
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("without any new product commit or product workspace change", proc.stderr)
+            self.assertIn("Control-plane-only updates", proc.stderr)
+            packet_dirs = sorted(paths["executions_dir"].glob("*-delivery-claude-code"))
+            self.assertEqual(packet_dirs, [])
+            self.assertTrue(failed_packet.is_dir())
+
+    def test_prompt_sync_delivery_prompt_explicitly_prioritizes_real_product_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nDeliver the next bounded product batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+                cwd=paths["project_dir"],
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            prompt_session = (paths["initiative_root"] / "prompt-session.md").read_text(encoding="utf-8")
+            loop_prompt = (paths["initiative_root"] / "ralph-loop-delivery.md").read_text(encoding="utf-8")
+            self.assertIn("real product workspace changes first", prompt_session)
+            self.assertIn("Do not spend the batch mainly updating `.supernb`", loop_prompt)
+
     def test_bootstrap_claude_code_defaults_to_user_global_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_root = Path(tmp_dir)

@@ -44,8 +44,10 @@ class SupernbControlPlaneTests(unittest.TestCase):
             initiative_id = "2026-03-19-demo"
             initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
             plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
             initiative_root.mkdir(parents=True, exist_ok=True)
             plan_dir.mkdir(parents=True, exist_ok=True)
+            release_dir.mkdir(parents=True, exist_ok=True)
 
             spec_path = initiative_root / "initiative.yaml"
             spec_path.write_text(
@@ -57,6 +59,7 @@ class SupernbControlPlaneTests(unittest.TestCase):
                         f'  project_dir: "{project_dir}"',
                         "artifacts:",
                         f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
                         f'  run_status_md: ".supernb/initiatives/{initiative_id}/run-status.md"',
                         f'  run_status_json: ".supernb/initiatives/{initiative_id}/run-status.json"',
                     ]
@@ -347,7 +350,9 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertEqual(meta["planning_complete"], "yes")
             self.assertEqual(results["planning"].status, "complete")
             self.assertEqual(results["delivery"].status, "blocked")
-            self.assertTrue(any("already failed without any new git or artifact progress" in blocker for blocker in results["delivery"].blockers))
+            self.assertTrue(
+                any("without any new product commit or product workspace change" in blocker for blocker in results["delivery"].blockers)
+            )
             self.assertEqual(run_control_plane.auto_phase(results), "delivery")
 
     def test_delivery_docs_only_commit_is_not_completion_grade(self) -> None:
@@ -437,6 +442,147 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertTrue(
                 any("did not modify any product workspace files" in issue for issue in suggestion["workflow_issues"])
             )
+
+    def test_delivery_retry_blocker_survives_workflow_only_commits(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+            initiative_root.mkdir(parents=True, exist_ok=True)
+            plan_dir.mkdir(parents=True, exist_ok=True)
+            release_dir.mkdir(parents=True, exist_ok=True)
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = project_dir / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: initial app"], check=True, capture_output=True, text=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                        f'  run_status_md: ".supernb/initiatives/{initiative_id}/run-status.md"',
+                        f'  run_status_json: ".supernb/initiatives/{initiative_id}/run-status.json"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (initiative_root / "run-status.md").write_text("# Run Status\n", encoding="utf-8")
+            (initiative_root / "run-status.json").write_text(
+                json.dumps({"initiative_id": initiative_id, "selected_phase": "delivery"}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            plan_path = plan_dir / "implementation-plan.md"
+            plan_path.write_text("# Implementation Plan\n\n- Ready for execution: yes\n", encoding="utf-8")
+            (release_dir / "release-readiness.md").write_text("# Release Readiness\n", encoding="utf-8")
+
+            spec = common.load_spec(spec_path)
+            failed_packet = initiative_root / "executions" / "20260321-120000-delivery-claude-code-prompt"
+            failed_packet.mkdir(parents=True, exist_ok=True)
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "delivery",
+                packet_dir=failed_packet,
+                reason="apply-certification-failed",
+                detail="Old delivery closeout failed.",
+            )
+
+            plan_path.write_text("# Implementation Plan\n\n- Ready for execution: yes\n\n## Notes\n\n- Updated traceability only.\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(plan_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "docs: update delivery traceability"], check=True, capture_output=True, text=True)
+
+            blocker = common.prompt_first_retry_blocker(spec, ROOT_DIR, "delivery")
+
+            self.assertIsNotNone(blocker)
+            self.assertIn("without any new product commit or product workspace change", blocker or "")
+            self.assertIn("Control-plane-only updates", blocker or "")
+
+    def test_delivery_retry_blocker_clears_after_product_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+            initiative_root.mkdir(parents=True, exist_ok=True)
+            plan_dir.mkdir(parents=True, exist_ok=True)
+            release_dir.mkdir(parents=True, exist_ok=True)
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = project_dir / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: initial app"], check=True, capture_output=True, text=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                        f'  run_status_md: ".supernb/initiatives/{initiative_id}/run-status.md"',
+                        f'  run_status_json: ".supernb/initiatives/{initiative_id}/run-status.json"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (initiative_root / "run-status.md").write_text("# Run Status\n", encoding="utf-8")
+            (initiative_root / "run-status.json").write_text(
+                json.dumps({"initiative_id": initiative_id, "selected_phase": "delivery"}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            plan_path = plan_dir / "implementation-plan.md"
+            plan_path.write_text("# Implementation Plan\n\n- Ready for execution: yes\n", encoding="utf-8")
+            (release_dir / "release-readiness.md").write_text("# Release Readiness\n", encoding="utf-8")
+
+            spec = common.load_spec(spec_path)
+            failed_packet = initiative_root / "executions" / "20260321-120000-delivery-claude-code-prompt"
+            failed_packet.mkdir(parents=True, exist_ok=True)
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "delivery",
+                packet_dir=failed_packet,
+                reason="apply-certification-failed",
+                detail="Old delivery closeout failed.",
+            )
+
+            app_path.write_text("export const version = 2;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: deliver real product batch"], check=True, capture_output=True, text=True)
+
+            blocker = common.prompt_first_retry_blocker(spec, ROOT_DIR, "delivery")
+
+            self.assertIsNone(blocker)
+            self.assertFalse((initiative_root / "prompt-first-blocker-delivery.json").exists())
 
     def test_delivery_product_file_commit_can_remain_completion_grade(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -500,13 +500,93 @@ def git_head(project_dir: Path) -> str:
     return proc.stdout.strip()
 
 
+def is_workflow_artifact_path(path_value: str) -> bool:
+    normalized = str(path_value or "").strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    if not normalized:
+        return False
+    for prefix in [".supernb/", ".claude/"]:
+        if normalized == prefix[:-1] or normalized.startswith(prefix):
+            return True
+    return False
+
+
+def latest_product_commit(project_dir: Path) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(project_dir), "log", "--format=__COMMIT__%H", "--name-only", "-n", "500"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return ""
+
+    current_commit = ""
+    saw_product_file = False
+    for raw_line in proc.stdout.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("__COMMIT__"):
+            if current_commit and saw_product_file:
+                return current_commit
+            current_commit = line.replace("__COMMIT__", "", 1).strip()
+            saw_product_file = False
+            continue
+        if not is_workflow_artifact_path(line):
+            saw_product_file = True
+    if current_commit and saw_product_file:
+        return current_commit
+    return ""
+
+
+def product_worktree_paths(project_dir: Path) -> list[str]:
+    proc = subprocess.run(
+        ["git", "-C", str(project_dir), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return []
+
+    paths: list[str] = []
+    seen: set[str] = set()
+    for raw_line in proc.stdout.splitlines():
+        if len(raw_line) < 4:
+            continue
+        payload = raw_line[3:].strip()
+        if not payload:
+            continue
+        candidates = [payload]
+        if " -> " in payload:
+            old_path, new_path = payload.split(" -> ", 1)
+            candidates = [old_path.strip(), new_path.strip()]
+        for candidate in candidates:
+            normalized = candidate.strip().strip('"')
+            if not normalized or is_workflow_artifact_path(normalized) or normalized in seen:
+                continue
+            seen.add(normalized)
+            paths.append(normalized)
+    return sorted(paths)
+
+
+def effective_product_progress_signature(project_dir: Path) -> dict[str, Any]:
+    return {
+        "latest_product_commit": latest_product_commit(project_dir),
+        "working_tree_product_paths": product_worktree_paths(project_dir),
+    }
+
+
 def prompt_first_progress_signature(spec: dict[str, Any], root_dir: Path, phase: str) -> dict[str, Any]:
     project_dir = project_root(spec, root_dir)
-    return {
+    signature = {
         "phase": phase,
         "git_head": git_head(project_dir),
         "phase_artifact_snapshot": phase_artifact_snapshot(spec, phase, root_dir, [project_dir, root_dir]),
     }
+    if phase == "delivery":
+        signature["effective_product_progress"] = effective_product_progress_signature(project_dir)
+    return signature
 
 
 def load_prompt_first_blocker(spec: dict[str, Any], root_dir: Path, phase: str) -> dict[str, Any] | None:
@@ -530,13 +610,15 @@ def write_prompt_first_blocker(
     detail: str = "",
 ) -> Path:
     path = prompt_first_blocker_path(spec, root_dir, phase)
+    progress_signature = prompt_first_progress_signature(spec, root_dir, phase)
     payload = {
         "phase": phase,
         "recorded_at": utc_now(),
         "packet_dir": str(packet_dir.resolve()) if packet_dir else "",
         "reason": reason,
         "detail": detail,
-        "progress_signature": prompt_first_progress_signature(spec, root_dir, phase),
+        "progress_signature": progress_signature,
+        "effective_product_progress": progress_signature.get("effective_product_progress", {}),
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
@@ -559,16 +641,31 @@ def prompt_first_retry_blocker(
         return None
     path = prompt_first_blocker_path(spec, root_dir, phase)
     current_signature = prompt_first_progress_signature(spec, root_dir, phase)
-    if payload.get("progress_signature") != current_signature:
-        clear_prompt_first_blocker(spec, root_dir, phase)
-        return None
+    stored_signature = payload.get("progress_signature")
+    current_effective_progress = current_signature.get("effective_product_progress")
+    stored_effective_progress = payload.get("effective_product_progress")
+    if stored_signature != current_signature:
+        if phase != "delivery" or stored_effective_progress != current_effective_progress:
+            clear_prompt_first_blocker(spec, root_dir, phase)
+            return None
     packet_dir = str(payload.get("packet_dir", "")).strip()
     if source_packet is not None:
         blocked_packet = Path(packet_dir).expanduser().resolve() if packet_dir else None
         candidate_packet = source_packet.expanduser().resolve()
-        if blocked_packet is None or blocked_packet != candidate_packet:
+        if blocked_packet is None or (
+            blocked_packet != candidate_packet
+            and (phase != "delivery" or stored_effective_progress != current_effective_progress)
+        ):
             clear_prompt_first_blocker(spec, root_dir, phase)
             return None
+    if phase == "delivery":
+        return (
+            "Prompt-first delivery closeout already failed without any new product commit or product workspace change. "
+            "Control-plane-only updates under .supernb/.claude and other workflow artifact churn do not count as delivery progress. "
+            "Make real product workspace progress before retrying closeout or launching another live delivery run. "
+            f"Blocker record: {path}."
+            + (f" Last failed packet: {packet_dir}." if packet_dir else "")
+        )
     return (
         f"Prompt-first {phase} closeout already failed without any new git or artifact progress. "
         "Do not rerun closeout/import on the same unchanged state. Resolve the existing blockers first, "

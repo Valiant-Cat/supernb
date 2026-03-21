@@ -22,6 +22,7 @@ from lib.supernb_common import (
     display_path,
     load_spec,
     nested_get,
+    prompt_first_retry_blocker,
     project_root,
     resolve_spec_path,
     supernb_cli_prefix,
@@ -327,6 +328,7 @@ def write_loop_prompt(
         "- This loop depends on a Claude Code environment where the Ralph Loop stop-hook is enabled.",
         "- Start with an initiative-wide reassessment before committing to the current phase scope.",
         "- If the reassessment finds stale upstream artifacts, reopen the earliest affected phase instead of only patching the current phase.",
+        "- For delivery, real product workspace changes and a real batch commit must be the center of the run. Do not spend the batch mainly updating `.supernb`, release paperwork, or traceability docs.",
         "- Update affected initiative artifacts, tests, evidence, and git state as part of the batch.",
         "- Before stopping, fill the prompt report template with real evidence, then run the managed prompt closeout command so supernb imports it, applies certification, and only then emits the final promise when allowed.",
         "- If the stop-hook is unavailable in this Claude environment, do not pretend the batch is cleanly complete. Report the run as needs-follow-up and switch to a loop-enabled Claude environment.",
@@ -458,8 +460,9 @@ def write_prompt_session(
         "1. Read the active `next-command.md`, `phase-packet.md`, and any active phase artifacts before making changes.",
         "2. Complete an initiative-wide reassessment before assuming the current selected phase is still the right place to continue.",
         "3. If the reassessment finds stale upstream work, reopen the earliest affected phase instead of silently patching only the current phase.",
-        "4. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
-        "5. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
+        "4. For delivery, spend the batch on real product workspace changes first; `.supernb`, release paperwork, and traceability edits only count when they support a real product batch.",
+        "5. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
+        "6. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
         "",
         "## Required Files",
         "",
@@ -859,6 +862,22 @@ def main() -> int:
     write_loop_manifest(loop_config["manifest_file"], selected_phase, loop_config)
     latest_packet = latest_execution_packet(spec, selected_phase)
     write_prompt_session(prompt_session_path, spec, spec_path, run_status_json, run_status, latest_packet, report_template_path, loop_config, reassessment_path)
+    if not args.no_run:
+        retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, selected_phase)
+        if retry_blocker:
+            append_debug_log(
+                spec,
+                ROOT_DIR,
+                "supernb-prompt-sync",
+                "retry-blocked-live",
+                {
+                    "initiative_id": initiative_id,
+                    "selected_phase": selected_phase,
+                    "spec_path": str(spec_path),
+                },
+            )
+            print(retry_blocker, file=sys.stderr)
+            return 1
     loop_started = False
     loop_start_summary = ""
     loop_warning = ""

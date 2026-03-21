@@ -828,6 +828,7 @@ def execution_policy(spec: dict[str, Any], phase: str, project_dir: Path) -> str
                 "",
                 "Delivery-specific requirements:",
                 "- Treat this run as exactly one validated delivery batch. Do not silently continue through the whole project in one shot.",
+                "- Real product workspace changes must be the center of this batch. Do not spend the batch mainly updating .supernb/.claude workflow artifacts, release paperwork, or traceability docs.",
                 "- Use test-driven development: write or update a failing test first, make it pass, then refactor.",
                 "- Run code review on the batch before completion.",
                 "- Create a git commit for this validated batch before you report success.",
@@ -2650,7 +2651,13 @@ def build_result_suggestion(
         elif workflow_issues:
             if result_status == "succeeded":
                 result_status = "needs-follow-up"
-            next_step = "apply the execution packet, then resolve the workflow-trace and commit-policy gaps"
+            if phase == "delivery" and any(
+                "did not modify any product workspace files" in issue or "No new git commit was detected" in issue
+                for issue in workflow_issues
+            ):
+                next_step = "make a real product workspace change, verify it, create a batch commit, then rerun this delivery batch"
+            else:
+                next_step = "apply the execution packet, then resolve the workflow-trace and commit-policy gaps"
         elif not phase_readiness.get("ready_for_certification", False):
             if result_status == "succeeded":
                 result_status = "needs-follow-up"
