@@ -11,6 +11,12 @@ Start here if you want prompt-first `supernb` delivery with managed Ralph Loop s
 - Platform page: [Supernb for Claude Code](./platforms/claude-code.md)
 - Compatibility install doc: [claude-code.md](./install/claude-code.md)
 
+Fastest Claude Code install:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
+```
+
 ### Codex
 
 Start here if you want Codex native skill discovery and a clean full-stack `supernb` environment.

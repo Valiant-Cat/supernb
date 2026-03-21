@@ -94,14 +94,13 @@ Best when you want prompt-first product delivery plus managed Ralph Loop enforce
 Quick install:
 
 ```bash
-./scripts/supernb build-impeccable
-./scripts/supernb install-claude-code "$HOME"
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
 ```
 
 Optional project-local override:
 
 ```bash
-./scripts/supernb install-claude-code /path/to/your-project
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir /path/to/your-project
 ```
 
 Product page: [Supernb for Claude Code](./docs/platforms/claude-code.md)

@@ -12,7 +12,21 @@
 
 ## Quick Install
 
-Recommended user-global install:
+Recommended user-global remote install:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
+```
+
+Optional project-local override:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir /path/to/your-project
+```
+
+## Manual Install
+
+If you already have the repo locally and want the source-based path:
 
 ```bash
 ./scripts/supernb build-impeccable
@@ -22,11 +36,8 @@ Recommended user-global install:
 Optional project-local override:
 
 ```bash
-./scripts/supernb build-impeccable
 ./scripts/supernb install-claude-code /path/to/your-project
 ```
-
-## Manual Install
 
 User-global with the raw script:
 
@@ -83,6 +94,7 @@ make update-upstreams
 
 ## How It Works
 
+- `install-claude-code-remote.sh` is the primary one-command path. It clones or updates `supernb` into `~/.supernb/supernb`, syncs upstreams, builds the provider bundles, and then runs the Claude Code installer for you.
 - `install-claude-code "$HOME"` is the recommended default because it keeps the Claude loop runtime and managed instructions consistent across projects.
 - Project-local install remains available when one repository needs its own managed `CLAUDE.md` override or isolated Claude skills.
 - `install-claude-code` writes managed `CLAUDE.md` guidance so simple prompts like `use supernb to improve this project` route through the prompt-first control plane.

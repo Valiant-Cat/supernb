@@ -203,6 +203,45 @@ def write_fake_claude_for_prompt_first(bin_dir: Path, log_path: Path) -> Path:
     return script_path
 
 
+def write_fake_git_for_remote_install(bin_dir: Path, clone_source: Path) -> Path:
+    script_path = bin_dir / "git"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import shutil
+            import sys
+            from pathlib import Path
+
+            args = sys.argv[1:]
+            clone_source = Path(sys.argv[0]).resolve().parent / "fake-git-clone-source"
+
+            if args[:1] == ["clone"] and len(args) >= 3:
+                target = Path(args[-1]).resolve()
+                if target.exists():
+                    shutil.rmtree(target)
+                shutil.copytree(clone_source, target)
+                (target / ".git").mkdir(parents=True, exist_ok=True)
+                sys.exit(0)
+
+            if args[:1] == ["pull"]:
+                sys.exit(0)
+
+            print("unsupported fake git invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+
+    clone_link = bin_dir / "fake-git-clone-source"
+    if clone_link.exists() or clone_link.is_symlink():
+        clone_link.unlink()
+    clone_link.symlink_to(clone_source, target_is_directory=True)
+    return script_path
+
+
 def write_spec(root: Path, initiative_id: str = "2026-03-19-demo") -> dict[str, Path]:
     project_dir = root / "product"
     initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
@@ -1573,6 +1612,99 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
             self.assertEqual(log_path.read_text(encoding="utf-8").strip(), str(temp_home))
+
+    def test_remote_claude_installer_defaults_to_user_global_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            temp_home = temp_root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            repo_dir = temp_root / "supernb-repo"
+            clone_source = temp_root / "clone-source"
+            scripts_dir = clone_source / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            log_path = temp_root / "remote-install.log"
+            bin_dir = temp_root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+
+            for name, body in {
+                "update-supernb.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "update-upstreams.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "print-next-steps.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "install-claude-code.sh": "#!/usr/bin/env bash\nprintf '%s\\n' \"$1\" >> \"$SUPERNB_REMOTE_INSTALL_LOG\"\n",
+            }.items():
+                path = scripts_dir / name
+                path.write_text(body, encoding="utf-8")
+                path.chmod(0o755)
+
+            write_fake_git_for_remote_install(bin_dir, clone_source)
+
+            env = dict(os.environ)
+            env["HOME"] = str(temp_home)
+            env["SUPERNB_REMOTE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "install-claude-code-remote.sh"),
+                    "--repo-dir",
+                    str(repo_dir),
+                    "--skip-update",
+                ],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            self.assertEqual(log_path.read_text(encoding="utf-8").strip(), str(temp_home))
+            self.assertTrue((repo_dir / ".git").is_dir())
+
+    def test_remote_claude_installer_accepts_project_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            temp_home = temp_root / "home"
+            temp_home.mkdir(parents=True, exist_ok=True)
+            project_dir = temp_root / "project"
+            project_dir.mkdir(parents=True, exist_ok=True)
+            repo_dir = temp_root / "supernb-repo"
+            clone_source = temp_root / "clone-source"
+            scripts_dir = clone_source / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            log_path = temp_root / "remote-install.log"
+            bin_dir = temp_root / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+
+            for name, body in {
+                "update-supernb.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "update-upstreams.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "print-next-steps.sh": "#!/usr/bin/env bash\nexit 0\n",
+                "install-claude-code.sh": "#!/usr/bin/env bash\nprintf '%s\\n' \"$1\" >> \"$SUPERNB_REMOTE_INSTALL_LOG\"\n",
+            }.items():
+                path = scripts_dir / name
+                path.write_text(body, encoding="utf-8")
+                path.chmod(0o755)
+
+            write_fake_git_for_remote_install(bin_dir, clone_source)
+
+            env = dict(os.environ)
+            env["HOME"] = str(temp_home)
+            env["SUPERNB_REMOTE_INSTALL_LOG"] = str(log_path)
+            env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "install-claude-code-remote.sh"),
+                    "--repo-dir",
+                    str(repo_dir),
+                    "--project-dir",
+                    str(project_dir),
+                    "--skip-update",
+                ],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+            self.assertEqual(log_path.read_text(encoding="utf-8").strip(), str(project_dir))
 
     def test_execute_next_claude_code_direct_auto_arms_ralph_loop_without_startup_race(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

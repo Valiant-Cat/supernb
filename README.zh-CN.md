@@ -94,14 +94,13 @@
 快速安装：
 
 ```bash
-./scripts/supernb build-impeccable
-./scripts/supernb install-claude-code "$HOME"
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh)
 ```
 
 项目级覆盖可选：
 
 ```bash
-./scripts/supernb install-claude-code /path/to/your-project
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --project-dir /path/to/your-project
 ```
 
 平台页： [Supernb for Claude Code](./docs/platforms/claude-code.md)
