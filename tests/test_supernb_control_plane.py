@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -1105,6 +1106,75 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertIsNotNone(payload)
             self.assertTrue(payload.get("state_observed"))
             self.assertEqual(payload.get("last_session_id"), loop_contract["session_id"])
+
+    def test_loop_audit_watcher_infers_expected_session_id_when_state_file_session_is_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            state_dir = root / "project" / ".claude"
+            packet_dir = root / "packet"
+            state_dir.mkdir(parents=True)
+            packet_dir.mkdir(parents=True)
+
+            state_file = state_dir / "superpower-loop-demo.local.md"
+            state_file.write_text(
+                "---\n"
+                "active: true\n"
+                "iteration: 1\n"
+                "session_id:\n"
+                'max_iterations: 6\n'
+                'completion_promise: "SUPERNB demo planning batch complete"\n'
+                'started_at: "2026-03-20T00:00:00Z"\n'
+                "---\n"
+                "\n"
+                "Continue the bounded planning batch.\n",
+                encoding="utf-8",
+            )
+
+            summary_path = packet_dir / "ralph-loop-audit.json"
+            events_path = packet_dir / "ralph-loop-audit.ndjson"
+            watcher = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-loop-audit-watcher.py"),
+                    "--state-file",
+                    str(state_file),
+                    "--summary-json",
+                    str(summary_path),
+                    "--events-ndjson",
+                    str(events_path),
+                    "--completion-promise",
+                    "SUPERNB demo planning batch complete",
+                    "--max-iterations",
+                    "6",
+                    "--expected-session-id",
+                    "session-demo",
+                    "--poll-interval-seconds",
+                    "0.05",
+                    "--timeout-seconds",
+                    "2",
+                ],
+                cwd=root,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            try:
+                deadline = time.time() + 1.5
+                while time.time() < deadline and not summary_path.is_file():
+                    time.sleep(0.05)
+                self.assertTrue(summary_path.is_file())
+                time.sleep(0.15)
+                state_file.unlink()
+                watcher.wait(timeout=3)
+            finally:
+                if watcher.poll() is None:
+                    watcher.kill()
+                    watcher.wait(timeout=3)
+
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(payload.get("final_status"), "state_removed")
+            self.assertEqual(payload.get("expected_session_id"), "session-demo")
+            self.assertEqual(payload.get("last_session_id"), "session-demo")
+            self.assertTrue(payload.get("session_id_inferred_from_expected"))
 
 
 if __name__ == "__main__":

@@ -482,6 +482,8 @@ def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path,
         str(LOOP_MAX_ITERATIONS.get(phase, 4)),
         "--state-file",
         str(state_file),
+        "--session-id",
+        session_id,
     ]
     return {
         "completion_promise": completion_promise,

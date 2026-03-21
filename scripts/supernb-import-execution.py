@@ -16,6 +16,7 @@ from lib.supernb_common import (
     artifact_path as common_artifact_path,
     load_spec,
     nested_get,
+    prompt_first_retry_blocker,
     prompt_first_reassessment_blocker,
     project_root as common_project_root,
     resolve_existing_path,
@@ -207,6 +208,19 @@ def main() -> int:
                 },
             )
             print(reassessment_blocker, file=sys.stderr)
+            return 1
+        retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, args.phase)
+        if retry_blocker:
+            debug_log(
+                spec,
+                "retry-blocked",
+                {
+                    "spec_path": str(spec_path),
+                    "phase": args.phase,
+                    "harness": args.harness,
+                },
+            )
+            print(retry_blocker, file=sys.stderr)
             return 1
     debug_log(
         spec,

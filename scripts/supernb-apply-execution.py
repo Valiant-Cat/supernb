@@ -10,12 +10,14 @@ from pathlib import Path
 
 from lib.supernb_common import (
     append_debug_log as common_append_debug_log,
+    clear_prompt_first_blocker,
     load_spec,
     nested_get,
     project_root as common_project_root,
     resolve_existing_path,
     resolve_spec_path as common_resolve_spec_path,
     supernb_cli_prefix,
+    write_prompt_first_blocker,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -152,6 +154,7 @@ def main() -> int:
         print(f"Missing phase in {request_path}", file=sys.stderr)
         return 1
     packet_initiative_id = str(request.get("initiative_id", "")).strip()
+    packet_harness = str(request.get("harness", "")).strip()
     if packet_initiative_id and packet_initiative_id != initiative_id:
         debug_log(
             spec,
@@ -288,12 +291,25 @@ def main() -> int:
                 certify_command.extend(["--date", args.date])
         certify_returncode = run_child(certify_command)
         if certify_returncode != 0:
+            if packet_harness == "claude-code-prompt":
+                write_prompt_first_blocker(
+                    spec,
+                    ROOT_DIR,
+                    phase,
+                    packet_dir=packet_dir,
+                    reason="certification-failed",
+                    detail="Certification failed after applying the imported prompt-first packet.",
+                )
             return certify_returncode
+        if packet_harness == "claude-code-prompt":
+            clear_prompt_first_blocker(spec, ROOT_DIR, phase)
 
     if not args.no_rerun and not args.apply_certification:
         rerun_returncode = run_child([sys.executable, str(ROOT_DIR / "scripts" / "supernb-run.py"), "--spec", str(spec_path)])
         if rerun_returncode != 0:
             return rerun_returncode
+    elif packet_harness == "claude-code-prompt":
+        clear_prompt_first_blocker(spec, ROOT_DIR, phase)
     debug_log(
         spec,
         "complete",

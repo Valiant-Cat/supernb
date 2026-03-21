@@ -13,6 +13,7 @@ from typing import Any
 PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 DEBUG_LOG_ENV_VAR = "SUPERNB_DEBUG_LOG"
 RALPH_LOOP_PLUGIN_ID = "supernb-loop@supernb"
+LOOP_REQUIRED_PHASES = {"planning", "delivery"}
 SNAPSHOT_IGNORED_METADATA_FIELDS = {
     "Status",
     "Approval status",
@@ -465,6 +466,87 @@ def reassessment_indicates_next_development_cycle(reassessment_path: Path) -> bo
 
 def prompt_first_reassessment_path(spec: dict[str, Any], root_dir: Path) -> Path:
     return initiative_dir(spec, root_dir) / "initiative-reassessment.md"
+
+
+def prompt_first_blocker_path(spec: dict[str, Any], root_dir: Path, phase: str) -> Path:
+    return initiative_dir(spec, root_dir) / f"prompt-first-blocker-{phase}.json"
+
+
+def git_head(project_dir: Path) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(project_dir), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
+def prompt_first_progress_signature(spec: dict[str, Any], root_dir: Path, phase: str) -> dict[str, Any]:
+    project_dir = project_root(spec, root_dir)
+    return {
+        "phase": phase,
+        "git_head": git_head(project_dir),
+        "phase_artifact_snapshot": phase_artifact_snapshot(spec, phase, root_dir, [project_dir, root_dir]),
+    }
+
+
+def load_prompt_first_blocker(spec: dict[str, Any], root_dir: Path, phase: str) -> dict[str, Any] | None:
+    path = prompt_first_blocker_path(spec, root_dir, phase)
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def write_prompt_first_blocker(
+    spec: dict[str, Any],
+    root_dir: Path,
+    phase: str,
+    *,
+    packet_dir: Path | None = None,
+    reason: str = "",
+    detail: str = "",
+) -> Path:
+    path = prompt_first_blocker_path(spec, root_dir, phase)
+    payload = {
+        "phase": phase,
+        "recorded_at": utc_now(),
+        "packet_dir": str(packet_dir.resolve()) if packet_dir else "",
+        "reason": reason,
+        "detail": detail,
+        "progress_signature": prompt_first_progress_signature(spec, root_dir, phase),
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def clear_prompt_first_blocker(spec: dict[str, Any], root_dir: Path, phase: str) -> None:
+    path = prompt_first_blocker_path(spec, root_dir, phase)
+    path.unlink(missing_ok=True)
+
+
+def prompt_first_retry_blocker(spec: dict[str, Any], root_dir: Path, phase: str) -> str | None:
+    payload = load_prompt_first_blocker(spec, root_dir, phase)
+    if not payload:
+        return None
+    path = prompt_first_blocker_path(spec, root_dir, phase)
+    current_signature = prompt_first_progress_signature(spec, root_dir, phase)
+    if payload.get("progress_signature") != current_signature:
+        clear_prompt_first_blocker(spec, root_dir, phase)
+        return None
+    packet_dir = str(payload.get("packet_dir", "")).strip()
+    return (
+        f"Prompt-first {phase} closeout already failed without any new git or artifact progress. "
+        "Do not rerun closeout/import on the same unchanged state. Resolve the existing blockers first, "
+        "or make real code/artifact progress before retrying. "
+        f"Blocker record: {path}."
+        + (f" Last failed packet: {packet_dir}." if packet_dir else "")
+    )
 
 
 def prompt_first_reassessment_blocker(spec: dict[str, Any], root_dir: Path, spec_path: Path, phase: str) -> str | None:

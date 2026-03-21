@@ -10,14 +10,36 @@ set -euo pipefail
 HOOK_INPUT=$(cat)
 
 HOOK_SESSION=$(echo "$HOOK_INPUT" | jq -r '.session_id // ""')
+ASSISTANT_ROLE_PATTERN='"role"[[:space:]]*:[[:space:]]*"assistant"'
+
+remove_state_file() {
+  rm -f "$SUPERPOWER_STATE_FILE"
+}
+
+persist_session_id_if_missing() {
+  if [[ -z "$HOOK_SESSION" ]]; then
+    return
+  fi
+  local current_session
+  current_session=$(echo "$FRONTMATTER" | grep '^session_id:' | sed 's/session_id: *//' || true)
+  if [[ -n "$current_session" ]]; then
+    return
+  fi
+  local temp_file="${SUPERPOWER_STATE_FILE}.tmp.$$"
+  sed "s/^session_id:.*/session_id: $HOOK_SESSION/" "$SUPERPOWER_STATE_FILE" > "$temp_file"
+  mv "$temp_file" "$SUPERPOWER_STATE_FILE"
+  FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$SUPERPOWER_STATE_FILE")
+}
 
 # Find the state file owned by this session.
 # Supports multiple concurrent loops (e.g. parallel tasks in executing-plans)
 # by scanning all .claude/superpower-loop*.local.md files and matching session_id.
 SUPERPOWER_STATE_FILE=""
+MATCHED_CANDIDATES=()
 
 for candidate in .claude/superpower-loop*.local.md; do
   [[ -f "$candidate" ]] || continue
+  MATCHED_CANDIDATES+=("$candidate")
   CANDIDATE_FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$candidate")
   CANDIDATE_SESSION=$(echo "$CANDIDATE_FRONTMATTER" | grep '^session_id:' | sed 's/session_id: *//' || true)
   # Match explicit session_id, or fall through for legacy files without one
@@ -27,13 +49,24 @@ for candidate in .claude/superpower-loop*.local.md; do
   fi
 done
 
+if [[ -z "$SUPERPOWER_STATE_FILE" ]] && [[ -z "$HOOK_SESSION" ]] && [[ ${#MATCHED_CANDIDATES[@]} -eq 1 ]]; then
+  SUPERPOWER_STATE_FILE="${MATCHED_CANDIDATES[0]}"
+fi
+
 if [[ -z "$SUPERPOWER_STATE_FILE" ]]; then
   # No active loop for this session - allow exit
   exit 0
 fi
 
+LOCK_DIR="${SUPERPOWER_STATE_FILE}.hook-lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  exit 0
+fi
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+
 # Parse markdown frontmatter (YAML between ---) and extract values
 FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$SUPERPOWER_STATE_FILE")
+persist_session_id_if_missing
 ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
 # Extract completion_promise and strip surrounding quotes if present
@@ -47,7 +80,7 @@ if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
   echo "" >&2
   echo "   This usually means the state file was manually edited or corrupted." >&2
   echo "   Superpower loop is stopping. Run /superpower-loop again to start fresh." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
@@ -58,14 +91,14 @@ if [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
   echo "" >&2
   echo "   This usually means the state file was manually edited or corrupted." >&2
   echo "   Superpower loop is stopping. Run /superpower-loop again to start fresh." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
 # Check if max iterations reached
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
   echo "Superpower loop: Max iterations ($MAX_ITERATIONS) reached."
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
@@ -74,18 +107,18 @@ TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
 
 if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
   # transcript_path may be a directory or missing in some Claude Code versions — not an error
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
 # Read last assistant message from transcript (JSONL format - one JSON per line)
 # First check if there are any assistant messages
-if ! grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
+if ! grep -Eq "$ASSISTANT_ROLE_PATTERN" "$TRANSCRIPT_PATH"; then
   echo "Warning: Superpower loop: No assistant messages found in transcript" >&2
   echo "   Transcript: $TRANSCRIPT_PATH" >&2
   echo "   This is unusual and may indicate a transcript format issue" >&2
   echo "   Superpower loop is stopping." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
@@ -97,11 +130,11 @@ fi
 #
 # Capped at the last 100 assistant lines to keep jq's slurp input bounded
 # for long-running sessions.
-LAST_LINES=$(grep '"role":"assistant"' "$TRANSCRIPT_PATH" | tail -n 100)
+LAST_LINES=$(grep -E "$ASSISTANT_ROLE_PATTERN" "$TRANSCRIPT_PATH" | tail -n 100)
 if [[ -z "$LAST_LINES" ]]; then
   echo "Warning: Superpower loop: Failed to extract assistant messages" >&2
   echo "   Superpower loop is stopping." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
@@ -123,7 +156,7 @@ if [[ $JQ_EXIT -ne 0 ]]; then
   echo "   Error: $LAST_OUTPUT" >&2
   echo "   This may indicate a transcript format issue." >&2
   echo "   Superpower loop is stopping." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 
@@ -138,7 +171,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   # == in [[ ]] does glob pattern matching which breaks with *, ?, [ characters
   if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
     echo "Superpower loop: Detected <promise>$COMPLETION_PROMISE</promise>"
-    rm "$SUPERPOWER_STATE_FILE"
+    remove_state_file
     exit 0
   fi
 fi
@@ -161,7 +194,7 @@ if [[ -z "$PROMPT_TEXT" ]]; then
   echo "     - File was corrupted during writing" >&2
   echo "" >&2
   echo "   Superpower loop is stopping. Run /superpower-loop again to start fresh." >&2
-  rm "$SUPERPOWER_STATE_FILE"
+  remove_state_file
   exit 0
 fi
 

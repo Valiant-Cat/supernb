@@ -13,10 +13,12 @@ from lib.supernb_common import (
     PHASES,
     append_debug_log,
     artifact_path,
+    clear_prompt_first_blocker,
     load_spec,
     nested_get,
     prompt_first_reassessment_blocker,
     prompt_first_reassessment_path,
+    write_prompt_first_blocker,
     resolve_spec_path,
     supernb_cli_prefix,
 )
@@ -191,6 +193,15 @@ def main() -> int:
 
     apply_proc = subprocess.run(apply_command, capture_output=True, text=True)
     if apply_proc.returncode != 0:
+        if args.harness == "claude-code-prompt":
+            write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                phase,
+                packet_dir=packet_dir,
+                reason="apply-certification-failed",
+                detail=(apply_proc.stderr or apply_proc.stdout).strip(),
+            )
         if phase in LOOP_REQUIRED_PHASES:
             sys.stderr.write(
                 f"Prompt closeout did not emit the Ralph Loop completion promise for {phase} because result recording/certification failed.\n"
@@ -214,6 +225,9 @@ def main() -> int:
             },
         )
         return apply_proc.returncode
+
+    if args.harness == "claude-code-prompt":
+        clear_prompt_first_blocker(spec, ROOT_DIR, phase)
 
     append_debug_log(
         spec,

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lib.supernb_common import (
+    LOOP_REQUIRED_PHASES,
     append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
@@ -182,6 +183,13 @@ def main() -> int:
     source_packet_display = ""
     if args.source == "manual-override" and not args.override_reason:
         print("--override-reason is required when --source manual-override is used.", file=sys.stderr)
+        return 1
+    if args.source == "manual-override" and phase in LOOP_REQUIRED_PHASES and args.status == "succeeded":
+        print(
+            f"Loop-required prompt-first phase `{phase}` cannot be manually overridden to succeeded. "
+            "Import and apply a real execution packet with loop evidence instead of bypassing completion by hand.",
+            file=sys.stderr,
+        )
         return 1
     if args.source == "execution-packet":
         if not args.source_packet:

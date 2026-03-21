@@ -52,6 +52,16 @@ def parse_iteration(value: str) -> int:
         return 0
 
 
+def normalized_session_id(observed: str, expected: str) -> tuple[str, bool]:
+    observed_value = str(observed or "").strip()
+    if observed_value:
+        return observed_value, False
+    expected_value = str(expected or "").strip()
+    if expected_value:
+        return expected_value, True
+    return "", False
+
+
 def append_event(events_path: Path, payload: dict[str, Any]) -> None:
     events_path.parent.mkdir(parents=True, exist_ok=True)
     with events_path.open("a", encoding="utf-8") as handle:
@@ -72,6 +82,7 @@ def main() -> int:
 
     initial_snapshot = parse_frontmatter(state_file) if state_file.is_file() else {}
     initial_observed = bool(initial_snapshot)
+    initial_session_id, initial_inferred = normalized_session_id(initial_snapshot.get("session_id", ""), args.expected_session_id)
 
     summary: dict[str, Any] = {
         "state_file": str(state_file),
@@ -83,7 +94,8 @@ def main() -> int:
         "state_observed": initial_observed,
         "removed_after_observation": False,
         "last_iteration": parse_iteration(initial_snapshot.get("iteration", "")) if initial_observed else 0,
-        "last_session_id": initial_snapshot.get("session_id", "") if initial_observed else "",
+        "last_session_id": initial_session_id if initial_observed else "",
+        "session_id_inferred_from_expected": initial_inferred if initial_observed else False,
         "last_completion_promise": initial_snapshot.get("completion_promise", "") if initial_observed else "",
         "last_started_at": initial_snapshot.get("started_at", "") if initial_observed else "",
         "last_observed_at": utc_now() if initial_observed else "",
@@ -127,11 +139,13 @@ def main() -> int:
                 observed_once = True
                 last_snapshot = current
                 iteration = parse_iteration(current.get("iteration", ""))
+                current_session_id, session_inferred = normalized_session_id(current.get("session_id", ""), args.expected_session_id)
                 summary.update(
                     {
                         "state_observed": True,
                         "last_iteration": iteration,
-                        "last_session_id": current.get("session_id", ""),
+                        "last_session_id": current_session_id,
+                        "session_id_inferred_from_expected": session_inferred,
                         "last_completion_promise": current.get("completion_promise", ""),
                         "last_started_at": current.get("started_at", ""),
                         "last_observed_at": utc_now(),

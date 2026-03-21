@@ -11,6 +11,7 @@ PROMPT_FILE=""
 MAX_ITERATIONS=0
 COMPLETION_PROMISE="null"
 STATE_FILE=".claude/superpower-loop.local.md"
+SESSION_ID=""
 
 # Parse options and positional arguments
 while [[ $# -gt 0 ]]; do
@@ -32,6 +33,7 @@ OPTIONS:
   --state-file <path>            Custom state file path (default: .claude/superpower-loop.local.md)
                                  Use per-task paths when running multiple loops in parallel,
                                  e.g. --state-file .claude/superpower-loop-task-42.local.md
+  --session-id <id>              Explicit Claude session id to bind into the state file
   -h, --help                     Show this help message
 
 DESCRIPTION:
@@ -119,6 +121,14 @@ HELP_EOF
       STATE_FILE="$2"
       shift 2
       ;;
+    --session-id)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: --session-id requires a value" >&2
+        exit 1
+      fi
+      SESSION_ID="$2"
+      shift 2
+      ;;
     --prompt-file)
       if [[ -z "${2:-}" ]]; then
         echo "❌ Error: --prompt-file requires a path argument" >&2
@@ -176,11 +186,15 @@ else
   COMPLETION_PROMISE_YAML="null"
 fi
 
+if [[ -z "$SESSION_ID" ]]; then
+  SESSION_ID="${CLAUDE_CODE_SESSION_ID:-}"
+fi
+
 cat > "$STATE_FILE" <<EOF
 ---
 active: true
 iteration: 1
-session_id: ${CLAUDE_CODE_SESSION_ID:-}
+session_id: ${SESSION_ID}
 max_iterations: $MAX_ITERATIONS
 completion_promise: $COMPLETION_PROMISE_YAML
 started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

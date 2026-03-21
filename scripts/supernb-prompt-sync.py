@@ -745,8 +745,9 @@ def start_loop_in_current_session(spec: dict[str, Any], loop_config: dict[str, A
         raise FileNotFoundError(f"Ralph Loop setup script not found: {setup_script}")
     if not RALPH_LOOP_AUDIT_WATCHER.is_file():
         raise FileNotFoundError(f"Ralph Loop audit watcher not found: {RALPH_LOOP_AUDIT_WATCHER}")
+    start_command = [*loop_config["start_command"], "--session-id", session_id]
     proc = subprocess.run(
-        loop_config["start_command"],
+        start_command,
         cwd=project_dir,
         capture_output=True,
         text=True,

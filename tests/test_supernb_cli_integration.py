@@ -342,6 +342,58 @@ def write_report_json(
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def mark_reassessment_complete(paths: dict[str, Path], phase: str = "planning") -> Path:
+    reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+    reassessment_path.write_text(
+        "\n".join(
+            [
+                "# Initiative-Wide Reassessment",
+                "",
+                f"- Initiative ID: `{paths['initiative_root'].name}`",
+                "- Status: completed",
+                f"- Current selected phase: {phase}",
+                "- Earliest affected phase to reopen: none",
+                "- Can the current selected phase continue without reopening upstream work: yes",
+                "",
+                "## Findings",
+                "",
+                "- Continue the current bounded phase.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return reassessment_path
+
+
+def write_prompt_first_audit_placeholder(report_path: Path) -> Path:
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    loop_execution = payload.get("loop_execution") or {}
+    audit_path = Path(loop_execution.get("evidence", "")).expanduser()
+    if not audit_path.is_absolute():
+        audit_path = (report_path.parent / audit_path).resolve()
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.write_text(
+        json.dumps(
+            {
+                "state_file": loop_execution.get("state_file", ""),
+                "completion_promise": loop_execution.get("completion_promise", ""),
+                "max_iterations": loop_execution.get("max_iterations", 0),
+                "expected_session_id": "",
+                "state_observed": True,
+                "removed_after_observation": False,
+                "last_iteration": 0,
+                "last_session_id": "",
+                "final_status": "watching",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return audit_path
+
+
 def write_planning_traceability_artifacts(paths: dict[str, Path], initiative_id: str) -> None:
     prd_path = paths["prd_dir"] / "product-requirements.md"
     design_path = paths["design_dir"] / "ui-ux-spec.md"
@@ -1811,6 +1863,131 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertEqual(payload.get("final_status"), "state_removed")
             self.assertEqual(payload.get("expected_session_id"), "session-123")
 
+    def test_setup_superpower_loop_accepts_explicit_session_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            prompt_path = root / "loop-prompt.md"
+            state_path = root / ".claude" / "superpower-loop-demo.local.md"
+            prompt_path.write_text("Continue the bounded planning batch.\n", encoding="utf-8")
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / "scripts" / "setup-superpower-loop.sh"),
+                    "--prompt-file",
+                    str(prompt_path),
+                    "--completion-promise",
+                    "SUPERNB demo planning batch complete",
+                    "--max-iterations",
+                    "6",
+                    "--state-file",
+                    str(state_path),
+                    "--session-id",
+                    "session-explicit",
+                ],
+                cwd=root,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            self.assertTrue(state_path.is_file())
+            self.assertIn("session_id: session-explicit", state_path.read_text(encoding="utf-8"))
+
+    def test_stop_hook_blocks_single_state_file_even_without_hook_session_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            claude_dir = root / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+            state_path = claude_dir / "superpower-loop-demo.local.md"
+            transcript_path = root / "transcript.jsonl"
+            state_path.write_text(
+                "---\n"
+                "active: true\n"
+                "iteration: 1\n"
+                "session_id: session-demo\n"
+                "max_iterations: 6\n"
+                'completion_promise: "SUPERNB demo planning batch complete"\n'
+                'started_at: "2026-03-21T00:00:00Z"\n'
+                "---\n"
+                "\n"
+                "Continue the bounded planning batch.\n",
+                encoding="utf-8",
+            )
+            transcript_path.write_text(
+                json.dumps(
+                    {
+                        "role": "assistant",
+                        "message": {"content": [{"type": "text", "text": "Still working on the batch."}]},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    "bash",
+                    str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / "hooks" / "stop-hook.sh"),
+                ],
+                cwd=root,
+                input=json.dumps({"session_id": "", "transcript_path": str(transcript_path)}),
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload.get("decision"), "block")
+            self.assertIn("LOOP COMPLETION REQUIRED", payload.get("reason", ""))
+            self.assertIn("iteration: 2", state_path.read_text(encoding="utf-8"))
+
+    def test_stop_hook_exits_cleanly_when_loop_lock_is_already_held(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            claude_dir = root / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+            state_path = claude_dir / "superpower-loop-demo.local.md"
+            transcript_path = root / "transcript.jsonl"
+            state_path.write_text(
+                "---\n"
+                "active: true\n"
+                "iteration: 1\n"
+                "session_id: session-demo\n"
+                "max_iterations: 6\n"
+                'completion_promise: "SUPERNB demo planning batch complete"\n'
+                'started_at: "2026-03-21T00:00:00Z"\n'
+                "---\n"
+                "\n"
+                "Continue the bounded planning batch.\n",
+                encoding="utf-8",
+            )
+            transcript_path.write_text(
+                json.dumps(
+                    {
+                        "role": "assistant",
+                        "message": {"content": [{"type": "text", "text": "Still working on the batch."}]},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (Path(str(state_path) + ".hook-lock")).mkdir()
+
+            proc = subprocess.run(
+                [
+                    "bash",
+                    str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / "hooks" / "stop-hook.sh"),
+                ],
+                cwd=root,
+                input=json.dumps({"session_id": "session-demo", "transcript_path": str(transcript_path)}),
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            self.assertEqual(proc.stdout.strip(), "")
+            self.assertEqual(proc.stderr.strip(), "")
+            self.assertIn("iteration: 1", state_path.read_text(encoding="utf-8"))
+
     def test_prompt_closeout_blocks_delivery_promise_when_certification_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -2289,6 +2466,29 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("succeeded, blocked, needs-follow-up, manual-follow-up, not-run, failed", proc.stderr)
             self.assertIn("certify-phase", proc.stderr)
 
+    def test_record_result_rejects_manual_success_override_for_loop_required_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-record-result.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--status",
+                "succeeded",
+                "--summary",
+                "Force planning completion",
+                "--source",
+                "manual-override",
+                "--override-reason",
+                "Trying to bypass loop evidence",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("cannot be manually overridden to succeeded", proc.stderr)
+            self.assertIn("execution packet", proc.stderr)
+
     def test_import_execution_rejects_missing_evidence_before_packet_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -2345,6 +2545,168 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("initiative-wide reassessment", proc.stderr)
             self.assertIn("pending", proc.stderr)
             self.assertEqual(list(paths["executions_dir"].iterdir()), [])
+
+    def test_prompt_closeout_blocks_repeated_prompt_first_failure_without_new_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+            report_path = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            write_prompt_first_audit_placeholder(report_path)
+
+            first_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertNotEqual(first_proc.returncode, 0)
+            packet_count = len(list(paths["executions_dir"].iterdir()))
+            self.assertGreater(packet_count, 0)
+
+            second_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertNotEqual(second_proc.returncode, 0)
+            self.assertIn("already failed without any new git or artifact progress", second_proc.stderr)
+            self.assertEqual(packet_count, len(list(paths["executions_dir"].iterdir())))
+
+    def test_import_execution_blocks_repeated_prompt_first_failure_without_new_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+            report_path = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            write_prompt_first_audit_placeholder(report_path)
+
+            first_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertNotEqual(first_proc.returncode, 0)
+            packet_count = len(list(paths["executions_dir"].iterdir()))
+
+            import_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+            self.assertNotEqual(import_proc.returncode, 0)
+            self.assertIn("already failed without any new git or artifact progress", import_proc.stderr)
+            self.assertEqual(packet_count, len(list(paths["executions_dir"].iterdir())))
+
+    def test_import_execution_allows_prompt_first_retry_after_phase_artifact_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+            report_path = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            write_prompt_first_audit_placeholder(report_path)
+
+            first_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+            )
+            self.assertNotEqual(first_proc.returncode, 0)
+
+            (paths["plan_dir"] / "implementation-plan.md").write_text("# Updated implementation plan\n", encoding="utf-8")
+            import_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+            self.assertEqual(import_proc.returncode, 0, msg=import_proc.stderr)
 
     def test_import_and_apply_execution_records_packet_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -2450,6 +2812,77 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Recorded phase result:", apply_proc.stdout)
             self.assertTrue(apply_proc.stderr.strip())
             self.assertNotIn("Traceback", apply_proc.stderr)
+
+    def test_apply_execution_failure_writes_prompt_first_blocker_for_direct_import_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+            report_path = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            write_prompt_first_audit_placeholder(report_path)
+
+            import_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+            self.assertEqual(import_proc.returncode, 0, msg=import_proc.stderr)
+
+            packet_dirs = sorted(path for path in paths["executions_dir"].iterdir() if path.is_dir())
+            self.assertEqual(len(packet_dirs), 1)
+            apply_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-apply-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--packet",
+                str(packet_dirs[0]),
+                "--certify",
+                "--no-rerun",
+            )
+            self.assertNotEqual(apply_proc.returncode, 0)
+
+            blocker_path = paths["initiative_root"] / "prompt-first-blocker-planning.json"
+            self.assertTrue(blocker_path.is_file())
+
+            second_import = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+            self.assertNotEqual(second_import.returncode, 0)
+            self.assertIn("already failed without any new git or artifact progress", second_import.stderr)
 
     def test_migrate_legacy_writes_mapping_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
