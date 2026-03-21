@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -11,6 +12,25 @@ import unittest
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+SCRIPTS_DIR = ROOT_DIR / "scripts"
+
+
+def load_module(name: str, relative_path: str):
+    module_path = ROOT_DIR / relative_path
+    spec = importlib.util.spec_from_file_location(name, module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+
+common = load_module("supernb_common_cli_integration_test", "scripts/lib/supernb_common.py")
 
 
 def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -1322,6 +1342,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             root = Path(tmp_dir)
             paths = write_spec(root)
             initiative_id = paths["initiative_root"].name
+            spec = common.load_spec(paths["spec_path"])
             write_planning_traceability_artifacts(paths, initiative_id)
 
             next_command = paths["initiative_root"] / "next-command.md"
@@ -1458,6 +1479,16 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (paths["initiative_root"] / "direct-bridge-handoff-planning.md").write_text("# Direct Bridge Handoff\n", encoding="utf-8")
+            stale_packet = paths["executions_dir"] / "20260320-235959-stale-planning-closeout"
+            stale_packet.mkdir(parents=True, exist_ok=True)
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "planning",
+                packet_dir=stale_packet,
+                reason="certification-failed",
+                detail="Old prompt-first packet failed before the newer direct bridge run completed.",
+            )
 
             closeout_proc = run_command(
                 [
@@ -1491,6 +1522,23 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
             self.assertTrue(handoff_payload.get("consumed_at"))
+            self.assertFalse((paths["initiative_root"] / "prompt-first-blocker-planning.json").exists())
+
+    def test_render_command_uses_execution_profile_label(self) -> None:
+        proc = run_command(
+            [
+                "bash",
+                str(ROOT_DIR / "scripts" / "render-command.sh"),
+                "--command",
+                "validated-delivery",
+                "--repository",
+                "/tmp/demo",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        self.assertIn("Execution profile: validated-delivery", proc.stdout)
+        self.assertNotIn("Use supernb command:", proc.stdout)
 
     def test_init_initiative_uses_unique_id_when_same_day_slug_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

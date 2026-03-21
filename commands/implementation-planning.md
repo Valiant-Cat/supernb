@@ -1,7 +1,7 @@
 # implementation-planning
 
 ```text
-Use supernb command: implementation-planning
+Execution profile: implementation-planning
 Goal: <produce a fine-grained implementation plan from approved artifacts>
 Context:
 - repository: <url or local path>

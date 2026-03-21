@@ -7,7 +7,7 @@ Use them as stable prompt templates in Claude Code, Codex, OpenCode, or other ha
 ## Format
 
 ```text
-Use supernb command: <command-name>
+Execution profile: <command-name>
 Goal: <what you want>
 Context: <repo, stack, constraints, market, etc.>
 Output: <what should be saved, implemented, or returned>
@@ -46,7 +46,7 @@ Output: <what should be saved, implemented, or returned>
 ## Example
 
 ```text
-Use supernb command: full-product-delivery
+Execution profile: full-product-delivery
 Goal: Build a 10M-DAU-grade personal finance product.
 Context:
 - repository: https://github.com/example/repo.git

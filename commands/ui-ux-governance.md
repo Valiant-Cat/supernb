@@ -1,7 +1,7 @@
 # ui-ux-governance
 
 ```text
-Use supernb command: ui-ux-governance
+Execution profile: ui-ux-governance
 Goal: <define or audit the product's UI/UX direction>
 Context:
 - repository: <url or local path>

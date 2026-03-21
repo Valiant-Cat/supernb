@@ -1,7 +1,7 @@
 # ui-ux-upgrade
 
 ```text
-Use supernb command: ui-ux-upgrade
+Execution profile: ui-ux-upgrade
 Goal: <upgrade the UI and UX of an existing product>
 Context:
 - repository: <local path or remote>

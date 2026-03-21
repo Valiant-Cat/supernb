@@ -1,7 +1,7 @@
 # implementation-execution
 
 ```text
-Use supernb command: implementation-execution
+Execution profile: implementation-execution
 Goal: <implement a feature, module, fix, or refactor>
 Context:
 - repository: <local path or remote>

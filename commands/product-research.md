@@ -1,7 +1,7 @@
 # product-research
 
 ```text
-Use supernb command: product-research
+Execution profile: product-research
 Goal: <produce approved research evidence for the current initiative>
 Context:
 - repository: <optional url or local path>

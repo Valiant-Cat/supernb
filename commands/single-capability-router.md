@@ -1,7 +1,7 @@
 # single-capability-router
 
 ```text
-Use supernb command: single-capability-router
+Execution profile: single-capability-router
 Goal: <one focused task>
 Context:
 - repository: <optional url or local path>

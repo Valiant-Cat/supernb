@@ -1,7 +1,7 @@
 # i18n-localization-governance
 
 ```text
-Use supernb command: i18n-localization-governance
+Execution profile: i18n-localization-governance
 Goal: <remove hardcoded copy, initialize localization, or complete translations>
 Context:
 - repository: <local path or remote>
@@ -15,4 +15,3 @@ Output:
 - sync target locales
 - run hardcoded-copy checks
 ```
-

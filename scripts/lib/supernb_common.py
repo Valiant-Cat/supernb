@@ -547,7 +547,13 @@ def clear_prompt_first_blocker(spec: dict[str, Any], root_dir: Path, phase: str)
     path.unlink(missing_ok=True)
 
 
-def prompt_first_retry_blocker(spec: dict[str, Any], root_dir: Path, phase: str) -> str | None:
+def prompt_first_retry_blocker(
+    spec: dict[str, Any],
+    root_dir: Path,
+    phase: str,
+    *,
+    source_packet: Path | None = None,
+) -> str | None:
     payload = load_prompt_first_blocker(spec, root_dir, phase)
     if not payload:
         return None
@@ -557,6 +563,12 @@ def prompt_first_retry_blocker(spec: dict[str, Any], root_dir: Path, phase: str)
         clear_prompt_first_blocker(spec, root_dir, phase)
         return None
     packet_dir = str(payload.get("packet_dir", "")).strip()
+    if source_packet is not None:
+        blocked_packet = Path(packet_dir).expanduser().resolve() if packet_dir else None
+        candidate_packet = source_packet.expanduser().resolve()
+        if blocked_packet is None or blocked_packet != candidate_packet:
+            clear_prompt_first_blocker(spec, root_dir, phase)
+            return None
     return (
         f"Prompt-first {phase} closeout already failed without any new git or artifact progress. "
         "Do not rerun closeout/import on the same unchanged state. Resolve the existing blockers first, "

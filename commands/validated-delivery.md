@@ -1,7 +1,7 @@
 # validated-delivery
 
 ```text
-Use supernb command: validated-delivery
+Execution profile: validated-delivery
 Goal: <complete one validated delivery batch from the approved plan>
 Context:
 - repository: <url or local path>

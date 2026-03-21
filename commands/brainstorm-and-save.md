@@ -1,7 +1,7 @@
 # brainstorm-and-save
 
 ```text
-Use supernb command: brainstorm-and-save
+Execution profile: brainstorm-and-save
 Goal: <brainstorm a product, feature, or strategy>
 Context:
 - domain: <problem space>
@@ -10,4 +10,3 @@ Context:
 Output:
 - save the brainstormed result into local markdown artifacts
 ```
-

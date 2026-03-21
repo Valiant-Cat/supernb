@@ -7,7 +7,7 @@ Use a `supernb` command template as the first structured instruction in a sessio
 Example:
 
 ```text
-Use supernb command: full-product-delivery
+Execution profile: full-product-delivery
 Goal: Build a 10M-DAU-grade product.
 Context:
 - repository: <repo>

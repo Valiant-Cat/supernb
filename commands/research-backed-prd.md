@@ -1,7 +1,7 @@
 # research-backed-prd
 
 ```text
-Use supernb command: research-backed-prd
+Execution profile: research-backed-prd
 Goal: <turn approved research into a cited PRD>
 Context:
 - repository: <optional url or local path>

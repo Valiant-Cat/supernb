@@ -1,7 +1,7 @@
 # autonomous-delivery
 
 ```text
-Use supernb command: autonomous-delivery
+Execution profile: autonomous-delivery
 Goal: <deliver an approved scope in validated batches>
 Context:
 - repository: <url or local path>

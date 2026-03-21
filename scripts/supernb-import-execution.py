@@ -313,6 +313,13 @@ def main() -> int:
     if not initiative_id:
         print(f"Could not determine initiative id from {spec_path}", file=sys.stderr)
         return 1
+
+    try:
+        source_packet_dir = resolve_optional_dir_path(args.source_packet)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
     if args.harness == "claude-code-prompt":
         reassessment_blocker = prompt_first_reassessment_blocker(spec, ROOT_DIR, spec_path, args.phase)
         if reassessment_blocker:
@@ -327,7 +334,7 @@ def main() -> int:
             )
             print(reassessment_blocker, file=sys.stderr)
             return 1
-        retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, args.phase)
+        retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, args.phase, source_packet=source_packet_dir)
         if retry_blocker:
             debug_log(
                 spec,
@@ -375,13 +382,11 @@ def main() -> int:
     merged_report["evidence_artifacts"] = ensure_list(merged_report["evidence_artifacts"])
 
     imported_sources = [str(report_path)]
-    source_packet_dir: Path | None = None
     source_context: dict[str, Any] | None = None
     try:
         response_file_path, response_prefix = read_optional_text(args.response_file)
         stdout_file_path, stdout_text = read_optional_text(args.stdout_file)
         stderr_file_path, stderr_text = read_optional_text(args.stderr_file)
-        source_packet_dir = resolve_optional_dir_path(args.source_packet)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1

@@ -1,7 +1,7 @@
 # product-research-prd
 
 ```text
-Use supernb command: product-research-prd
+Execution profile: product-research-prd
 Goal: <produce a research-backed PRD or feature scope>
 Context:
 - repository: <optional url or local path>

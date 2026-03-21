@@ -1,7 +1,7 @@
 # full-product-delivery
 
 ```text
-Use supernb command: full-product-delivery
+Execution profile: full-product-delivery
 Goal: <build a complete product to 10M-DAU-grade commercial quality>
 Context:
 - repository: <url or local path>

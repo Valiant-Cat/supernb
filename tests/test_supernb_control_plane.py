@@ -37,6 +37,77 @@ run_control_plane = load_module("supernb_run_test", "scripts/supernb-run.py")
 
 
 class SupernbControlPlaneTests(unittest.TestCase):
+    def test_prompt_first_retry_blocker_is_superseded_by_new_source_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            initiative_root.mkdir(parents=True, exist_ok=True)
+            plan_dir.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  run_status_md: ".supernb/initiatives/{initiative_id}/run-status.md"',
+                        f'  run_status_json: ".supernb/initiatives/{initiative_id}/run-status.json"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            (initiative_root / "run-status.md").write_text("# Run Status\n", encoding="utf-8")
+            (initiative_root / "run-status.json").write_text(
+                json.dumps({"initiative_id": initiative_id, "selected_phase": "planning"}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            (plan_dir / "implementation-plan.md").write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            old_packet = initiative_root / "executions" / "20260321-100000-planning-claude-code-prompt"
+            old_packet.mkdir(parents=True, exist_ok=True)
+            new_packet = initiative_root / "executions" / "20260321-101500-planning-claude-code"
+            new_packet.mkdir(parents=True, exist_ok=True)
+
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "planning",
+                packet_dir=old_packet,
+                reason="certification-failed",
+                detail="Old prompt-first packet failed.",
+            )
+
+            blocker = common.prompt_first_retry_blocker(spec, ROOT_DIR, "planning", source_packet=new_packet)
+
+            self.assertIsNone(blocker)
+            self.assertFalse((initiative_root / "prompt-first-blocker-planning.json").exists())
+
+    def test_build_execution_command_uses_bypass_permissions_for_claude_code(self) -> None:
+        command = execute_next.build_execution_command(
+            "claude-code",
+            Path("/tmp/project"),
+            Path("/tmp/response.md"),
+            [],
+            "hello",
+        )
+
+        self.assertIn("--permission-mode", command)
+        permission_index = command.index("--permission-mode")
+        self.assertEqual(command[permission_index + 1], "bypassPermissions")
+
     def test_release_complete_is_false_when_delivery_certification_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

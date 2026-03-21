@@ -1,7 +1,7 @@
 # supernb-orchestrator
 
 ```text
-Use supernb command: supernb-orchestrator
+Execution profile: supernb-orchestrator
 Goal: <route this request to the correct supernb workflow>
 Context:
 - repository: <url or local path if relevant>

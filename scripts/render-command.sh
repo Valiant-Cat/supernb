@@ -244,7 +244,7 @@ if [[ "${STRICT}" -eq 1 ]] && has_missing_required_fields; then
 fi
 
 render() {
-  echo "Use supernb command: ${COMMAND}"
+  echo "Execution profile: ${COMMAND}"
   echo "Goal: ${GOAL:-<fill goal>}"
   echo "Context:"
 

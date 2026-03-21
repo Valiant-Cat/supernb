@@ -457,7 +457,7 @@ def build_execution_command(
             "--output-format",
             "text",
             "--permission-mode",
-            "auto",
+            "bypassPermissions",
         ]
         if loop_contract:
             command.extend(
