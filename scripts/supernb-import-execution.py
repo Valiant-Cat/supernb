@@ -48,6 +48,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stderr-file", help="Optional stderr log to copy into the packet")
     parser.add_argument("--artifact-path", action="append", default=[], help="Repeatable evidence artifact path to merge into the imported report")
     parser.add_argument("--harness", default="manual-import", help="Harness label to record in the imported packet")
+    parser.add_argument("--source-packet", help="Optional existing execution packet to merge authoritative git/loop evidence from")
     parser.add_argument("--execution-status", choices=["succeeded", "failed"], default="succeeded", help="Actual execution outcome to record")
     parser.add_argument("--exit-code", type=int, help="Optional process exit code to record")
     return parser.parse_args()
@@ -115,6 +116,15 @@ def ensure_list(value: Any) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
+
+
+def resolve_optional_dir_path(path_value: str | None) -> Path | None:
+    if not path_value:
+        return None
+    path = Path(path_value).expanduser().resolve()
+    if not path.is_dir():
+        raise FileNotFoundError(f"Directory not found: {path}")
+    return path
 
 
 def normalize_phase_name(value: Any) -> str:
@@ -210,6 +220,82 @@ def resolve_evidence_artifacts(
     return resolved_artifacts, missing_artifacts
 
 
+def load_json_dict(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object in {path}")
+    return payload
+
+
+def load_source_packet_context(packet_dir: Path) -> dict[str, Any]:
+    request_path = packet_dir / "request.json"
+    if not request_path.is_file():
+        raise FileNotFoundError(f"Source packet request.json not found: {request_path}")
+    request_payload = load_json_dict(request_path)
+    return {
+        "packet_dir": packet_dir,
+        "request_path": request_path,
+        "request": request_payload,
+        "harness": str(request_payload.get("harness", "")).strip(),
+        "phase": normalize_phase_name(request_payload.get("phase")),
+    }
+
+
+def derive_source_loop_execution(report: dict[str, Any], source_context: dict[str, Any]) -> dict[str, Any] | None:
+    request_payload = source_context["request"]
+    loop_contract = request_payload.get("ralph_loop")
+    if not isinstance(loop_contract, dict) or not loop_contract:
+        return None
+
+    existing_loop = report.get("loop_execution") if isinstance(report.get("loop_execution"), dict) else {}
+    audit_summary = request_payload.get("ralph_loop_audit_summary")
+    if not isinstance(audit_summary, dict):
+        audit_summary = {}
+    final_status = str(audit_summary.get("final_status", "")).strip()
+    existing_final_iteration = int(existing_loop.get("final_iteration", 0) or 0)
+    source_last_iteration = int(audit_summary.get("last_iteration", 0) or 0)
+    exit_reason = str(existing_loop.get("exit_reason", "")).strip()
+    if not exit_reason:
+        if final_status == "state_removed":
+            exit_reason = "completion promise became true"
+        elif final_status:
+            exit_reason = final_status.replace("_", "-")
+
+    return {
+        "used": True,
+        "mode": "ralph-loop",
+        "completion_promise": str(loop_contract.get("completion_promise", "")).strip(),
+        "state_file": str(loop_contract.get("state_file", "")).strip(),
+        "max_iterations": max(int(loop_contract.get("max_iterations", 0) or 0), 0),
+        "final_iteration": max(existing_final_iteration, source_last_iteration),
+        "exit_reason": exit_reason,
+        "evidence": str(loop_contract.get("audit_summary_file", "")).strip(),
+    }
+
+
+def merge_source_packet_fields(report: dict[str, Any], source_context: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(report)
+    request_payload = source_context["request"]
+    original_loop = merged.get("loop_execution") if isinstance(merged.get("loop_execution"), dict) else {}
+    original_loop_evidence = str(original_loop.get("evidence", "")).strip()
+
+    source_loop_execution = derive_source_loop_execution(merged, source_context)
+    if source_loop_execution:
+        merged["loop_execution"] = source_loop_execution
+        evidence_artifacts = ensure_list(merged.get("evidence_artifacts"))
+        source_loop_evidence = str(source_loop_execution.get("evidence", "")).strip()
+        if original_loop_evidence and source_loop_evidence and original_loop_evidence != source_loop_evidence:
+            evidence_artifacts = [item for item in evidence_artifacts if item.strip() != original_loop_evidence]
+        if source_loop_evidence:
+            evidence_artifacts.append(source_loop_evidence)
+        merged["evidence_artifacts"] = ensure_list(evidence_artifacts)
+
+    source_commits = ensure_list(request_payload.get("commits_created"))
+    if source_commits and not merged.get("batch_commits"):
+        merged["batch_commits"] = source_commits
+    return merged
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -289,10 +375,13 @@ def main() -> int:
     merged_report["evidence_artifacts"] = ensure_list(merged_report["evidence_artifacts"])
 
     imported_sources = [str(report_path)]
+    source_packet_dir: Path | None = None
+    source_context: dict[str, Any] | None = None
     try:
         response_file_path, response_prefix = read_optional_text(args.response_file)
         stdout_file_path, stdout_text = read_optional_text(args.stdout_file)
         stderr_file_path, stderr_text = read_optional_text(args.stderr_file)
+        source_packet_dir = resolve_optional_dir_path(args.source_packet)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -304,6 +393,22 @@ def main() -> int:
     for candidate in [response_file_path, stdout_file_path, stderr_file_path]:
         if candidate is not None:
             evidence_search_roots.append(candidate.parent)
+    if source_packet_dir is not None:
+        try:
+            source_context = load_source_packet_context(source_packet_dir)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        source_phase = source_context.get("phase", "")
+        if source_phase and source_phase != args.phase:
+            print(
+                f"Source packet phase mismatch: packet is bound to `{source_phase}` but import requested `{args.phase}`.",
+                file=sys.stderr,
+            )
+            return 1
+        merged_report = merge_source_packet_fields(merged_report, source_context)
+        imported_sources.append(str(source_packet_dir))
+        evidence_search_roots.append(source_packet_dir)
 
     resolved_evidence_artifacts, missing_evidence_artifacts = resolve_evidence_artifacts(
         module,
@@ -405,9 +510,17 @@ def main() -> int:
     )
 
     phase_readiness = module.build_phase_readiness(spec, args.phase)
-    git_before = module.git_state(project_dir)
-    git_after = git_before
-    created_commits = module.validated_report_batch_commits(project_dir, normalized_report, git_after)
+    if source_context is not None:
+        source_request = source_context["request"]
+        git_before = source_request.get("git_before") if isinstance(source_request.get("git_before"), dict) else module.git_state(project_dir)
+        git_after = source_request.get("git_after") if isinstance(source_request.get("git_after"), dict) else git_before
+        created_commits = ensure_list(source_request.get("commits_created"))
+        if not created_commits:
+            created_commits = module.validated_report_batch_commits(project_dir, normalized_report, git_after)
+    else:
+        git_before = module.git_state(project_dir)
+        git_after = git_before
+        created_commits = module.validated_report_batch_commits(project_dir, normalized_report, git_after)
 
     suggestion = module.build_result_suggestion(
         args.phase,
@@ -442,6 +555,7 @@ def main() -> int:
             "git_before": git_before,
             "git_after": git_after,
             "commits_created": created_commits,
+            "source_packet": str(source_packet_dir) if source_packet_dir is not None else "",
         },
     )
     module.write_json(result_suggestion_json, suggestion)

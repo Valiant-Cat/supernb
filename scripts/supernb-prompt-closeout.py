@@ -21,6 +21,7 @@ from lib.supernb_common import (
     write_prompt_first_blocker,
     resolve_spec_path,
     supernb_cli_prefix,
+    utc_now,
 )
 
 
@@ -62,6 +63,58 @@ def default_report_json(spec: dict[str, Any]) -> Path:
 
 def default_reassessment_path(spec: dict[str, Any]) -> Path:
     return prompt_first_reassessment_path(spec, ROOT_DIR)
+
+
+def direct_bridge_handoff_path(spec: dict[str, Any], phase: str) -> Path:
+    return artifact_path(spec, "run_status_md", ROOT_DIR).parent / f"direct-bridge-handoff-{phase}.json"
+
+
+def load_pending_direct_bridge_handoff(spec: dict[str, Any], phase: str) -> tuple[Path, dict[str, Any]] | None:
+    handoff_path = direct_bridge_handoff_path(spec, phase)
+    if not handoff_path.is_file():
+        return None
+    try:
+        payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid direct bridge handoff JSON: {handoff_path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"Direct bridge handoff must be a JSON object: {handoff_path}")
+    if str(payload.get("phase", "")).strip() != phase:
+        return None
+    if str(payload.get("consumed_at", "")).strip():
+        return None
+    return handoff_path, payload
+
+
+def resolve_handoff_source_packet(handoff_path: Path, payload: dict[str, Any], phase: str) -> Path:
+    packet_dir_value = str(payload.get("packet_dir", "")).strip()
+    if not packet_dir_value:
+        raise ValueError(f"Direct bridge handoff is missing packet_dir: {handoff_path}")
+    packet_dir = Path(packet_dir_value).expanduser().resolve()
+    if not packet_dir.is_dir():
+        raise FileNotFoundError(f"Direct bridge handoff packet does not exist: {packet_dir}")
+    request_path = packet_dir / "request.json"
+    if not request_path.is_file():
+        raise FileNotFoundError(f"Direct bridge handoff packet is missing request.json: {request_path}")
+    try:
+        request_payload = json.loads(request_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid source packet request.json: {request_path}: {exc}") from exc
+    if not isinstance(request_payload, dict):
+        raise ValueError(f"Source packet request.json must be a JSON object: {request_path}")
+    packet_phase = str(request_payload.get("phase", "")).strip()
+    if packet_phase and packet_phase != phase:
+        raise ValueError(
+            f"Direct bridge handoff phase mismatch: packet is bound to `{packet_phase}` but closeout requested `{phase}`."
+        )
+    return packet_dir
+
+
+def mark_direct_bridge_handoff_consumed(handoff_path: Path, payload: dict[str, Any], imported_packet_dir: Path) -> None:
+    updated = dict(payload)
+    updated["consumed_at"] = utc_now()
+    updated["consumed_by_packet"] = str(imported_packet_dir)
+    handoff_path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
 
 
 def validate_reassessment(spec: dict[str, Any], spec_path: Path, phase: str) -> str | None:
@@ -119,6 +172,18 @@ def main() -> int:
         print(f"Prompt report JSON not found: {report_json}", file=sys.stderr)
         return 1
 
+    source_packet: Path | None = None
+    handoff_record: tuple[Path, dict[str, Any]] | None = None
+    if args.harness == "claude-code-prompt":
+        try:
+            handoff_record = load_pending_direct_bridge_handoff(spec, phase)
+            if handoff_record is not None:
+                handoff_path, handoff_payload = handoff_record
+                source_packet = resolve_handoff_source_packet(handoff_path, handoff_payload, phase)
+        except (FileNotFoundError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
     reassessment_error = validate_reassessment(spec, spec_path, phase)
     if reassessment_error:
         print(reassessment_error, file=sys.stderr)
@@ -162,6 +227,8 @@ def main() -> int:
         "--harness",
         args.harness,
     ]
+    if source_packet is not None:
+        import_command.extend(["--source-packet", str(source_packet)])
     if args.response_file:
         import_command.extend(["--response-file", args.response_file])
     if args.stdout_file:
@@ -228,6 +295,8 @@ def main() -> int:
 
     if args.harness == "claude-code-prompt":
         clear_prompt_first_blocker(spec, ROOT_DIR, phase)
+        if handoff_record is not None:
+            mark_direct_bridge_handoff_consumed(handoff_record[0], handoff_record[1], packet_dir)
 
     append_debug_log(
         spec,
@@ -239,6 +308,7 @@ def main() -> int:
             "phase": phase,
             "packet_dir": str(packet_dir),
             "loop_required": phase in LOOP_REQUIRED_PHASES,
+            "source_packet": str(source_packet) if source_packet is not None else "",
         },
     )
 

@@ -902,6 +902,36 @@ def ensure_list(value: Any) -> list[str]:
     return result
 
 
+def normalize_batch_commit_entry(value: Any) -> str:
+    if isinstance(value, dict):
+        commit = ensure_string(value.get("commit") or value.get("sha"))
+        message = ensure_string(value.get("message") or value.get("summary") or value.get("title"))
+        if commit and message:
+            return f"{commit} {message}".strip()
+        if commit:
+            return commit
+        rendered = ensure_string(value.get("display"))
+        if rendered:
+            return rendered
+        return ""
+    return ensure_string(value)
+
+
+def normalize_batch_commits(value: Any) -> list[str]:
+    if value is None:
+        return []
+    raw_items = value if isinstance(value, list) else [value]
+    items = [normalize_batch_commit_entry(item) for item in raw_items]
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
 def ensure_bool_or_none(value: Any) -> bool | None:
     if isinstance(value, bool):
         return value
@@ -997,7 +1027,7 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         "commands_run": ensure_list(parsed.get("commands_run")),
         "tests_run": ensure_list(parsed.get("tests_run")),
         "validated_batches_completed": max(int(parsed.get("validated_batches_completed", 0) or 0), 0),
-        "batch_commits": ensure_list(parsed.get("batch_commits")),
+        "batch_commits": normalize_batch_commits(parsed.get("batch_commits")),
         "workflow_trace": normalize_workflow_trace(parsed.get("workflow_trace")),
         "loop_execution": normalize_loop_execution(parsed.get("loop_execution")),
         "recommended_result_status": recommended_result_status,
@@ -2355,7 +2385,7 @@ def validated_report_batch_commits(project_dir: Path, report: dict[str, Any], gi
     if not head_sha:
         return []
     validated: list[str] = []
-    for line in ensure_list(report.get("batch_commits")):
+    for line in normalize_batch_commits(report.get("batch_commits")):
         commit_sha = extract_commit_sha(line)
         if commit_sha and commit_is_reachable_from_head(project_dir, commit_sha, head_sha):
             validated.append(line)

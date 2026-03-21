@@ -615,6 +615,7 @@ def write_direct_bridge_handoff(
         "result_suggestion_path": execute_next_summary.get("result_suggestion_path", ""),
         "phase_readiness_path": execute_next_summary.get("phase_readiness_path", ""),
         "direct_bridge_status": execute_next_summary.get("status", ""),
+        "consumed_at": "",
     }
     json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -635,6 +636,13 @@ def write_direct_bridge_handoff(
         lines.append(f"- Phase readiness: `{payload['phase_readiness_path']}`")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, md_path
+
+
+def clear_direct_bridge_handoff(initiative_root: Path, phase: str) -> None:
+    for suffix in ["json", "md"]:
+        handoff_path = initiative_root / f"direct-bridge-handoff-{phase}.{suffix}"
+        if handoff_path.exists():
+            handoff_path.unlink()
 
 
 def run_direct_claude_bridge_fallback(
@@ -844,6 +852,7 @@ def main() -> int:
     reassessment_path = initiative_root / "initiative-reassessment.md"
     print("supernb prompt-sync: writing prompt session, reassessment template, and loop artifacts...", flush=True)
     loop_config = loop_settings(initiative_id, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
+    clear_direct_bridge_handoff(initiative_root, selected_phase)
     write_report_template(report_template_path, selected_phase, loop_config)
     write_reassessment_template(reassessment_path, spec, selected_phase)
     write_loop_prompt(loop_config["prompt_file"], spec, spec_path, selected_phase, run_status, report_template_path, loop_config, reassessment_path)

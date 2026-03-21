@@ -1317,6 +1317,181 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("Recorded result status: succeeded", closeout_proc.stdout)
             self.assertIn("Certification run: yes (apply)", closeout_proc.stdout)
 
+    def test_prompt_closeout_uses_direct_bridge_handoff_packet_before_stale_report_loop_data(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            paths = write_spec(root)
+            initiative_id = paths["initiative_root"].name
+            write_planning_traceability_artifacts(paths, initiative_id)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Planning is ready for bounded execution.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+                cwd=paths["project_dir"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            report_payload = json.loads(report_template.read_text(encoding="utf-8"))
+            report_payload["summary"] = "Completed the bounded planning batch through a direct bridge handoff."
+            report_payload["completed_items"] = [
+                "Validated the planning traceability set.",
+                "Prepared the planning batch for execution.",
+            ]
+            report_payload["remaining_items"] = []
+            report_payload["artifacts_updated"] = [str((paths["plan_dir"] / "implementation-plan.md").resolve())]
+            report_payload["commands_run"] = ["./scripts/supernb prompt-sync --start-loop", "./scripts/supernb prompt-closeout"]
+            report_payload["tests_run"] = ["npm test -- --runInBand", "npm run lint"]
+            report_payload["validated_batches_completed"] = 1
+            report_payload["batch_commits"] = []
+            report_payload["workflow_trace"] = {
+                "brainstorming": {"used": False, "evidence": "Planning refinement did not need a separate brainstorming pass."},
+                "writing_plans": {"used": True, "evidence": "Completed the implementation-plan planning batch and traceability update."},
+                "test_driven_development": {"used": False, "evidence": "Planning closeout did not execute code changes."},
+                "code_review": {"used": False, "evidence": "Planning closeout reviewed the plan artifact rather than code."},
+                "using_git_worktrees": {"used": False, "evidence": "The test stayed in one temporary workspace."},
+                "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded planning batch through direct-bridge handoff."},
+            }
+            report_payload["recommended_result_status"] = "succeeded"
+            report_payload["recommended_gate_action"] = "certify"
+            report_payload["recommended_gate_status"] = "ready"
+            report_template.write_text(json.dumps(report_payload, indent=2) + "\n", encoding="utf-8")
+
+            source_packet = paths["executions_dir"] / "20260321-000000-planning-claude-code"
+            source_packet.mkdir(parents=True, exist_ok=True)
+            state_file = paths["project_dir"] / ".claude" / "superpower-loop-demo.local.md"
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            audit_summary = source_packet / "ralph-loop-audit.json"
+            audit_summary_payload = {
+                "state_file": str(state_file),
+                "completion_promise": f"SUPERNB {initiative_id} planning batch complete",
+                "max_iterations": 6,
+                "expected_session_id": "generated-session-1",
+                "state_observed": True,
+                "removed_after_observation": True,
+                "last_iteration": 2,
+                "last_session_id": "generated-session-1",
+                "final_status": "state_removed",
+            }
+            audit_summary.write_text(json.dumps(audit_summary_payload, indent=2) + "\n", encoding="utf-8")
+            (source_packet / "response.md").write_text(
+                "Completed the requested Claude Code batch.\n<promise>"
+                + audit_summary_payload["completion_promise"]
+                + "</promise>\n",
+                encoding="utf-8",
+            )
+            (source_packet / "stdout.log").write_text("", encoding="utf-8")
+            (source_packet / "stderr.log").write_text("", encoding="utf-8")
+            (source_packet / "summary.md").write_text("# Direct Bridge Summary\n", encoding="utf-8")
+            (source_packet / "request.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phase": "planning",
+                        "harness": "claude-code",
+                        "project_dir": str(paths["project_dir"]),
+                        "git_before": {"is_repo": False},
+                        "git_after": {"is_repo": False},
+                        "commits_created": [],
+                        "ralph_loop": {
+                            "completion_promise": audit_summary_payload["completion_promise"],
+                            "session_id": audit_summary_payload["expected_session_id"],
+                            "state_file": str(state_file),
+                            "prompt_file": str(source_packet / "ralph-loop-prompt.md"),
+                            "audit_summary_file": str(audit_summary),
+                            "audit_events_file": str(source_packet / "ralph-loop-audit.ndjson"),
+                            "plugin_dir": str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / ".claude-plugin"),
+                            "max_iterations": 6,
+                            "start_command": [],
+                            "start_command_text": "",
+                        },
+                        "ralph_loop_audit_summary": audit_summary_payload,
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
+            handoff_path.write_text(
+                json.dumps(
+                    {
+                        "phase": "planning",
+                        "status": "completed",
+                        "bridge_returncode": 0,
+                        "observer_mode_can_exit": True,
+                        "resume_summary": "Direct bridge run finished. The current Claude session may exit observer mode.",
+                        "resume_next_step": "Review the handoff artifact and continue from the current Claude session using the recorded packet and readiness outputs.",
+                        "initiative_id": initiative_id,
+                        "harness": "claude-code",
+                        "project_dir": str(paths["project_dir"]),
+                        "packet_dir": str(source_packet),
+                        "summary_path": str(source_packet / "summary.md"),
+                        "response_path": str(source_packet / "response.md"),
+                        "result_suggestion_path": "",
+                        "phase_readiness_path": "",
+                        "direct_bridge_status": "completed",
+                        "consumed_at": "",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (paths["initiative_root"] / "direct-bridge-handoff-planning.md").write_text("# Direct Bridge Handoff\n", encoding="utf-8")
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--report-json",
+                    str(report_template),
+                ],
+                cwd=paths["project_dir"],
+            )
+
+            self.assertEqual(closeout_proc.returncode, 0, closeout_proc.stderr or closeout_proc.stdout)
+            self.assertIn("Prompt closeout status: clean phase-complete", closeout_proc.stdout)
+
+            imported_packets = sorted(paths["executions_dir"].glob("*-planning-claude-code-prompt"))
+            self.assertEqual(len(imported_packets), 1)
+            imported_request = json.loads((imported_packets[0] / "request.json").read_text(encoding="utf-8"))
+            self.assertEqual(Path(imported_request.get("source_packet", "")).resolve(), source_packet.resolve())
+
+            suggestion_payload = json.loads((imported_packets[0] / "result-suggestion.json").read_text(encoding="utf-8"))
+            self.assertEqual(suggestion_payload.get("suggested_result_status"), "succeeded")
+            self.assertFalse(
+                any("Ralph Loop audit summary" in issue for issue in suggestion_payload.get("workflow_issues", [])),
+                suggestion_payload.get("workflow_issues", []),
+            )
+
+            handoff_payload = json.loads(handoff_path.read_text(encoding="utf-8"))
+            self.assertTrue(handoff_payload.get("consumed_at"))
+
     def test_init_initiative_uses_unique_id_when_same_day_slug_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
