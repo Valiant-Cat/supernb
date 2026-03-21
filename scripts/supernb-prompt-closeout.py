@@ -15,7 +15,10 @@ from lib.supernb_common import (
     append_debug_log,
     artifact_path,
     load_spec,
+    markdown_field_from_text,
     nested_get,
+    project_root,
+    reassessment_indicates_next_development_cycle,
     resolve_spec_path,
     supernb_cli_prefix,
 )
@@ -62,9 +65,7 @@ def default_reassessment_path(spec: dict[str, Any]) -> Path:
 
 
 def extract_reassessment_field(text: str, label: str) -> str:
-    pattern = rf"^- {re.escape(label)}:\s*(.*)$"
-    match = re.search(pattern, text, flags=re.MULTILINE)
-    return match.group(1).strip() if match else ""
+    return markdown_field_from_text(text, label)
 
 
 def validate_reassessment(spec: dict[str, Any], spec_path: Path, phase: str) -> str | None:
@@ -105,6 +106,13 @@ def validate_reassessment(spec: dict[str, Any], spec_path: Path, phase: str) -> 
             f"Initiative-wide reassessment says the current `{phase}` batch cannot close out cleanly until an earlier phase is reopened. "
             f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --spec {spec_path} --phase {earliest_phase}` "
             "after updating the upstream artifacts."
+        )
+    if reassessment_indicates_next_development_cycle(reassessment_path):
+        project_dir = project_root(spec, ROOT_DIR)
+        return (
+            "Initiative-wide reassessment says the current initiative has already completed its release-ready cycle and the request belongs in the next "
+            "development cycle. Do not close out more work into the current initiative. "
+            f"Next step: run `{supernb_cli_prefix(ROOT_DIR)} prompt-bootstrap --project-dir {project_dir}` to start a new follow-on initiative."
         )
     return None
 

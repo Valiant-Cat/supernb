@@ -1177,6 +1177,88 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertEqual(run_status.get("selected_phase"), "research")
             self.assertIn(str(newest_spec), bootstrap_proc.stdout)
 
+    def test_prompt_bootstrap_creates_follow_on_from_completed_release_reassessment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "product"
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            env = dict(os.environ)
+            env["PROJECT_DIR"] = str(project_dir)
+            env["GOAL"] = "Continue upgrading the product."
+            env["HARNESS"] = "claude-code"
+
+            init_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "init-initiative.sh"), "demo-follow-on", "Demo Follow On"],
+                env=env,
+            )
+            self.assertEqual(init_proc.returncode, 0, msg=init_proc.stderr)
+
+            old_spec = next((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            old_root = old_spec.parent
+            old_id = old_root.name
+            (old_root / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": old_id,
+                        "selected_phase": "release",
+                        "phases": {
+                            "delivery": {"status": "complete"},
+                            "release": {"status": "complete"},
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (old_root / "initiative-reassessment.md").write_text(
+                textwrap.dedent(
+                    f"""\
+                    # Initiative-Wide Reassessment
+
+                    - Initiative ID: `{old_id}`
+                    - Current selected phase: `release`
+                    - Trigger: generic prompt-first supernb upgrade or improvement request
+                    - Status: completed
+
+                    ## Reopen Decision
+
+                    - Earliest affected phase to reopen: None
+                    - Why this is the correct restart point: All phases are complete and certified
+                    - Can the current selected phase continue without reopening upstream work: yes
+
+                    ## Required Upgrade Docs
+
+                    - Planning upgrades required: Future batch items need plan updates
+
+                    ## Execution Rule
+
+                    - All phases complete. Initiative is ready for next development cycle.
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            bootstrap_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-bootstrap",
+                    "--project-dir",
+                    str(project_dir),
+                ],
+                cwd=project_dir,
+                env=env,
+            )
+            self.assertEqual(bootstrap_proc.returncode, 0, bootstrap_proc.stderr or bootstrap_proc.stdout)
+            self.assertIn("starting a new follow-on initiative", bootstrap_proc.stdout.lower())
+
+            specs = sorted((project_dir / ".supernb" / "initiatives").glob("*/initiative.yaml"))
+            self.assertEqual(len(specs), 2)
+            newest_spec = max(specs, key=lambda path: path.stat().st_mtime)
+            self.assertNotEqual(newest_spec.parent.name, old_id)
+
     def test_prompt_closeout_blocks_when_initiative_reassessment_is_still_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -1252,6 +1334,78 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("cannot close out cleanly", closeout_proc.stderr)
             self.assertIn("prompt-bootstrap --spec", closeout_proc.stderr)
             self.assertIn("--phase research", closeout_proc.stderr)
+
+    def test_prompt_closeout_blocks_when_reassessment_requires_follow_on_initiative(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            run_status = paths["initiative_root"] / "run-status.json"
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "release",
+                        "phases": {
+                            "delivery": {"status": "complete"},
+                            "release": {"status": "complete"},
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_path.write_text(
+                textwrap.dedent(
+                    f"""\
+                    # Initiative-Wide Reassessment
+
+                    - Initiative ID: `{paths["initiative_root"].name}`
+                    - Current selected phase: `release`
+                    - Trigger: generic prompt-first supernb upgrade or improvement request
+                    - Status: completed
+
+                    ## Reopen Decision
+
+                    - Earliest affected phase to reopen: None
+                    - Why this is the correct restart point: All phases are complete and certified
+                    - Can the current selected phase continue without reopening upstream work: yes
+
+                    ## Required Upgrade Docs
+
+                    - Planning upgrades required: Future batch items need plan updates
+
+                    ## Execution Rule
+
+                    - All phases complete. Initiative is ready for next development cycle.
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "release",
+                ],
+            )
+
+            self.assertNotEqual(closeout_proc.returncode, 0)
+            self.assertIn("next development cycle", closeout_proc.stderr)
+            self.assertIn("start a new follow-on initiative", closeout_proc.stderr)
+            self.assertIn("prompt-bootstrap --project-dir", closeout_proc.stderr)
+            self.assertNotIn("Execution packet:", closeout_proc.stderr)
 
     def test_prompt_sync_writes_session_contract_and_report_template(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -12,7 +12,11 @@ import tempfile
 from pathlib import Path
 
 from lib.supernb_common import artifact_path as common_artifact_path
+from lib.supernb_common import load_json_file
 from lib.supernb_common import load_spec
+from lib.supernb_common import markdown_field
+from lib.supernb_common import reassessment_indicates_next_development_cycle
+from lib.supernb_common import run_status_indicates_completed_cycle
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 INIT_SCRIPT = ROOT_DIR / "scripts" / "init-initiative.sh"
@@ -68,21 +72,6 @@ def discover_initiative_specs(project_dir: Path) -> list[Path]:
     return sorted((path.resolve() for path in candidates), key=sort_key, reverse=True)
 
 
-def read_markdown_field(path: Path, field_name: str) -> str:
-    if not path.is_file():
-        return ""
-    pattern = re.compile(r"^- ([^:]+):\s*(.*)$")
-    for line in path.read_text(encoding="utf-8").splitlines():
-        match = pattern.match(line.strip())
-        if not match:
-            continue
-        key = match.group(1).strip().lower()
-        value = match.group(2).strip().strip("`")
-        if key == field_name.lower():
-            return value
-    return ""
-
-
 def normalize(value: str) -> str:
     return value.strip().lower()
 
@@ -91,15 +80,28 @@ def initiative_should_roll_into_follow_on(spec_path: Path) -> bool:
     spec = load_spec(spec_path)
     plan_file = common_artifact_path(spec, "plan_dir", ROOT_DIR) / "implementation-plan.md"
     release_file = common_artifact_path(spec, "release_dir", ROOT_DIR) / "release-readiness.md"
-    delivery_status = normalize(read_markdown_field(plan_file, "Delivery status"))
-    release_status = normalize(read_markdown_field(release_file, "Release decision"))
-    return delivery_status in {"verified", "complete", "completed", "done"} and release_status in {
+    delivery_status = normalize(markdown_field(plan_file, "Delivery status"))
+    release_status = normalize(markdown_field(release_file, "Release decision"))
+    legacy_release_ready = delivery_status in {"verified", "complete", "completed", "done"} and release_status in {
         "ready",
         "approved",
         "ship-ready",
         "shipped",
         "released",
     }
+    initiative_root = spec_path.parent
+    run_status_complete = run_status_indicates_completed_cycle(initiative_root / "run-status.json")
+    reassessment_next_cycle = reassessment_indicates_next_development_cycle(initiative_root / "initiative-reassessment.md")
+    certification_state = load_json_file(initiative_root / "certification-state.json")
+    phases = certification_state.get("phases", {}) if isinstance(certification_state.get("phases"), dict) else {}
+    delivery_cert = phases.get("delivery", {}) if isinstance(phases.get("delivery"), dict) else {}
+    release_cert = phases.get("release", {}) if isinstance(phases.get("release"), dict) else {}
+    certified_cycle_complete = (
+        bool(delivery_cert.get("passed"))
+        and bool(release_cert.get("passed"))
+        and normalize(str(release_cert.get("recommended_gate_status", ""))) == "ready"
+    )
+    return legacy_release_ready or run_status_complete or (reassessment_next_cycle and certified_cycle_complete)
 
 
 def legacy_workspace_present(project_dir: Path) -> bool:

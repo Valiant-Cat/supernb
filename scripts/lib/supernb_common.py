@@ -109,6 +109,18 @@ def nested_get(data: dict[str, Any], *keys: str, default: str = "") -> str:
     return value
 
 
+def markdown_field_from_text(text: str, label: str) -> str:
+    pattern = rf"^- {re.escape(label)}:\s*(.*)$"
+    match = re.search(pattern, text, flags=re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def markdown_field(path: Path, label: str) -> str:
+    if not path.is_file():
+        return ""
+    return markdown_field_from_text(path.read_text(encoding="utf-8"), label)
+
+
 def display_path(path: Path, roots: list[Path]) -> str:
     for root in roots:
         try:
@@ -393,6 +405,62 @@ def certification_snapshot_matches(entry: dict[str, Any] | None, current_snapsho
     if not isinstance(snapshot, list):
         return False
     return snapshot == current_snapshot
+
+
+def load_json_file(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def normalized_choice(value: str) -> str:
+    return str(value).strip().lower().strip("`")
+
+
+def run_status_indicates_completed_cycle(run_status_json: Path) -> bool:
+    payload = load_json_file(run_status_json)
+    if not payload:
+        return False
+    phases = payload.get("phases")
+    if not isinstance(phases, dict):
+        return False
+    delivery_status = normalized_choice(nested_get(phases.get("delivery", {}), "status"))
+    release_status = normalized_choice(nested_get(phases.get("release", {}), "status"))
+    selected_phase = normalized_choice(str(payload.get("selected_phase", "")))
+    return (
+        delivery_status == "complete" and release_status == "complete"
+    ) or (
+        selected_phase == "release" and release_status == "complete"
+    )
+
+
+def reassessment_indicates_next_development_cycle(reassessment_path: Path) -> bool:
+    if not reassessment_path.is_file():
+        return False
+    text = reassessment_path.read_text(encoding="utf-8")
+    status = normalized_choice(markdown_field_from_text(text, "Status"))
+    current_phase = normalized_choice(markdown_field_from_text(text, "Current selected phase"))
+    earliest_phase = normalized_choice(markdown_field_from_text(text, "Earliest affected phase to reopen"))
+    can_continue = normalized_choice(markdown_field_from_text(text, "Can the current selected phase continue without reopening upstream work"))
+    if status != "completed":
+        return False
+    if earliest_phase not in {"none", "n/a", "not-applicable", "not applicable"}:
+        return False
+    if can_continue != "yes":
+        return False
+    lowered = text.lower()
+    cycle_signals = (
+        "ready for next development cycle",
+        "future batch",
+        "future batches",
+        "all phases complete and certified",
+        "all phases complete.",
+    )
+    return current_phase == "release" and any(signal in lowered for signal in cycle_signals)
 
 
 def phase_targets(spec: dict[str, Any], phase: str, root_dir: Path) -> list[Path]:
