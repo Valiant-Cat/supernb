@@ -1147,6 +1147,113 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("workflow_trace", template_payload)
             self.assertEqual(template_payload["recommended_result_status"], "needs-follow-up")
 
+    def test_prompt_sync_non_loop_phase_matrix_writes_reassessment_contracts(self) -> None:
+        phase_expectations = {
+            "research": {"loop_required": False},
+            "prd": {"loop_required": False},
+            "design": {"loop_required": False},
+            "release": {"loop_required": False},
+        }
+
+        for phase, expectation in phase_expectations.items():
+            with self.subTest(phase=phase):
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    paths = write_spec(Path(tmp_dir))
+                    initiative_id = paths["initiative_root"].name
+                    next_command = paths["initiative_root"] / "next-command.md"
+                    phase_packet = paths["initiative_root"] / "phase-packet.md"
+                    run_status = paths["initiative_root"] / "run-status.json"
+                    next_command.write_text(f"# Next Command\n\n- Continue the {phase} phase.\n", encoding="utf-8")
+                    phase_packet.write_text(f"# Phase Packet\n\n- {phase.title()} is ready.\n", encoding="utf-8")
+                    run_status.write_text(
+                        json.dumps(
+                            {
+                                "initiative_id": initiative_id,
+                                "selected_phase": phase,
+                                "next_command": {"path": str(next_command)},
+                            },
+                            indent=2,
+                        )
+                        + "\n",
+                        encoding="utf-8",
+                    )
+
+                    sync_proc = run_command(
+                        ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+                    )
+                    self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+                    session_path = paths["initiative_root"] / "prompt-session.md"
+                    report_template = paths["initiative_root"] / "prompt-report-template.json"
+                    reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+                    loop_manifest = paths["initiative_root"] / f"ralph-loop-{phase}.json"
+                    self.assertTrue(session_path.is_file())
+                    self.assertTrue(report_template.is_file())
+                    self.assertTrue(reassessment_path.is_file())
+                    self.assertTrue(loop_manifest.is_file())
+
+                    session_text = session_path.read_text(encoding="utf-8")
+                    reassessment_text = reassessment_path.read_text(encoding="utf-8")
+                    loop_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
+                    self.assertIn("initiative-wide reassessment", session_text)
+                    self.assertIn("upgrade-artifacts", session_text)
+                    self.assertIn("Initiative-Wide Reassessment", reassessment_text)
+                    self.assertEqual(loop_payload.get("required"), expectation["loop_required"])
+                    if expectation["loop_required"]:
+                        self.assertIn("Ralph Loop Requirement", session_text)
+                    else:
+                        self.assertNotIn("Ralph Loop Requirement", session_text)
+
+    def test_prompt_closeout_research_phase_records_without_promise_after_completed_reassessment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            write_research_artifacts_for_certification(paths["project_dir"], initiative_id)
+            run_proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-run.py"),
+                "--spec",
+                str(paths["spec_path"]),
+            )
+            self.assertEqual(run_proc.returncode, 0, msg=run_proc.stderr)
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"])],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            reassessment_path.write_text(
+                reassessment_text.replace("- Status: pending", "- Status: completed")
+                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
+                .replace(
+                    "- Can the current selected phase continue without reopening upstream work: yes/no",
+                    "- Can the current selected phase continue without reopening upstream work: yes",
+                ),
+                encoding="utf-8",
+            )
+
+            report_template = paths["initiative_root"] / "prompt-report-template.json"
+            write_report_json(report_template)
+
+            closeout_proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-closeout",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "research",
+                    "--report-json",
+                    str(report_template),
+                ],
+            )
+
+            self.assertEqual(closeout_proc.returncode, 0, closeout_proc.stderr or closeout_proc.stdout)
+            self.assertIn("Prompt closeout status: recorded", closeout_proc.stdout)
+            self.assertNotIn("<promise>SUPERNB", closeout_proc.stdout)
+
     def test_prompt_sync_generates_ralph_loop_contract_for_delivery_phase(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
