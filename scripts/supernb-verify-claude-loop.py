@@ -201,7 +201,7 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    command = execute_next.build_execution_command("claude-code", workspace, response_path, [], loop_contract)
+    command = execute_next.build_execution_command("claude-code", workspace, response_path, [], prompt_text, loop_contract)
     write_json(
         request_path,
         {
@@ -216,7 +216,6 @@ def main() -> int:
     run_env["CLAUDE_CODE_SESSION_ID"] = loop_contract["session_id"]
     proc = subprocess.run(
         command,
-        input=prompt_text,
         text=True,
         capture_output=True,
         cwd=str(workspace),

@@ -57,7 +57,23 @@ def write_fake_claude(bin_dir: Path) -> Path:
                 sys.exit(0)
 
             if "-p" in args:
-                prompt = sys.stdin.read()
+                positionals = []
+                i = 0
+                while i < len(args):
+                    arg = args[i]
+                    if arg == "-p":
+                        i += 1
+                        continue
+                    if arg in {"--output-format", "--permission-mode", "--plugin-dir", "--session-id"}:
+                        i += 2
+                        continue
+                    if arg.startswith("-"):
+                        i += 1
+                        continue
+                    positionals.append(arg)
+                    i += 1
+
+                prompt = positionals[-1] if positionals else sys.stdin.read()
                 loop_delete_delay = float(os.environ.get("FAKE_CLAUDE_LOOP_DELETE_DELAY", "0.8"))
 
                 def extract(pattern: str) -> str:
@@ -120,6 +136,159 @@ def write_fake_claude(bin_dir: Path) -> Path:
                 if completion_promise:
                     print(f"<promise>{completion_promise}</promise>")
                 sys.exit(0)
+
+            print("unsupported fake claude invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return script_path
+
+
+def write_fake_claude_requires_prompt_arg(bin_dir: Path) -> Path:
+    script_path = bin_dir / "claude"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import json
+            import os
+            import re
+            import sys
+            import time
+            from pathlib import Path
+
+            args = sys.argv[1:]
+
+            if args[:2] == ["plugin", "list"]:
+                print("supernb-loop@supernb")
+                print("  Version: 1.0.0")
+                print("  Scope: User")
+                print("  Status: enabled")
+                sys.exit(0)
+
+            if "-p" in args:
+                positionals = []
+                i = 0
+                while i < len(args):
+                    arg = args[i]
+                    if arg == "-p":
+                        i += 1
+                        continue
+                    if arg in {"--output-format", "--permission-mode", "--plugin-dir", "--session-id"}:
+                        i += 2
+                        continue
+                    if arg.startswith("-"):
+                        i += 1
+                        continue
+                    positionals.append(arg)
+                    i += 1
+
+                if not positionals:
+                    print("missing positional prompt", file=sys.stderr)
+                    sys.exit(2)
+
+                prompt = positionals[-1]
+                loop_delete_delay = float(os.environ.get("FAKE_CLAUDE_LOOP_DELETE_DELAY", "0.0"))
+
+                def extract(pattern: str) -> str:
+                    match = re.search(pattern, prompt, re.DOTALL)
+                    return match.group(1).strip() if match else ""
+
+                state_file = extract(r"state file `([^`]+)`")
+                audit_summary = extract(r"External audit summary: `([^`]+)`")
+                completion_promise = extract(r"final response must include `<promise>(.*?)</promise>`")
+                if not completion_promise:
+                    promise_matches = re.findall(r"<promise>(.*?)</promise>", prompt, re.DOTALL)
+                    if promise_matches:
+                        completion_promise = promise_matches[-1].strip()
+
+                if state_file:
+                    time.sleep(max(loop_delete_delay, 0.0))
+                    state_path = Path(state_file)
+                    if state_path.exists():
+                        state_path.unlink()
+
+                report = {
+                    "completion_status": "completed",
+                    "summary": "Completed the requested Claude Code batch.",
+                    "completed_items": ["Finished the requested Claude Code batch."],
+                    "remaining_items": [],
+                    "evidence_artifacts": [audit_summary] if audit_summary else [],
+                    "artifacts_updated": [],
+                    "commands_run": [],
+                    "tests_run": [],
+                    "validated_batches_completed": 0,
+                    "batch_commits": [],
+                    "workflow_trace": {
+                        "brainstorming": {"used": False, "evidence": "Not needed."},
+                        "writing_plans": {"used": True, "evidence": "Updated the current plan."},
+                        "test_driven_development": {"used": False, "evidence": "Not needed for this planning batch."},
+                        "code_review": {"used": False, "evidence": "Not needed for this planning batch."},
+                        "using_git_worktrees": {"used": False, "evidence": "Not needed."},
+                        "subagent_or_executing_plans": {"used": True, "evidence": "Executed the bounded planning batch."},
+                    },
+                    "loop_execution": {
+                        "used": bool(audit_summary),
+                        "mode": "ralph-loop" if audit_summary else "none",
+                        "completion_promise": completion_promise,
+                        "state_file": state_file,
+                        "max_iterations": 6,
+                        "final_iteration": 1 if audit_summary else 0,
+                        "exit_reason": "completion promise became true" if audit_summary else "",
+                        "evidence": audit_summary,
+                    },
+                    "recommended_result_status": "succeeded",
+                    "recommended_gate_action": "certify",
+                    "recommended_gate_status": "ready",
+                    "follow_up": [],
+                }
+
+                print("Completed the requested Claude Code batch.")
+                print("SUPERNB_EXECUTION_REPORT_JSON_START")
+                print(json.dumps(report, indent=2))
+                print("SUPERNB_EXECUTION_REPORT_JSON_END")
+                if completion_promise:
+                    print(f"<promise>{completion_promise}</promise>")
+                sys.exit(0)
+
+            print("unsupported fake claude invocation", file=sys.stderr)
+            sys.exit(1)
+            """
+        ),
+        encoding="utf-8",
+    )
+    script_path.chmod(0o755)
+    return script_path
+
+
+def write_fake_claude_that_hangs(bin_dir: Path) -> Path:
+    script_path = bin_dir / "claude"
+    script_path.write_text(
+        textwrap.dedent(
+            """\
+            #!/usr/bin/env python3
+            import signal
+            import sys
+            import time
+
+            args = sys.argv[1:]
+            if args[:2] == ["plugin", "list"]:
+                print("supernb-loop@supernb")
+                print("  Version: 1.0.0")
+                print("  Scope: User")
+                print("  Status: enabled")
+                sys.exit(0)
+
+            if "-p" in args:
+                def handle_term(signum, frame):
+                    sys.exit(143)
+
+                signal.signal(signal.SIGTERM, handle_term)
+                while True:
+                    time.sleep(0.2)
 
             print("unsupported fake claude invocation", file=sys.stderr)
             sys.exit(1)
@@ -2417,6 +2586,132 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             suggestion = json.loads((packet_dir / "result-suggestion.json").read_text(encoding="utf-8"))
             self.assertFalse(any("Ralph Loop" in issue for issue in suggestion.get("workflow_issues", [])))
+
+    def test_execute_next_claude_code_passes_prompt_as_positional_argument(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            paths = write_spec(root)
+            fake_bin = root / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude_requires_prompt_arg(fake_bin)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            (paths["initiative_root"] / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+
+            proc = run_command(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-execute-next.py"),
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--harness",
+                    "claude-code",
+                    "--prompt-file",
+                    str(next_command),
+                ],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
+            self.assertEqual(len(packet_dirs), 1)
+            request_payload = json.loads((packet_dirs[0] / "request.json").read_text(encoding="utf-8"))
+            self.assertIn("Plan the next bounded batch.", request_payload.get("command", [])[-1])
+
+    def test_execute_next_claude_code_interrupt_finalizes_packet_and_cleans_loop_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            paths = write_spec(root)
+            fake_bin = root / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude_that_hangs(fake_bin)
+
+            next_command = paths["initiative_root"] / "next-command.md"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            (paths["initiative_root"] / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+
+            proc = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(ROOT_DIR / "scripts" / "supernb-execute-next.py"),
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--harness",
+                    "claude-code",
+                    "--prompt-file",
+                    str(next_command),
+                ],
+                cwd=ROOT_DIR,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            deadline = time.time() + 5
+            packet_dir = None
+            while time.time() < deadline:
+                packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
+                if packet_dirs and (packet_dirs[-1] / "request.json").is_file():
+                    packet_dir = packet_dirs[-1]
+                    break
+                time.sleep(0.1)
+            self.assertIsNotNone(packet_dir, "execute-next never created a packet request before interruption")
+
+            proc.terminate()
+            stdout_text, stderr_text = proc.communicate(timeout=10)
+            self.assertNotEqual(proc.returncode, 0)
+
+            request_payload = json.loads((packet_dir / "request.json").read_text(encoding="utf-8"))
+            loop_contract = request_payload.get("ralph_loop") or {}
+            self.assertTrue((packet_dir / "response.md").is_file())
+            self.assertTrue((packet_dir / "summary.md").is_file())
+            self.assertTrue((packet_dir / "stderr.log").is_file())
+            self.assertTrue((packet_dir / "result-suggestion.json").is_file())
+            self.assertIn("interrupted", (packet_dir / "stderr.log").read_text(encoding="utf-8").lower())
+            self.assertFalse(Path(loop_contract.get("state_file", "")).exists())
+
+            audit_summary = json.loads((packet_dir / "ralph-loop-audit.json").read_text(encoding="utf-8"))
+            self.assertEqual(audit_summary.get("final_status"), "interrupted")
+
+            suggestion = json.loads((packet_dir / "result-suggestion.json").read_text(encoding="utf-8"))
+            self.assertEqual(suggestion.get("execution_status"), "failed")
+            self.assertEqual(suggestion.get("suggested_result_status"), "blocked")
+            self.assertIn("interrupted", suggestion.get("stderr_excerpt", "").lower())
+            self.assertIn("interrupted", stdout_text.lower() + stderr_text.lower())
 
     def test_verify_claude_loop_detects_missing_second_iteration(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

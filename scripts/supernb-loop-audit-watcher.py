@@ -73,6 +73,16 @@ def write_summary(summary_path: Path, payload: dict[str, Any]) -> None:
     summary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def read_summary(summary_path: Path) -> dict[str, Any] | None:
+    if not summary_path.is_file():
+        return None
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def main() -> int:
     args = parse_args()
     state_file = Path(args.state_file).expanduser().resolve()
@@ -133,6 +143,17 @@ def main() -> int:
     observed_once = initial_observed
 
     while time.time() < deadline:
+        current_summary = read_summary(summary_path)
+        if current_summary and str(current_summary.get("final_status", "")).strip() not in {"", "watching"}:
+            append_event(
+                events_path,
+                {
+                    "timestamp": utc_now(),
+                    "event": "summary-finalized-externally",
+                    "final_status": current_summary.get("final_status", ""),
+                },
+            )
+            return 0
         if state_file.is_file():
             current = parse_frontmatter(state_file)
             if current != last_snapshot:

@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import shlex
 import shutil
 import subprocess
@@ -56,6 +57,20 @@ METADATA_FIELDS = {
     "Approved by",
     "Approved on",
 }
+
+
+class ExecutionInterrupted(Exception):
+    def __init__(self, signum: int):
+        self.signum = int(signum)
+        signal_name = signal.Signals(signum).name if signum in signal.Signals._value2member_map_ else f"signal {signum}"
+        super().__init__(f"Execution interrupted by {signal_name}.")
+
+
+def signal_label(signum: int) -> str:
+    try:
+        return signal.Signals(signum).name
+    except ValueError:
+        return f"signal {signum}"
 SECTION_EXPECTATIONS = {
     "research": {
         "01-competitor-landscape.md": [
@@ -416,6 +431,7 @@ def build_execution_command(
     project_dir: Path,
     response_path: Path,
     cli_args: list[str],
+    prompt_text: str = "",
     loop_contract: dict[str, Any] | None = None,
 ) -> list[str]:
     if harness == "codex":
@@ -453,6 +469,7 @@ def build_execution_command(
                 ]
             )
         command.extend(cli_args)
+        command.append(prompt_text)
         return command
     raise ValueError(f"Direct execution is not supported for harness: {harness}")
 
@@ -557,18 +574,28 @@ def local_ralph_loop_plugin_metadata() -> dict[str, str]:
     }
 
 
-def finalize_loop_audit_summary(loop_contract: dict[str, Any], payload: dict[str, Any], event: str) -> dict[str, Any]:
+def finalize_loop_audit_summary(
+    loop_contract: dict[str, Any],
+    payload: dict[str, Any],
+    event: str,
+    *,
+    final_status: str = "state_removed",
+    removed_after_observation: bool = True,
+    extra_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     summary_path = Path(loop_contract["audit_summary_file"]).resolve()
     events_path = Path(loop_contract["audit_events_file"]).resolve()
     payload = dict(payload)
     payload.update(
         {
-            "removed_after_observation": True,
+            "removed_after_observation": removed_after_observation,
             "last_observed_at": utc_now(),
-            "final_status": "state_removed",
+            "final_status": final_status,
             "watcher_finished_at": utc_now(),
         }
     )
+    if extra_fields:
+        payload.update(extra_fields)
     write_json(summary_path, payload)
     with events_path.open("a", encoding="utf-8") as handle:
         handle.write(
@@ -576,6 +603,7 @@ def finalize_loop_audit_summary(loop_contract: dict[str, Any], payload: dict[str
                 {
                     "timestamp": utc_now(),
                     "event": event,
+                    "final_status": final_status,
                     "last_iteration": int(payload.get("last_iteration", 0) or 0),
                     "session_id": str(payload.get("last_session_id", "")),
                 },
@@ -594,6 +622,49 @@ def read_loop_audit_summary(summary_path: Path) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def finalize_interrupted_loop_audit_summary(
+    loop_contract: dict[str, Any],
+    reason: str,
+) -> dict[str, Any]:
+    summary_path = Path(loop_contract["audit_summary_file"]).resolve()
+    state_path = Path(loop_contract["state_file"]).resolve()
+    existing = read_loop_audit_summary(summary_path) or {}
+    payload = existing or {
+        "state_file": str(state_path),
+        "completion_promise": loop_contract["completion_promise"],
+        "max_iterations": loop_contract["max_iterations"],
+        "expected_session_id": loop_contract["session_id"],
+        "watcher_started_at": "",
+        "state_observed": state_path.exists(),
+        "last_iteration": 0,
+        "last_session_id": loop_contract["session_id"],
+        "last_completion_promise": loop_contract["completion_promise"],
+        "last_started_at": "",
+    }
+    removed = False
+    if state_path.exists():
+        state_path.unlink()
+        removed = True
+    return finalize_loop_audit_summary(
+        loop_contract,
+        payload,
+        "interrupted-cleanup",
+        final_status="interrupted",
+        removed_after_observation=removed or bool(payload.get("removed_after_observation")),
+        extra_fields={"interruption_reason": reason},
+    )
+
+
+def display_command(command_argv: list[str] | None, harness: str) -> str:
+    if not command_argv:
+        return "not available for direct execution"
+    if harness == "claude-code" and "-p" in command_argv and command_argv:
+        redacted = list(command_argv)
+        redacted[-1] = "<prompt-text>"
+        return shlex.join(redacted)
+    return shlex.join(command_argv)
 
 
 def start_direct_claude_loop(project_dir: Path, loop_contract: dict[str, Any]) -> dict[str, str]:
@@ -3030,7 +3101,14 @@ def main() -> int:
             status = "unsupported"
             error_message = f"{binary} CLI is not installed or not on PATH."
         else:
-            command_argv = build_execution_command(harness, project_dir, response_path, args.cli_arg, direct_loop_contract)
+            command_argv = build_execution_command(
+                harness,
+                project_dir,
+                response_path,
+                args.cli_arg,
+                prompt_with_report_text if harness == "claude-code" else "",
+                direct_loop_contract,
+            )
 
     write_json(
         request_path,
@@ -3076,54 +3154,110 @@ def main() -> int:
             encoding="utf-8",
         )
     else:
+        run_env = None
         if direct_loop_contract:
-            try:
-                loop_plugin_metadata = start_direct_claude_loop(project_dir, direct_loop_contract)
-                direct_loop_audit_summary = wait_for_loop_state_observed(direct_loop_contract)
-                if not direct_loop_audit_summary or not direct_loop_audit_summary.get("state_observed"):
-                    raise RuntimeError(
-                        "Ralph Loop audit watcher did not confirm the state file before Claude Code execution started. "
-                        "The direct Claude run was not launched because the loop contract could not be externally observed."
-                    )
-            except (FileNotFoundError, RuntimeError) as exc:
-                status = "failed"
-                exit_code = 1
-                error_message = str(exc)
-                stdout_path.write_text("", encoding="utf-8")
-                stderr_path.write_text(error_message + "\n", encoding="utf-8")
-                response_path.write_text(
-                    "# Ralph Loop Setup Failed\n\n"
-                    f"- {error_message}\n"
-                    "- Fix the Claude Code loop environment and rerun this packet.\n",
-                    encoding="utf-8",
-                )
+            run_env = dict(os.environ)
+            run_env["CLAUDE_CODE_SESSION_ID"] = direct_loop_contract["session_id"]
+        child_proc: subprocess.Popen[str] | None = None
+        previous_handlers: dict[int, Any] = {}
 
-        if status != "failed":
-            run_env = None
+        def interrupt_handler(signum: int, _frame: Any) -> None:
+            nonlocal child_proc
+            if child_proc and child_proc.poll() is None:
+                try:
+                    child_proc.terminate()
+                except ProcessLookupError:
+                    pass
+            raise ExecutionInterrupted(signum)
+
+        try:
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                previous_handlers[sig] = signal.getsignal(sig)
+                signal.signal(sig, interrupt_handler)
+
             if direct_loop_contract:
-                run_env = dict(os.environ)
-                run_env["CLAUDE_CODE_SESSION_ID"] = direct_loop_contract["session_id"]
-            proc = subprocess.run(
-                command_argv,
-                input=prompt_with_report_text,
-                text=True,
-                capture_output=True,
-                cwd=str(project_dir),
-                env=run_env,
-            )
-            exit_code = proc.returncode
-            stdout_path.write_text(proc.stdout, encoding="utf-8")
-            stderr_path.write_text(proc.stderr, encoding="utf-8")
+                try:
+                    loop_plugin_metadata = start_direct_claude_loop(project_dir, direct_loop_contract)
+                    direct_loop_audit_summary = wait_for_loop_state_observed(direct_loop_contract)
+                    if not direct_loop_audit_summary or not direct_loop_audit_summary.get("state_observed"):
+                        raise RuntimeError(
+                            "Ralph Loop audit watcher did not confirm the state file before Claude Code execution started. "
+                            "The direct Claude run was not launched because the loop contract could not be externally observed."
+                        )
+                except (FileNotFoundError, RuntimeError) as exc:
+                    status = "failed"
+                    exit_code = 1
+                    error_message = str(exc)
+                    stdout_path.write_text("", encoding="utf-8")
+                    stderr_path.write_text(error_message + "\n", encoding="utf-8")
+                    response_path.write_text(
+                        "# Ralph Loop Setup Failed\n\n"
+                        f"- {error_message}\n"
+                        "- Fix the Claude Code loop environment and rerun this packet.\n",
+                        encoding="utf-8",
+                    )
 
+            if status != "failed":
+                child_proc = subprocess.Popen(
+                    command_argv,
+                    stdin=subprocess.PIPE if harness != "claude-code" else None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=str(project_dir),
+                    env=run_env,
+                )
+                stdout_text, stderr_text = child_proc.communicate(input=prompt_with_report_text if harness != "claude-code" else None)
+                exit_code = child_proc.returncode
+                stdout_path.write_text(stdout_text, encoding="utf-8")
+                stderr_path.write_text(stderr_text, encoding="utf-8")
+
+                if harness == "claude-code":
+                    response_path.write_text(stdout_text, encoding="utf-8")
+                elif not response_path.exists():
+                    response_path.write_text("", encoding="utf-8")
+
+                if direct_loop_contract:
+                    direct_loop_audit_summary = wait_for_loop_audit_summary(direct_loop_contract)
+
+                status = "succeeded" if child_proc.returncode == 0 else "failed"
+        except ExecutionInterrupted as exc:
+            signal_text = signal_label(exc.signum)
+            interruption_message = f"{harness} execution was interrupted by {signal_text} before the packet finished."
+            captured_stdout = ""
+            captured_stderr = ""
+            if child_proc is not None:
+                if child_proc.poll() is None:
+                    try:
+                        child_proc.terminate()
+                    except ProcessLookupError:
+                        pass
+                try:
+                    captured_stdout, captured_stderr = child_proc.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    child_proc.kill()
+                    captured_stdout, captured_stderr = child_proc.communicate()
+            exit_code = 128 + exc.signum
+            status = "failed"
+            error_message = interruption_message
+            stdout_path.write_text(captured_stdout, encoding="utf-8")
+            combined_stderr = captured_stderr.rstrip()
+            if combined_stderr:
+                combined_stderr += "\n"
+            combined_stderr += interruption_message + "\n"
+            stderr_path.write_text(combined_stderr, encoding="utf-8")
             if harness == "claude-code":
-                response_path.write_text(proc.stdout, encoding="utf-8")
+                response_body = captured_stdout.strip()
+                if not response_body:
+                    response_body = "# Execution Interrupted\n\n- " + interruption_message
+                response_path.write_text(response_body + ("" if response_body.endswith("\n") else "\n"), encoding="utf-8")
             elif not response_path.exists():
                 response_path.write_text("", encoding="utf-8")
-
             if direct_loop_contract:
-                direct_loop_audit_summary = wait_for_loop_audit_summary(direct_loop_contract)
-
-            status = "succeeded" if proc.returncode == 0 else "failed"
+                direct_loop_audit_summary = finalize_interrupted_loop_audit_summary(direct_loop_contract, interruption_message)
+        finally:
+            for signum, previous in previous_handlers.items():
+                signal.signal(signum, previous)
 
     git_after = git_state(project_dir)
     created_commits = commits_created(project_dir, git_before, git_after)
@@ -3233,12 +3367,14 @@ def main() -> int:
     print(f"Result suggestion: {result_suggestion_md}")
     print(f"Phase readiness: {phase_readiness_md}")
     if command_argv:
-        print(f"Command: {shlex.join(command_argv)}")
+        print(f"Command: {display_command(command_argv, harness)}")
     else:
         print("Command: not available for direct execution")
     print(f"Status: {status}")
 
     if status == "failed":
+        if error_message:
+            print(error_message, file=sys.stderr)
         return exit_code or 1
     if status == "unsupported" and not args.dry_run:
         return 1
