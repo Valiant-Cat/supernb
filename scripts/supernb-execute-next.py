@@ -2249,6 +2249,40 @@ def commits_created(project_dir: Path, before: dict[str, Any], after: dict[str, 
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
+def extract_commit_sha(commit_line: str) -> str:
+    match = re.match(r"^\s*([0-9a-fA-F]{7,40})\b", ensure_string(commit_line))
+    return match.group(1).lower() if match else ""
+
+
+def commit_is_reachable_from_head(project_dir: Path, commit_sha: str, head_sha: str) -> bool:
+    if not commit_sha or not head_sha:
+        return False
+    try:
+        subprocess.run(
+            ["git", "-C", str(project_dir), "merge-base", "--is-ancestor", commit_sha, head_sha],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
+def validated_report_batch_commits(project_dir: Path, report: dict[str, Any], git_after: dict[str, Any]) -> list[str]:
+    if not git_after.get("is_repo"):
+        return []
+    head_sha = ensure_string(git_after.get("head")).lower()
+    if not head_sha:
+        return []
+    validated: list[str] = []
+    for line in ensure_list(report.get("batch_commits")):
+        commit_sha = extract_commit_sha(line)
+        if commit_sha and commit_is_reachable_from_head(project_dir, commit_sha, head_sha):
+            validated.append(line)
+    return validated
+
+
 def changed_files_in_commits(project_dir: Path, before: dict[str, Any], after: dict[str, Any]) -> list[str]:
     if not before.get("is_repo") or not after.get("is_repo"):
         return []
@@ -2466,8 +2500,11 @@ def build_result_suggestion(
             missing_structured_report = True
             report_source = "heuristic-missing-structured-report"
 
+    validated_report_commits = validated_report_batch_commits(project_dir, structured_report, git_after)
     if created_commits and not structured_report.get("batch_commits"):
         structured_report["batch_commits"] = created_commits
+    elif validated_report_commits:
+        structured_report["batch_commits"] = validated_report_commits
 
     workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
     workflow_issues.extend(loop_execution_findings(phase, harness, structured_report, project_dir, packet_dir, response_text))
@@ -2477,7 +2514,7 @@ def build_result_suggestion(
     if phase == "delivery":
         workflow_issues.extend(delivery_workspace_change_findings(project_dir, git_before, git_after))
     commit_issue = ""
-    if phase == "delivery" and git_after.get("is_repo") and not created_commits:
+    if phase == "delivery" and git_after.get("is_repo") and not created_commits and not validated_report_commits:
         commit_issue = "No new git commit was detected for this delivery batch."
         workflow_issues.append(commit_issue)
 

@@ -1454,6 +1454,36 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertTrue(template_payload["loop_execution"]["used"])
             self.assertEqual(template_payload["loop_execution"]["mode"], "ralph-loop")
 
+    def test_prompt_sync_warns_when_loop_required_phase_skips_start_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\n- Execute the current delivery batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Delivery is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "delivery",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+            self.assertIn("Ralph Loop is required for delivery", sync_proc.stdout)
+            self.assertIn("--start-loop", sync_proc.stdout)
+            self.assertIn("--direct-bridge-fallback", sync_proc.stdout)
+
     def test_prompt_sync_start_loop_creates_session_bound_state_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))

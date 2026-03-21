@@ -311,7 +311,7 @@ def main() -> int:
     phase_readiness = module.build_phase_readiness(spec, args.phase)
     git_before = module.git_state(project_dir)
     git_after = git_before
-    created_commits: list[str] = []
+    created_commits = module.validated_report_batch_commits(project_dir, normalized_report, git_after)
 
     suggestion = module.build_result_suggestion(
         args.phase,

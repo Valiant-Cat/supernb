@@ -839,6 +839,7 @@ def main() -> int:
     write_prompt_session(prompt_session_path, spec, spec_path, run_status_json, run_status, latest_packet, report_template_path, loop_config, reassessment_path)
     loop_started = False
     loop_start_summary = ""
+    loop_warning = ""
     if args.start_loop:
         try:
             loop_started, loop_start_summary = start_loop_in_current_session(spec, loop_config)
@@ -854,6 +855,21 @@ def main() -> int:
                 )
             print(str(exc), file=sys.stderr)
             return 1
+    elif loop_config["required"]:
+        rerun_command = shlex.join(
+            [
+                supernb_cli_prefix(ROOT_DIR),
+                "prompt-bootstrap",
+                "--spec",
+                str(spec_path),
+                "--start-loop",
+                "--direct-bridge-fallback",
+            ]
+        )
+        loop_warning = (
+            f"Ralph Loop is required for {selected_phase}, but this prompt-sync run did not request --start-loop. "
+            f"Rerun `{rerun_command}` before treating this prompt session as completion-grade."
+        )
 
     append_debug_log(
         spec,
@@ -877,6 +893,7 @@ def main() -> int:
             "loop_started": loop_started,
             "loop_state_file": str(loop_config["state_file"]) if loop_started else "",
             "loop_start_summary": loop_start_summary,
+            "loop_warning": loop_warning,
             "claude_code_session_bound": bool(os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()),
             "latest_execution_packet": display_path(latest_packet, [project_root(spec, ROOT_DIR), ROOT_DIR]) if latest_packet else "",
             "ran_control_plane": not args.no_run,
@@ -891,6 +908,8 @@ def main() -> int:
     print(f"Initiative-wide reassessment: {reassessment_path}")
     print(f"Ralph Loop prompt: {loop_config['prompt_file']}")
     print(f"Ralph Loop manifest: {loop_config['manifest_file']}")
+    if loop_warning:
+        print(f"Warning: {loop_warning}")
     if args.start_loop:
         if loop_started:
             print(f"Ralph Loop started in current Claude session: {loop_config['state_file']}")

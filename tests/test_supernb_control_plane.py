@@ -392,6 +392,89 @@ class SupernbControlPlaneTests(unittest.TestCase):
         self.assertEqual(report["recommended_gate_action"], "none")
         self.assertEqual(report["recommended_gate_status"], "")
 
+    def test_delivery_manual_import_accepts_batch_commit_matching_current_head(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = project_dir / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: ship batch"], check=True, capture_output=True, text=True)
+            git_state = execute_next.git_state(project_dir)
+            head = git_state["head"]
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Imported delivery batch.",
+                        "completed_items": ["Implemented the requested delivery batch."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": [str(app_path.relative_to(project_dir))],
+                        "commands_run": [],
+                        "tests_run": ["npm test -- --runInBand"],
+                        "validated_batches_completed": 1,
+                        "batch_commits": [f"{head} feat: ship batch"],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Worked from the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Ran tests before finalizing."},
+                            "code_review": {"used": True, "evidence": "Reviewed the completed batch."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="manual-import",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before=git_state,
+                git_after=git_state,
+                created_commits=[],
+            )
+
+            self.assertFalse(
+                any("No new git commit was detected" in issue for issue in suggestion["workflow_issues"]),
+                suggestion["workflow_issues"],
+            )
+
     def test_needs_input_completion_cannot_request_certification(self) -> None:
         report = execute_next.extract_report_json(
             f"{execute_next.REPORT_START}\n"
