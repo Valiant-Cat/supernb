@@ -184,10 +184,10 @@ def main() -> int:
     if args.source == "manual-override" and not args.override_reason:
         print("--override-reason is required when --source manual-override is used.", file=sys.stderr)
         return 1
-    if args.source == "manual-override" and phase in LOOP_REQUIRED_PHASES and args.status == "succeeded":
+    if args.source == "manual-override" and phase in LOOP_REQUIRED_PHASES:
         print(
-            f"Loop-required prompt-first phase `{phase}` cannot be manually overridden to succeeded. "
-            "Import and apply a real execution packet with loop evidence instead of bypassing completion by hand.",
+            f"Loop-required prompt-first phase `{phase}` cannot be manually overridden. "
+            "Import and apply a real execution packet with loop evidence instead of bypassing phase state by hand.",
             file=sys.stderr,
         )
         return 1

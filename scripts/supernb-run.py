@@ -23,8 +23,10 @@ from lib.supernb_common import (
     load_certification_state,
     load_spec,
     nested_get,
+    phase_has_recorded_activity,
     phase_artifact_snapshot,
     phase_targets,
+    prompt_first_retry_blocker,
     project_root as common_project_root,
     resolve_spec_path as common_resolve_spec_path,
     supernb_cli_prefix,
@@ -191,7 +193,17 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     research_complete = research_status_complete and certification_passed(certification_entry(spec, "research"), EXPECTED_GATE_STATUS["research"]) and certification_snapshot_matches(certification_entry(spec, "research"), phase_artifact_snapshot(spec, "research", ROOT_DIR, DISPLAY_ROOTS))
     prd_complete = prd_status_complete and certification_passed(certification_entry(spec, "prd"), EXPECTED_GATE_STATUS["prd"]) and certification_snapshot_matches(certification_entry(spec, "prd"), phase_artifact_snapshot(spec, "prd", ROOT_DIR, DISPLAY_ROOTS))
     design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"]) and certification_snapshot_matches(certification_entry(spec, "design"), phase_artifact_snapshot(spec, "design", ROOT_DIR, DISPLAY_ROOTS))
-    planning_complete = planning_status_complete and certification_passed(certification_entry(spec, "planning"), EXPECTED_GATE_STATUS["planning"]) and certification_snapshot_matches(certification_entry(spec, "planning"), phase_artifact_snapshot(spec, "planning", ROOT_DIR, DISPLAY_ROOTS))
+    planning_cert_entry = certification_entry(spec, "planning")
+    planning_snapshot_matches = certification_snapshot_matches(
+        planning_cert_entry,
+        phase_artifact_snapshot(spec, "planning", ROOT_DIR, DISPLAY_ROOTS),
+    )
+    delivery_has_started = phase_has_recorded_activity(spec, ROOT_DIR, "delivery")
+    planning_complete = (
+        planning_status_complete
+        and certification_passed(planning_cert_entry, EXPECTED_GATE_STATUS["planning"])
+        and (planning_snapshot_matches or delivery_has_started)
+    )
     delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"]) and certification_snapshot_matches(certification_entry(spec, "delivery"), phase_artifact_snapshot(spec, "delivery", ROOT_DIR, DISPLAY_ROOTS))
     release_complete = (
         delivery_complete
@@ -272,6 +284,9 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     if not design_complete:
         planning_blockers.append("Design phase is not approved yet.")
     planning_blockers.extend(f"Fill {name} in {spec_path}" for name in spec_fields["planning"])
+    planning_retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, "planning")
+    if planning_retry_blocker:
+        planning_blockers.append(planning_retry_blocker)
     results["planning"] = PhaseResult(
         name="planning",
         status="complete" if design_complete and planning_complete else ("blocked" if planning_blockers else "ready"),
@@ -282,6 +297,9 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     delivery_blockers = []
     if not planning_complete:
         delivery_blockers.append("Implementation plan is not marked ready for execution yet.")
+    delivery_retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, "delivery")
+    if delivery_retry_blocker:
+        delivery_blockers.append(delivery_retry_blocker)
     results["delivery"] = PhaseResult(
         name="delivery",
         status="complete" if planning_complete and delivery_complete else ("blocked" if delivery_blockers else "ready"),
@@ -470,6 +488,8 @@ def phase_objectives(phase: str) -> list[str]:
 
 def record_result_command(initiative_id: str, phase: str) -> str:
     cli = supernb_cli_prefix(ROOT_DIR)
+    if phase in {"planning", "delivery"}:
+        return f"{cli} apply-execution --initiative-id {initiative_id} --packet <execution-packet-dir>"
     return (
         f'{cli} record-result --initiative-id {initiative_id} --phase {phase} '
         '--status "<status>" --summary "<what happened>" '

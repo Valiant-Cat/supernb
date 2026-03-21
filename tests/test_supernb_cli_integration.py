@@ -314,8 +314,10 @@ def write_report_json(
     recommended_result_status: str = "succeeded",
     recommended_gate_action: str = "certify",
     recommended_gate_status: str = "ready",
+    phase: str | None = None,
 ) -> None:
     payload = {
+        "phase": phase or "",
         "completion_status": completion_status,
         "summary": "Imported execution completed.",
         "completed_items": ["Finished the requested work."],
@@ -1667,7 +1669,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             )
 
             report_template = paths["initiative_root"] / "prompt-report-template.json"
-            write_report_json(report_template)
+            write_report_json(report_template, phase="research")
 
             closeout_proc = run_command(
                 [
@@ -1728,6 +1730,8 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("setup-superpower-loop.sh", session_text)
             self.assertIn("prompt-closeout", session_text)
             self.assertIn("--apply-certification", session_text)
+            self.assertIn("--direct-bridge-fallback", session_text)
+            self.assertIn("Never print the bare `SUPERNB ... batch complete` text yourself", session_text)
 
             loop_prompt_text = loop_prompt.read_text(encoding="utf-8")
             self.assertIn("stop-hook", loop_prompt_text)
@@ -2151,6 +2155,57 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
             self.assertFalse(handoff_path.exists())
 
+    def test_prompt_sync_start_loop_auto_falls_back_to_direct_bridge_when_session_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            fake_bin = Path(tmp_dir) / "fake-bin"
+            fake_bin.mkdir(parents=True, exist_ok=True)
+            write_fake_claude(fake_bin)
+            initiative_id = paths["initiative_root"].name
+            next_command = paths["initiative_root"] / "next-command.md"
+            phase_packet = paths["initiative_root"] / "phase-packet.md"
+            run_status = paths["initiative_root"] / "run-status.json"
+            next_command.write_text("# Next Command\n\nPlan the next bounded batch.\n", encoding="utf-8")
+            phase_packet.write_text("# Phase Packet\n\n- Planning is ready.\n", encoding="utf-8")
+            run_status.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "selected_phase": "planning",
+                        "next_command": {"path": str(next_command)},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = dict(os.environ)
+            env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+            env["FAKE_CLAUDE_LOOP_DELETE_DELAY"] = "0.0"
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "scripts" / "supernb"),
+                    "prompt-sync",
+                    "--spec",
+                    str(paths["spec_path"]),
+                    "--phase",
+                    "planning",
+                    "--start-loop",
+                ],
+                env=env,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            self.assertIn("Direct bridge fallback activated", proc.stdout)
+            self.assertIn("observer mode", proc.stdout)
+            packet_dirs = sorted(paths["executions_dir"].glob("*-planning-claude-code"))
+            self.assertEqual(len(packet_dirs), 1)
+            handoff_path = paths["initiative_root"] / "direct-bridge-handoff-planning.json"
+            self.assertTrue(handoff_path.is_file())
+
     def test_bootstrap_claude_code_defaults_to_user_global_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_root = Path(tmp_dir)
@@ -2466,7 +2521,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("succeeded, blocked, needs-follow-up, manual-follow-up, not-run, failed", proc.stderr)
             self.assertIn("certify-phase", proc.stderr)
 
-    def test_record_result_rejects_manual_success_override_for_loop_required_phase(self) -> None:
+    def test_record_result_rejects_manual_override_for_loop_required_phase(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
             proc = run_cli(
@@ -2476,18 +2531,42 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 "--phase",
                 "planning",
                 "--status",
-                "succeeded",
+                "needs-follow-up",
                 "--summary",
-                "Force planning completion",
+                "Force planning state change",
                 "--source",
                 "manual-override",
                 "--override-reason",
-                "Trying to bypass loop evidence",
+                "Trying to bypass packet automation",
             )
 
             self.assertNotEqual(proc.returncode, 0)
-            self.assertIn("cannot be manually overridden to succeeded", proc.stderr)
+            self.assertIn("cannot be manually overridden", proc.stderr)
             self.assertIn("execution packet", proc.stderr)
+
+    def test_import_execution_rejects_prompt_first_report_phase_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            mark_reassessment_complete(paths, "delivery")
+            report_path = Path(tmp_dir) / "report.json"
+            write_report_json(report_path, phase="planning")
+
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "delivery",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("phase mismatch", proc.stderr)
+            self.assertIn("planning", proc.stderr)
+            self.assertIn("delivery", proc.stderr)
 
     def test_import_execution_rejects_missing_evidence_before_packet_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -2509,6 +2588,27 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("do not exist", proc.stderr)
             self.assertEqual(list(paths["executions_dir"].iterdir()), [])
 
+    def test_import_execution_accepts_display_style_evidence_artifact_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            plan_path = paths["plan_dir"] / "implementation-plan.md"
+            plan_path.write_text("# Implementation Plan\n", encoding="utf-8")
+            report_path = Path(tmp_dir) / "report.json"
+            display_style_path = f"{plan_path} (12 lines, sha256:{'a' * 64})"
+            write_report_json(report_path, evidence_artifacts=[display_style_path])
+
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "research",
+                "--report-json",
+                str(report_path),
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+
     def test_import_execution_blocks_prompt_first_when_reassessment_is_pending(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -2527,7 +2627,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             report_path = Path(tmp_dir) / "report.json"
-            write_report_json(report_path)
+            write_report_json(report_path, phase="planning")
 
             proc = run_cli(
                 str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),

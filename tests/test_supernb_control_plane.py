@@ -170,6 +170,115 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertEqual(results["release"].status, "blocked")
             self.assertIn("Delivery phase is not verified yet.", results["release"].blockers)
 
+    def test_delivery_blocker_keeps_selected_phase_on_delivery_after_plan_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            research_dir = project_dir / ".supernb" / "research" / initiative_id
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+
+            for directory in [initiative_root, research_dir, prd_dir, design_dir, plan_dir, release_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  certification_state_json: ".supernb/initiatives/{initiative_id}/certification-state.json"',
+                        f'  research_dir: ".supernb/research/{initiative_id}"',
+                        f'  prd_dir: ".supernb/prd/{initiative_id}"',
+                        f'  design_dir: ".supernb/design/{initiative_id}"',
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            display_roots = [project_dir, ROOT_DIR]
+
+            for index, name in enumerate(
+                ["01-competitor-landscape.md", "02-review-insights.md", "03-feature-opportunities.md"],
+                start=1,
+            ):
+                (research_dir / name).write_text(
+                    f"# Research {index}\n\n- Status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                    encoding="utf-8",
+                )
+            (prd_dir / "product-requirements.md").write_text(
+                "# PRD\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "ui-ux-spec.md").write_text(
+                "# UI UX Spec\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "i18n-strategy.md").write_text(
+                "# i18n Strategy\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            plan_path = plan_dir / "implementation-plan.md"
+            plan_path.write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: pending\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            release_path = release_dir / "release-readiness.md"
+            release_path.write_text(
+                "# Release Readiness\n\n- Release decision: pending\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+
+            state_path = initiative_root / "certification-state.json"
+            planning_snapshot = common.phase_artifact_snapshot(spec, "planning", ROOT_DIR, display_roots)
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phases": {
+                            "research": {"passed": True, "recommended_gate_status": "approved", "artifact_snapshot": common.phase_artifact_snapshot(spec, "research", ROOT_DIR, display_roots)},
+                            "prd": {"passed": True, "recommended_gate_status": "approved", "artifact_snapshot": common.phase_artifact_snapshot(spec, "prd", ROOT_DIR, display_roots)},
+                            "design": {"passed": True, "recommended_gate_status": "approved", "artifact_snapshot": common.phase_artifact_snapshot(spec, "design", ROOT_DIR, display_roots)},
+                            "planning": {"passed": True, "recommended_gate_status": "ready", "artifact_snapshot": planning_snapshot},
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            plan_path.write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: pending\n- Approved by: supernb\n- Approved on: 2026-03-21\n\n## Batch Notes\n\n- Delivery batch started.\n",
+                encoding="utf-8",
+            )
+            common.write_prompt_first_blocker(
+                spec,
+                ROOT_DIR,
+                "delivery",
+                reason="certification-failed",
+                detail="Delivery closeout failed without new progress.",
+            )
+
+            results, meta = run_control_plane.build_phase_results(spec, spec_path)
+
+            self.assertEqual(meta["planning_complete"], "yes")
+            self.assertEqual(results["planning"].status, "complete")
+            self.assertEqual(results["delivery"].status, "blocked")
+            self.assertTrue(any("already failed without any new git or artifact progress" in blocker for blocker in results["delivery"].blockers))
+            self.assertEqual(run_control_plane.auto_phase(results), "delivery")
+
     def test_delivery_docs_only_commit_is_not_completion_grade(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

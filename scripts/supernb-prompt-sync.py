@@ -40,6 +40,8 @@ LOOP_PHASE_SETTINGS = {
 }
 
 REPORT_TEMPLATE = {
+    "initiative_id": "",
+    "phase": "",
     "completion_status": "completed",
     "summary": "",
     "completed_items": [],
@@ -164,6 +166,7 @@ def loop_settings(initiative_id: str, phase: str, project_dir: Path, initiative_
         str(state_file),
     ]
     return {
+        "initiative_id": initiative_id,
         "required": bool(phase_settings["required"]),
         "max_iterations": int(phase_settings["max_iterations"]),
         "completion_promise": completion_promise,
@@ -182,6 +185,8 @@ def write_report_template(target: Path, phase: str, loop_config: dict[str, Any])
     payload = dict(REPORT_TEMPLATE)
     payload["workflow_trace"] = dict(REPORT_TEMPLATE["workflow_trace"])
     payload["loop_execution"] = dict(REPORT_TEMPLATE["loop_execution"])
+    payload["initiative_id"] = loop_config["initiative_id"]
+    payload["phase"] = phase
     payload["summary"] = f"{phase} phase prompt-first execution summary"
     if phase == "planning":
         payload["workflow_trace"]["writing_plans"] = {"used": True, "evidence": "Updated implementation plan and planning artifacts."}
@@ -355,6 +360,7 @@ def write_loop_prompt(
             f"- Then it runs: {apply_command}",
             "",
             "Do not type the final promise manually.",
+            "Do not print the bare `SUPERNB ... batch complete` text yourself outside the final XML promise tag.",
             "Only after the managed closeout command succeeds may you echo the exact promise line that it prints.",
         ]
     )
@@ -395,7 +401,7 @@ def write_prompt_session(
     supernb_command = str(SUPERNB_WRAPPER)
     initiative_id = nested_get(spec, "initiative", "id")
     selected_phase = str(run_status.get("selected_phase", "")).strip()
-    auto_start_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--start-loop"])
+    auto_start_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--start-loop", "--direct-bridge-fallback"])
     reopen_command = shlex.join([supernb_command, "prompt-bootstrap", "--spec", str(spec_path), "--phase", "<earliest-affected-phase>"])
     upgrade_command = shlex.join([supernb_command, "upgrade-artifacts", "--spec", str(spec_path)])
     import_command = shlex.join(
@@ -497,6 +503,7 @@ def write_prompt_session(
                 f"- Managed closeout command: `{closeout_command}`",
                 "- Claude Code must have the managed supernb Ralph Loop stop-hook enabled for this contract to be enforceable.",
                 "- Do not let the agent stop on self-judgment alone. The Ralph Loop completion promise must only be echoed after the managed closeout command succeeds.",
+                "- Never print the bare `SUPERNB ... batch complete` text yourself; only emit the final `<promise>...</promise>` line after managed closeout succeeds.",
             ]
         )
     lines.extend(
@@ -850,7 +857,7 @@ def main() -> int:
         try:
             loop_started, loop_start_summary = start_loop_in_current_session(spec, loop_config)
         except (FileNotFoundError, RuntimeError) as exc:
-            if args.direct_bridge_fallback and loop_config["required"]:
+            if loop_config["required"] and (args.direct_bridge_fallback or (args.start_loop and not args.no_run)):
                 return run_direct_claude_bridge_fallback(
                     spec,
                     spec_path,

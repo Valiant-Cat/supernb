@@ -910,7 +910,13 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         elif recommended_result_status == "needs-follow-up" and recommended_gate_action == "advance":
             recommended_gate_action = "certify"
 
+    report_phase = ensure_string(parsed.get("phase")).lower()
+    if report_phase not in PHASES:
+        report_phase = ""
+
     return {
+        "initiative_id": ensure_string(parsed.get("initiative_id")),
+        "phase": report_phase,
         "completion_status": completion_status,
         "summary": ensure_string(parsed.get("summary")),
         "completed_items": ensure_list(parsed.get("completed_items")),

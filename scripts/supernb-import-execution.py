@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -114,6 +115,37 @@ def ensure_list(value: Any) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
+
+
+def normalize_phase_name(value: Any) -> str:
+    candidate = str(value).strip().lower().strip("`")
+    return candidate if candidate in PHASES else ""
+
+
+def infer_report_phase(report: dict[str, Any]) -> str:
+    explicit = normalize_phase_name(report.get("phase"))
+    if explicit:
+        return explicit
+
+    summary = str(report.get("summary", "")).strip().lower()
+    summary_match = re.search(r"\b(research|prd|design|planning|delivery|release)\s+phase\b", summary)
+    if summary_match:
+        return summary_match.group(1)
+
+    loop_execution = report.get("loop_execution") or {}
+    haystacks = [
+        str(loop_execution.get("completion_promise", "")).lower(),
+        str(loop_execution.get("state_file", "")).lower(),
+        str(loop_execution.get("evidence", "")).lower(),
+    ]
+    found: set[str] = set()
+    for phase in PHASES:
+        markers = [f"{phase} batch complete", f"-{phase}-", f"/{phase}-", f"_{phase}_"]
+        if any(any(marker in haystack for marker in markers) for haystack in haystacks if haystack):
+            found.add(phase)
+    if len(found) == 1:
+        return next(iter(found))
+    return ""
 
 
 def build_response_text(module: Any, report_payload: dict[str, Any], response_prefix: str) -> str:
@@ -309,6 +341,41 @@ def main() -> int:
         )
         print("Structured report JSON did not pass the supernb REPORT contract validation.", file=sys.stderr)
         return 1
+    if args.harness == "claude-code-prompt":
+        report_phase = infer_report_phase(normalized_report)
+        if not report_phase:
+            debug_log(
+                spec,
+                "validation-error",
+                {
+                    "phase": args.phase,
+                    "harness": args.harness,
+                    "reason": "missing-report-phase",
+                },
+            )
+            print(
+                "Prompt-first structured report is missing a bound phase marker. "
+                f"Refresh the managed prompt files for `{args.phase}` and regenerate the report before importing.",
+                file=sys.stderr,
+            )
+            return 1
+        if report_phase != args.phase:
+            debug_log(
+                spec,
+                "validation-error",
+                {
+                    "phase": args.phase,
+                    "harness": args.harness,
+                    "report_phase": report_phase,
+                    "reason": "phase-mismatch",
+                },
+            )
+            print(
+                f"Prompt-first structured report phase mismatch: report is bound to `{report_phase}` but import requested `{args.phase}`. "
+                "Refresh the managed prompt files for the active phase before importing.",
+                file=sys.stderr,
+            )
+            return 1
 
     executions_dir = artifact_path(spec, "executions_dir")
     packet_dir = executions_dir / f"{timestamp_slug()}-{args.phase}-{args.harness}"

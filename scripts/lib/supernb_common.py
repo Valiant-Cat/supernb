@@ -154,6 +154,9 @@ def resolve_existing_path(raw_path: str, base_dirs: list[Path] | None = None) ->
     value = str(raw_path).strip()
     if not value:
         return None
+    fingerprint_match = re.match(r"^(?P<path>.+?) \(\d+ lines, sha256:[0-9a-f]{64}\)$", value)
+    if fingerprint_match:
+        value = fingerprint_match.group("path").strip()
 
     candidate = Path(value).expanduser()
     search_roots = base_dirs or []
@@ -470,6 +473,20 @@ def prompt_first_reassessment_path(spec: dict[str, Any], root_dir: Path) -> Path
 
 def prompt_first_blocker_path(spec: dict[str, Any], root_dir: Path, phase: str) -> Path:
     return initiative_dir(spec, root_dir) / f"prompt-first-blocker-{phase}.json"
+
+
+def phase_has_recorded_activity(spec: dict[str, Any], root_dir: Path, phase: str) -> bool:
+    initiative_root = initiative_dir(spec, root_dir)
+    executions_dir = artifact_path(spec, "executions_dir", root_dir, default=initiative_root / "executions")
+    phase_results_dir = artifact_path(spec, "phase_results_dir", root_dir, default=initiative_root / "phase-results")
+
+    if prompt_first_blocker_path(spec, root_dir, phase).is_file():
+        return True
+    if executions_dir.exists() and any(executions_dir.glob(f"*-{phase}-*")):
+        return True
+    if phase_results_dir.exists() and any(phase_results_dir.glob(f"*-{phase}-*.md")):
+        return True
+    return False
 
 
 def git_head(project_dir: Path) -> str:
