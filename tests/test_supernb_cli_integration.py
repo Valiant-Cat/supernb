@@ -585,6 +585,49 @@ def write_prompt_first_audit_placeholder(report_path: Path) -> Path:
     return audit_path
 
 
+def populate_prompt_first_report(report_path: Path, phase: str = "planning") -> None:
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    payload["phase"] = phase
+    payload["completion_status"] = "completed"
+    payload["summary"] = f"Completed the bounded {phase} batch with concrete artifact updates."
+    payload["completed_items"] = [f"Completed the bounded {phase} batch."]
+    payload["remaining_items"] = []
+    payload["artifacts_updated"] = []
+    payload["commands_run"] = [f"./scripts/supernb prompt-closeout --phase {phase}"]
+    payload["tests_run"] = ["python -m unittest"]
+    payload["validated_batches_completed"] = 1
+    payload["batch_commits"] = []
+    payload["workflow_trace"] = {
+        "brainstorming": {"used": False, "evidence": "No separate brainstorming pass was needed for this bounded batch."},
+        "writing_plans": {"used": phase in {"planning", "delivery"}, "evidence": f"Updated the {phase} artifacts to match the completed batch."},
+        "test_driven_development": {
+            "used": phase == "delivery",
+            "evidence": "Ran a bounded verification pass before closeout." if phase == "delivery" else "No code-delivery loop ran in this batch.",
+        },
+        "code_review": {
+            "used": phase == "delivery",
+            "evidence": "Reviewed the completed delivery batch before closeout." if phase == "delivery" else "Reviewed the artifact changes before closeout.",
+        },
+        "using_git_worktrees": {"used": False, "evidence": "This batch stayed in a single temporary workspace."},
+        "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded batch and returned with the managed report contract."},
+    }
+    payload["recommended_result_status"] = "succeeded"
+    payload["recommended_gate_action"] = "certify"
+    payload["recommended_gate_status"] = "verified" if phase == "delivery" else "ready"
+    if phase == "delivery":
+        payload["implementation_integrity"] = {
+            "real": True,
+            "placeholder_free": True,
+            "evidence": "Concrete product-facing changes and verification were recorded before closeout.",
+        }
+        payload["copy_governance"] = {
+            "externalized": True,
+            "check_command": payload.get("copy_governance", {}).get("check_command", ""),
+            "evidence": "Copy governance checks were reviewed for the bounded delivery batch.",
+        }
+    report_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def write_planning_traceability_artifacts(paths: dict[str, Path], initiative_id: str) -> None:
     prd_path = paths["prd_dir"] / "product-requirements.md"
     design_path = paths["design_dir"] / "ui-ux-spec.md"
@@ -1257,15 +1300,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             reassessment_text = reassessment_path.read_text(encoding="utf-8")
             self.assertIn("Initiative-Wide Reassessment", reassessment_text)
             self.assertIn("Earliest affected phase to reopen", reassessment_text)
-            reassessment_path.write_text(
-                reassessment_text.replace("- Status: pending", "- Status: completed")
-                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
-                .replace(
-                    "- Can the current selected phase continue without reopening upstream work: yes/no",
-                    "- Can the current selected phase continue without reopening upstream work: yes",
-                ),
-                encoding="utf-8",
-            )
+            mark_reassessment_complete(paths, "planning")
 
             loop_manifest_payload = json.loads(loop_manifest.read_text(encoding="utf-8"))
             state_file = Path(loop_manifest_payload["state_file"])
@@ -2068,20 +2103,10 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             )
             self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
 
-            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
-            reassessment_text = reassessment_path.read_text(encoding="utf-8")
-            reassessment_path.write_text(
-                reassessment_text.replace("- Status: pending", "- Status: completed")
-                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
-                .replace(
-                    "- Can the current selected phase continue without reopening upstream work: yes/no",
-                    "- Can the current selected phase continue without reopening upstream work: yes",
-                ),
-                encoding="utf-8",
-            )
+            mark_reassessment_complete(paths, "research")
 
             report_template = paths["initiative_root"] / "prompt-report-template.json"
-            write_report_json(report_template, phase="research")
+            populate_prompt_first_report(report_template, "research")
 
             closeout_proc = run_command(
                 [
@@ -2524,18 +2549,10 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
 
             reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
-            reassessment_text = reassessment_path.read_text(encoding="utf-8")
-            reassessment_path.write_text(
-                reassessment_text.replace("- Status: pending", "- Status: completed")
-                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
-                .replace(
-                    "- Can the current selected phase continue without reopening upstream work: yes/no",
-                    "- Can the current selected phase continue without reopening upstream work: yes",
-                ),
-                encoding="utf-8",
-            )
+            mark_reassessment_complete(paths, "delivery")
 
             report_template = paths["initiative_root"] / "prompt-report-template.json"
+            populate_prompt_first_report(report_template, "delivery")
             payload = json.loads(report_template.read_text(encoding="utf-8"))
             payload["summary"] = "Tried to close out a delivery batch."
             payload["completed_items"] = ["Changed some code."]
@@ -3282,6 +3299,29 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("cannot be manually overridden", proc.stderr)
             self.assertIn("execution packet", proc.stderr)
 
+    def test_record_result_rejects_manual_override_succeeded_when_artifacts_are_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-record-result.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "research",
+                "--status",
+                "succeeded",
+                "--summary",
+                "Force research success without readiness evidence",
+                "--source",
+                "manual-override",
+                "--override-reason",
+                "Trying to bypass certification",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("cannot record `succeeded`", proc.stderr)
+            self.assertIn("ready for certification", proc.stderr)
+
     def test_import_execution_rejects_prompt_first_report_phase_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -3384,6 +3424,96 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("pending", proc.stderr)
             self.assertEqual(list(paths["executions_dir"].iterdir()), [])
 
+    def test_import_execution_blocks_prompt_first_when_reassessment_is_template_grade(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            (paths["initiative_root"] / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "planning",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            reassessment_path = paths["initiative_root"] / "initiative-reassessment.md"
+            reassessment_text = reassessment_path.read_text(encoding="utf-8")
+            reassessment_path.write_text(
+                reassessment_text.replace("- Status: pending", "- Status: completed")
+                .replace("- Earliest affected phase to reopen:", "- Earliest affected phase to reopen: none")
+                .replace(
+                    "- Can the current selected phase continue without reopening upstream work: yes/no",
+                    "- Can the current selected phase continue without reopening upstream work: yes",
+                ),
+                encoding="utf-8",
+            )
+            report_path = Path(tmp_dir) / "report.json"
+            write_report_json(report_path, phase="planning")
+
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("reassessment", proc.stderr)
+            self.assertIn("template", proc.stderr)
+            self.assertEqual(list(paths["executions_dir"].iterdir()), [])
+
+    def test_import_execution_blocks_prompt_first_when_report_is_template_grade(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = write_spec(Path(tmp_dir))
+            (paths["initiative_root"] / "run-status.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": paths["initiative_root"].name,
+                        "selected_phase": "planning",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            sync_proc = run_command(
+                ["bash", str(ROOT_DIR / "scripts" / "supernb"), "prompt-sync", "--spec", str(paths["spec_path"]), "--no-run"],
+            )
+            self.assertEqual(sync_proc.returncode, 0, msg=sync_proc.stderr)
+
+            report_path = paths["initiative_root"] / "prompt-report-template.json"
+            mark_reassessment_complete(paths, "planning")
+            write_prompt_first_audit_placeholder(report_path)
+
+            proc = run_cli(
+                str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),
+                "--spec",
+                str(paths["spec_path"]),
+                "--phase",
+                "planning",
+                "--report-json",
+                str(report_path),
+                "--harness",
+                "claude-code-prompt",
+            )
+
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn("structured report", proc.stderr)
+            self.assertIn("template", proc.stderr)
+            self.assertEqual(list(paths["executions_dir"].iterdir()), [])
+
     def test_prompt_closeout_blocks_repeated_prompt_first_failure_without_new_progress(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             paths = write_spec(Path(tmp_dir))
@@ -3411,6 +3541,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             report_path = paths["initiative_root"] / "prompt-report-template.json"
             mark_reassessment_complete(paths, "planning")
             write_prompt_first_audit_placeholder(report_path)
+            populate_prompt_first_report(report_path, "planning")
 
             first_proc = run_cli(
                 str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
@@ -3465,6 +3596,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             report_path = paths["initiative_root"] / "prompt-report-template.json"
             mark_reassessment_complete(paths, "planning")
             write_prompt_first_audit_placeholder(report_path)
+            populate_prompt_first_report(report_path, "planning")
 
             first_proc = run_cli(
                 str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
@@ -3520,6 +3652,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             report_path = paths["initiative_root"] / "prompt-report-template.json"
             mark_reassessment_complete(paths, "planning")
             write_prompt_first_audit_placeholder(report_path)
+            populate_prompt_first_report(report_path, "planning")
 
             first_proc = run_cli(
                 str(ROOT_DIR / "scripts" / "supernb-prompt-closeout.py"),
@@ -3678,6 +3811,7 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             report_path = paths["initiative_root"] / "prompt-report-template.json"
             mark_reassessment_complete(paths, "planning")
             write_prompt_first_audit_placeholder(report_path)
+            populate_prompt_first_report(report_path, "planning")
 
             import_proc = run_cli(
                 str(ROOT_DIR / "scripts" / "supernb-import-execution.py"),

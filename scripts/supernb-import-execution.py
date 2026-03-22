@@ -195,6 +195,43 @@ def build_summary_md(
     return "\n".join(lines) + "\n"
 
 
+def prompt_first_report_quality_issues(report: dict[str, Any], phase: str) -> list[str]:
+    issues: list[str] = []
+    summary = str(report.get("summary", "")).strip()
+    if not summary or summary == f"{phase} phase prompt-first execution summary":
+        issues.append("summary still matches the managed template")
+    if not ensure_list(report.get("completed_items")):
+        issues.append("completed_items is still empty")
+    if not (
+        ensure_list(report.get("commands_run"))
+        or ensure_list(report.get("tests_run"))
+        or ensure_list(report.get("artifacts_updated"))
+    ):
+        issues.append("commands_run, tests_run, and artifacts_updated are all empty")
+
+    workflow_trace = report.get("workflow_trace") if isinstance(report.get("workflow_trace"), dict) else {}
+    has_used_trace = any(
+        bool(entry.get("used")) and bool(str(entry.get("evidence", "")).strip())
+        for entry in workflow_trace.values()
+        if isinstance(entry, dict)
+    )
+    if not has_used_trace:
+        issues.append("workflow_trace does not record any used workflow step with evidence")
+
+    if phase in {"planning", "delivery"} and int(report.get("validated_batches_completed", 0) or 0) < 1:
+        issues.append("validated_batches_completed must be at least 1 for a completed prompt-first batch")
+
+    if phase == "delivery":
+        integrity = report.get("implementation_integrity") if isinstance(report.get("implementation_integrity"), dict) else {}
+        if not integrity.get("real") or not integrity.get("placeholder_free") or not str(integrity.get("evidence", "")).strip():
+            issues.append("implementation_integrity still looks template-grade")
+        copy_governance = report.get("copy_governance") if isinstance(report.get("copy_governance"), dict) else {}
+        if not copy_governance.get("externalized") or not str(copy_governance.get("evidence", "")).strip():
+            issues.append("copy_governance still lacks a real check result")
+
+    return issues
+
+
 def resolve_evidence_artifacts(
     module: Any,
     raw_paths: list[str],
@@ -483,6 +520,25 @@ def main() -> int:
             print(
                 f"Prompt-first structured report phase mismatch: report is bound to `{report_phase}` but import requested `{args.phase}`. "
                 "Refresh the managed prompt files for the active phase before importing.",
+                file=sys.stderr,
+            )
+            return 1
+        report_quality_issues = prompt_first_report_quality_issues(normalized_report, args.phase)
+        if report_quality_issues:
+            debug_log(
+                spec,
+                "validation-error",
+                {
+                    "phase": args.phase,
+                    "harness": args.harness,
+                    "reason": "template-report",
+                    "issues": report_quality_issues,
+                },
+            )
+            print(
+                "Prompt-first structured report still matches the managed template too closely and cannot be imported yet: "
+                + "; ".join(report_quality_issues)
+                + ". Fill the real batch summary, completed work, commands/tests, and workflow evidence before importing.",
                 file=sys.stderr,
             )
             return 1

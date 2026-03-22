@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -42,6 +43,7 @@ EXPECTED_GATE_STATUS = {
     "delivery": "verified",
     "release": "ready",
 }
+_EXECUTE_NEXT_MODULE: Any | None = None
 
 
 @dataclass
@@ -170,6 +172,39 @@ def certification_notice(spec: dict[str, Any], phase: str) -> str:
     return f"Latest {phase} certification has not passed yet.{report_suffix}"
 
 
+def load_execute_next_module() -> Any:
+    global _EXECUTE_NEXT_MODULE
+    if _EXECUTE_NEXT_MODULE is not None:
+        return _EXECUTE_NEXT_MODULE
+
+    module_path = ROOT_DIR / "scripts" / "supernb-execute-next.py"
+    module_spec = importlib.util.spec_from_file_location("supernb_execute_next", module_path)
+    if module_spec is None or module_spec.loader is None:
+        raise RuntimeError(f"Could not load execute-next module from {module_path}")
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    _EXECUTE_NEXT_MODULE = module
+    return module
+
+
+def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, Any]:
+    module = load_execute_next_module()
+    return module.build_phase_readiness(spec, phase)
+
+
+def should_surface_readiness_blocker(phase: str, artifact_exists: bool, gate_field: str, cert_entry: dict[str, Any]) -> bool:
+    if phase not in {"planning", "delivery", "release"}:
+        return False
+    return artifact_exists or bool(gate_field) or bool(cert_entry)
+
+
+def phase_incomplete_blockers(spec: dict[str, Any], phase: str, complete: bool) -> list[str]:
+    if complete:
+        return []
+    notice = certification_notice(spec, phase)
+    return [notice] if notice else []
+
+
 def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str, PhaseResult], dict[str, str]]:
     artifacts = {
         "research_dir": artifact_path(spec, "research_dir"),
@@ -205,10 +240,16 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     delivery_status_complete = is_delivery_complete(delivery_status)
     release_status_complete = is_release_ready(release_status)
 
+    planning_cert_entry = certification_entry(spec, "planning")
+    delivery_cert_entry = certification_entry(spec, "delivery")
+    release_cert_entry = certification_entry(spec, "release")
+    planning_readiness = build_phase_readiness(spec, "planning")
+    delivery_readiness = build_phase_readiness(spec, "delivery")
+    release_readiness = build_phase_readiness(spec, "release")
+
     research_complete = research_status_complete and certification_passed(certification_entry(spec, "research"), EXPECTED_GATE_STATUS["research"]) and certification_snapshot_matches(certification_entry(spec, "research"), phase_artifact_snapshot(spec, "research", ROOT_DIR, DISPLAY_ROOTS))
     prd_complete = prd_status_complete and certification_passed(certification_entry(spec, "prd"), EXPECTED_GATE_STATUS["prd"]) and certification_snapshot_matches(certification_entry(spec, "prd"), phase_artifact_snapshot(spec, "prd", ROOT_DIR, DISPLAY_ROOTS))
     design_complete = design_status_complete and certification_passed(certification_entry(spec, "design"), EXPECTED_GATE_STATUS["design"]) and certification_snapshot_matches(certification_entry(spec, "design"), phase_artifact_snapshot(spec, "design", ROOT_DIR, DISPLAY_ROOTS))
-    planning_cert_entry = certification_entry(spec, "planning")
     planning_snapshot_matches = certification_snapshot_matches(
         planning_cert_entry,
         phase_artifact_snapshot(spec, "planning", ROOT_DIR, DISPLAY_ROOTS),
@@ -218,13 +259,20 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         planning_status_complete
         and certification_passed(planning_cert_entry, EXPECTED_GATE_STATUS["planning"])
         and (planning_snapshot_matches or delivery_has_started)
+        and (bool(planning_readiness.get("ready_for_certification")) or delivery_has_started)
     )
-    delivery_complete = delivery_status_complete and certification_passed(certification_entry(spec, "delivery"), EXPECTED_GATE_STATUS["delivery"]) and certification_snapshot_matches(certification_entry(spec, "delivery"), phase_artifact_snapshot(spec, "delivery", ROOT_DIR, DISPLAY_ROOTS))
+    delivery_complete = (
+        delivery_status_complete
+        and certification_passed(delivery_cert_entry, EXPECTED_GATE_STATUS["delivery"])
+        and certification_snapshot_matches(delivery_cert_entry, phase_artifact_snapshot(spec, "delivery", ROOT_DIR, DISPLAY_ROOTS))
+        and bool(delivery_readiness.get("ready_for_certification"))
+    )
     release_complete = (
         delivery_complete
         and release_status_complete
-        and certification_passed(certification_entry(spec, "release"), EXPECTED_GATE_STATUS["release"])
-        and certification_snapshot_matches(certification_entry(spec, "release"), phase_artifact_snapshot(spec, "release", ROOT_DIR, DISPLAY_ROOTS))
+        and certification_passed(release_cert_entry, EXPECTED_GATE_STATUS["release"])
+        and certification_snapshot_matches(release_cert_entry, phase_artifact_snapshot(spec, "release", ROOT_DIR, DISPLAY_ROOTS))
+        and bool(release_readiness.get("ready_for_certification"))
     )
 
     spec_fields = {
@@ -258,6 +306,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     results: dict[str, PhaseResult] = {}
 
     research_blockers = [f"Fill {name} in {spec_path}" for name in spec_fields["research"]]
+    research_blockers.extend(phase_incomplete_blockers(spec, "research", research_complete))
     results["research"] = PhaseResult(
         name="research",
         status="complete" if research_complete else ("blocked" if research_blockers else "ready"),
@@ -273,6 +322,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     prd_blockers = []
     if not research_complete:
         prd_blockers.append("Research phase is not approved yet.")
+    prd_blockers.extend(phase_incomplete_blockers(spec, "prd", prd_complete))
     results["prd"] = PhaseResult(
         name="prd",
         status="complete" if research_complete and prd_complete else ("blocked" if prd_blockers else "ready"),
@@ -284,6 +334,7 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     if not prd_complete:
         design_blockers.append("PRD is not approved yet.")
     design_blockers.extend(f"Fill {name} in {spec_path}" for name in spec_fields["design"])
+    design_blockers.extend(phase_incomplete_blockers(spec, "design", design_complete))
     results["design"] = PhaseResult(
         name="design",
         status="complete" if prd_complete and design_complete else ("blocked" if design_blockers else "ready"),
@@ -299,6 +350,13 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
     if not design_complete:
         planning_blockers.append("Design phase is not approved yet.")
     planning_blockers.extend(f"Fill {name} in {spec_path}" for name in spec_fields["planning"])
+    planning_blockers.extend(phase_incomplete_blockers(spec, "planning", planning_complete))
+    if (
+        not planning_complete
+        and should_surface_readiness_blocker("planning", plan_file.is_file(), plan_ready, planning_cert_entry)
+        and not planning_readiness.get("ready_for_certification")
+    ):
+        planning_blockers.append(str(planning_readiness.get("summary", "")).strip())
     planning_retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, "planning")
     if planning_retry_blocker:
         planning_blockers.append(planning_retry_blocker)
@@ -306,12 +364,23 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="planning",
         status="complete" if design_complete and planning_complete else ("blocked" if planning_blockers else "ready"),
         blockers=planning_blockers,
-        evidence=[f"implementation plan ready for execution: {plan_ready or 'missing'}", certification_evidence(spec, "planning")],
+        evidence=[
+            f"implementation plan ready for execution: {plan_ready or 'missing'}",
+            certification_evidence(spec, "planning"),
+            str(planning_readiness.get("summary", "")),
+        ],
     )
 
     delivery_blockers = []
     if not planning_complete:
         delivery_blockers.append("Implementation plan is not marked ready for execution yet.")
+    delivery_blockers.extend(phase_incomplete_blockers(spec, "delivery", delivery_complete))
+    if (
+        not delivery_complete
+        and should_surface_readiness_blocker("delivery", plan_file.is_file() or release_file.is_file(), delivery_status, delivery_cert_entry)
+        and not delivery_readiness.get("ready_for_certification")
+    ):
+        delivery_blockers.append(str(delivery_readiness.get("summary", "")).strip())
     delivery_retry_blocker = prompt_first_retry_blocker(spec, ROOT_DIR, "delivery")
     if delivery_retry_blocker:
         delivery_blockers.append(delivery_retry_blocker)
@@ -319,17 +388,32 @@ def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str
         name="delivery",
         status="complete" if planning_complete and delivery_complete else ("blocked" if delivery_blockers else "ready"),
         blockers=delivery_blockers,
-        evidence=[f"delivery status: {delivery_status or 'missing'}", certification_evidence(spec, "delivery")],
+        evidence=[
+            f"delivery status: {delivery_status or 'missing'}",
+            certification_evidence(spec, "delivery"),
+            str(delivery_readiness.get("summary", "")),
+        ],
     )
 
     release_blockers = []
     if not delivery_complete:
         release_blockers.append("Delivery phase is not verified yet.")
+    release_blockers.extend(phase_incomplete_blockers(spec, "release", release_complete))
+    if (
+        not release_complete
+        and should_surface_readiness_blocker("release", release_file.is_file(), release_status, release_cert_entry)
+        and not release_readiness.get("ready_for_certification")
+    ):
+        release_blockers.append(str(release_readiness.get("summary", "")).strip())
     results["release"] = PhaseResult(
         name="release",
         status="complete" if delivery_complete and release_complete else ("blocked" if release_blockers else "ready"),
         blockers=release_blockers,
-        evidence=[f"release decision: {release_status or 'missing'}", certification_evidence(spec, "release")],
+        evidence=[
+            f"release decision: {release_status or 'missing'}",
+            certification_evidence(spec, "release"),
+            str(release_readiness.get("summary", "")),
+        ],
     )
 
     meta = {

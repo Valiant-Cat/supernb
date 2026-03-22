@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
@@ -27,6 +28,7 @@ DISPLAY_ROOTS = [ROOT_DIR]
 RESULT_STATUSES = ["succeeded", "blocked", "needs-follow-up", "manual-follow-up", "not-run", "failed"]
 RESULT_SOURCES = ["manual-override", "execution-packet"]
 GATE_STATUSES = {"approved", "ready", "verified", "pending"}
+_EXECUTE_NEXT_MODULE = None
 
 
 def utc_now() -> str:
@@ -85,6 +87,26 @@ def resolve_spec_path(args: argparse.Namespace) -> Path:
 
 def debug_log(spec: dict[str, Any], event: str, payload: dict[str, Any]) -> None:
     common_append_debug_log(spec, ROOT_DIR, "supernb-record-result", event, payload)
+
+
+def load_execute_next_module():
+    global _EXECUTE_NEXT_MODULE
+    if _EXECUTE_NEXT_MODULE is not None:
+        return _EXECUTE_NEXT_MODULE
+
+    module_path = ROOT_DIR / "scripts" / "supernb-execute-next.py"
+    module_spec = importlib.util.spec_from_file_location("supernb_execute_next", module_path)
+    if module_spec is None or module_spec.loader is None:
+        raise RuntimeError(f"Could not load execute-next module from {module_path}")
+    module = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(module)
+    _EXECUTE_NEXT_MODULE = module
+    return module
+
+
+def build_phase_readiness(spec: dict[str, Any], phase: str) -> dict[str, object]:
+    module = load_execute_next_module()
+    return module.build_phase_readiness(spec, phase)
 
 
 def current_phase_from_run_status(spec: dict[str, Any]) -> str:
@@ -191,6 +213,15 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    if args.source == "manual-override" and args.status == "succeeded":
+        phase_readiness = build_phase_readiness(spec, phase)
+        if not phase_readiness.get("ready_for_certification"):
+            print(
+                f"Manual override cannot record `succeeded` for phase `{phase}` because the current artifacts are not ready for certification yet. "
+                f"{phase_readiness.get('summary', '')} Record a blocking/follow-up result instead, or import a real execution packet with evidence.",
+                file=sys.stderr,
+            )
+            return 1
     if args.source == "execution-packet":
         if not args.source_packet:
             print("--source-packet is required when --source execution-packet is used.", file=sys.stderr)

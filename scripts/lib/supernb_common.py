@@ -713,6 +713,53 @@ def prompt_first_reassessment_blocker(spec: dict[str, Any], root_dir: Path, spec
             f"Next step: run `{supernb_cli_prefix(root_dir)} prompt-bootstrap --spec {spec_path} --phase {earliest_phase}` "
             "after updating the upstream artifacts."
         )
+    unresolved_placeholder_lines = 0
+    meaningful_lines = 0
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#"):
+            continue
+        if re.match(r"^- [^:]+:\s*$", stripped):
+            unresolved_placeholder_lines += 1
+            continue
+        if re.match(r"^- [^:]+:\s*yes/no\s*$", stripped, flags=re.IGNORECASE):
+            unresolved_placeholder_lines += 1
+            continue
+        if stripped.startswith("|") and stripped.count("|") >= 4:
+            columns = [column.strip() for column in stripped.strip("|").split("|")]
+            if columns and columns[0] and sum(1 for column in columns[1:] if column) == 0:
+                unresolved_placeholder_lines += 1
+                continue
+        if stripped.startswith("- What ") or stripped.startswith("- Which ") or stripped.startswith("- If any upstream phase"):
+            continue
+        if stripped.startswith("- Do not treat ") or stripped.startswith("- Product and user-value gaps:"):
+            continue
+        if stripped.startswith("- UX and design gaps:") or stripped.startswith("- Engineering, reliability, or trust gaps:"):
+            continue
+        if stripped.startswith("- Localization, analytics, or release gaps:"):
+            continue
+        if stripped.startswith("- Research upgrades required:") or stripped.startswith("- PRD upgrades required:"):
+            continue
+        if stripped.startswith("- Design upgrades required:") or stripped.startswith("- Planning upgrades required:"):
+            continue
+        if stripped.startswith("- Delivery or release upgrades required:"):
+            continue
+        if stripped.startswith("| ---"):
+            continue
+        if stripped.startswith("- Initiative ID:") or stripped.startswith("- Current selected phase:"):
+            continue
+        if stripped.startswith("- Trigger:") or stripped.startswith("- Status:"):
+            continue
+        if stripped.startswith("- Earliest affected phase to reopen:") or stripped.startswith("- Can the current selected phase continue"):
+            continue
+        meaningful_lines += 1
+    if unresolved_placeholder_lines >= 4 or meaningful_lines == 0:
+        return (
+            f"Prompt-first execution requires `{reassessment_path}` to be substantively completed, not just metadata-flipped. "
+            "The reassessment still matches the managed template too closely; replace the blank placeholders with concrete repository gaps, artifact drift, and a real reopen decision first."
+        )
     if reassessment_indicates_next_development_cycle(reassessment_path):
         project_dir = project_root(spec, root_dir)
         return (

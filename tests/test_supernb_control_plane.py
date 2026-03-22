@@ -37,6 +37,75 @@ run_control_plane = load_module("supernb_run_test", "scripts/supernb-run.py")
 
 
 class SupernbControlPlaneTests(unittest.TestCase):
+    def test_research_phase_is_blocked_when_latest_certification_failed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            research_dir = project_dir / ".supernb" / "research" / initiative_id
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+
+            for directory in [initiative_root, research_dir, prd_dir, design_dir, plan_dir, release_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  certification_state_json: ".supernb/initiatives/{initiative_id}/certification-state.json"',
+                        f'  research_dir: ".supernb/research/{initiative_id}"',
+                        f'  prd_dir: ".supernb/prd/{initiative_id}"',
+                        f'  design_dir: ".supernb/design/{initiative_id}"',
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            for index, name in enumerate(
+                ["01-competitor-landscape.md", "02-review-insights.md", "03-feature-opportunities.md"],
+                start=1,
+            ):
+                (research_dir / name).write_text(
+                    f"# Research {index}\n\n- Status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                    encoding="utf-8",
+                )
+
+            (initiative_root / "certification-state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phases": {
+                            "research": {
+                                "passed": False,
+                                "recommended_gate_status": "approved",
+                                "report_path": ".supernb/initiatives/2026-03-19-demo/phase-results/20260322-research-certification.md",
+                            }
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            results, _ = run_control_plane.build_phase_results(spec, spec_path)
+
+            self.assertEqual(results["research"].status, "blocked")
+            self.assertTrue(any("Latest research certification has not passed yet." in blocker for blocker in results["research"].blockers))
+
     def test_prompt_first_retry_blocker_is_superseded_by_new_source_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -233,7 +302,10 @@ class SupernbControlPlaneTests(unittest.TestCase):
 
             results, _ = run_control_plane.build_phase_results(spec, spec_path)
 
-            self.assertEqual(results["delivery"].status, "ready")
+            self.assertEqual(results["delivery"].status, "blocked")
+            self.assertTrue(
+                any("Latest delivery certification has not passed yet." in blocker for blocker in results["delivery"].blockers)
+            )
             self.assertIn(
                 "Latest delivery certification has not passed yet.",
                 run_control_plane.certification_notice(spec, "delivery"),
@@ -368,9 +440,239 @@ class SupernbControlPlaneTests(unittest.TestCase):
 
             self.assertEqual(meta["delivery_complete"], "no")
             self.assertEqual(meta["release_complete"], "no")
-            self.assertEqual(results["delivery"].status, "ready")
+            self.assertEqual(results["delivery"].status, "blocked")
             self.assertEqual(results["release"].status, "blocked")
             self.assertIn("Delivery phase is not verified yet.", results["release"].blockers)
+
+    def test_planning_phase_is_blocked_when_plan_is_semantically_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            research_dir = project_dir / ".supernb" / "research" / initiative_id
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+
+            for directory in [initiative_root, research_dir, prd_dir, design_dir, plan_dir, release_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "  goal: \"Ship a global consumer app\"",
+                        "  product_category: \"productivity\"",
+                        "  markets: \"US, JP\"",
+                        "  research_window: \"90 days\"",
+                        "  platform: \"web\"",
+                        "  source_locale: \"en\"",
+                        "  repository: \"git@example.com/demo.git\"",
+                        "  stack: \"react\"",
+                        "  quality_bar: \"release-ready\"",
+                        "artifacts:",
+                        f'  certification_state_json: ".supernb/initiatives/{initiative_id}/certification-state.json"',
+                        f'  research_dir: ".supernb/research/{initiative_id}"',
+                        f'  prd_dir: ".supernb/prd/{initiative_id}"',
+                        f'  design_dir: ".supernb/design/{initiative_id}"',
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            display_roots = [project_dir, ROOT_DIR]
+
+            for index, name in enumerate(
+                ["01-competitor-landscape.md", "02-review-insights.md", "03-feature-opportunities.md"],
+                start=1,
+            ):
+                (research_dir / name).write_text(
+                    f"# Research {index}\n\n- Status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                    encoding="utf-8",
+                )
+            (prd_dir / "product-requirements.md").write_text(
+                "# PRD\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "ui-ux-spec.md").write_text(
+                "# UI UX Spec\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "i18n-strategy.md").write_text(
+                "# i18n Strategy\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (plan_dir / "implementation-plan.md").write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: pending\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (release_dir / "release-readiness.md").write_text("# Release Readiness\n", encoding="utf-8")
+
+            (initiative_root / "certification-state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phases": {
+                            "research": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "research", ROOT_DIR, display_roots),
+                            },
+                            "prd": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "prd", ROOT_DIR, display_roots),
+                            },
+                            "design": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "design", ROOT_DIR, display_roots),
+                            },
+                            "planning": {
+                                "passed": True,
+                                "recommended_gate_status": "ready",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "planning", ROOT_DIR, display_roots),
+                            },
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            results, meta = run_control_plane.build_phase_results(spec, spec_path)
+
+            self.assertEqual(meta["planning_complete"], "no")
+            self.assertEqual(results["planning"].status, "blocked")
+            self.assertTrue(any("semantic readiness issues" in blocker for blocker in results["planning"].blockers))
+
+    def test_release_phase_is_blocked_when_release_readiness_is_semantically_incomplete(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            research_dir = project_dir / ".supernb" / "research" / initiative_id
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+
+            for directory in [initiative_root, research_dir, prd_dir, design_dir, plan_dir, release_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  certification_state_json: ".supernb/initiatives/{initiative_id}/certification-state.json"',
+                        f'  research_dir: ".supernb/research/{initiative_id}"',
+                        f'  prd_dir: ".supernb/prd/{initiative_id}"',
+                        f'  design_dir: ".supernb/design/{initiative_id}"',
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            display_roots = [project_dir, ROOT_DIR]
+
+            for index, name in enumerate(
+                ["01-competitor-landscape.md", "02-review-insights.md", "03-feature-opportunities.md"],
+                start=1,
+            ):
+                (research_dir / name).write_text(
+                    f"# Research {index}\n\n- Status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                    encoding="utf-8",
+                )
+            (prd_dir / "product-requirements.md").write_text(
+                "# PRD\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "ui-ux-spec.md").write_text(
+                "# UI UX Spec\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "i18n-strategy.md").write_text(
+                "# i18n Strategy\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (plan_dir / "implementation-plan.md").write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: verified\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (release_dir / "release-readiness.md").write_text(
+                "# Release Readiness\n\n- Release decision: ready\n- Approved by: supernb\n- Approved on: 2026-03-21\n",
+                encoding="utf-8",
+            )
+
+            (initiative_root / "certification-state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phases": {
+                            "research": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "research", ROOT_DIR, display_roots),
+                            },
+                            "prd": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "prd", ROOT_DIR, display_roots),
+                            },
+                            "design": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "design", ROOT_DIR, display_roots),
+                            },
+                            "planning": {
+                                "passed": True,
+                                "recommended_gate_status": "ready",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "planning", ROOT_DIR, display_roots),
+                            },
+                            "delivery": {
+                                "passed": True,
+                                "recommended_gate_status": "verified",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "delivery", ROOT_DIR, display_roots),
+                            },
+                            "release": {
+                                "passed": True,
+                                "recommended_gate_status": "ready",
+                                "artifact_snapshot": common.phase_artifact_snapshot(spec, "release", ROOT_DIR, display_roots),
+                            },
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            results, meta = run_control_plane.build_phase_results(spec, spec_path)
+
+            self.assertEqual(meta["release_complete"], "no")
+            self.assertEqual(results["release"].status, "blocked")
+            self.assertTrue(any("semantic readiness issues" in blocker for blocker in results["release"].blockers))
 
     def test_delivery_blocker_keeps_selected_phase_on_delivery_after_plan_changes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
