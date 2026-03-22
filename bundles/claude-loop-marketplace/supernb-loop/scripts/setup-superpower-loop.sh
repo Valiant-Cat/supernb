@@ -12,6 +12,8 @@ MAX_ITERATIONS=0
 COMPLETION_PROMISE="null"
 STATE_FILE=".claude/superpower-loop.local.md"
 SESSION_ID=""
+REPORT_START_MARKER=""
+REPORT_END_MARKER=""
 
 # Parse options and positional arguments
 while [[ $# -gt 0 ]]; do
@@ -34,6 +36,8 @@ OPTIONS:
                                  Use per-task paths when running multiple loops in parallel,
                                  e.g. --state-file .claude/superpower-loop-task-42.local.md
   --session-id <id>              Explicit Claude session id to bind into the state file
+  --report-start-marker <text>   Require a structured report block that starts with this marker
+  --report-end-marker <text>     Require a structured report block that ends with this marker
   -h, --help                     Show this help message
 
 DESCRIPTION:
@@ -129,6 +133,22 @@ HELP_EOF
       SESSION_ID="$2"
       shift 2
       ;;
+    --report-start-marker)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: --report-start-marker requires a value" >&2
+        exit 1
+      fi
+      REPORT_START_MARKER="$2"
+      shift 2
+      ;;
+    --report-end-marker)
+      if [[ -z "${2:-}" ]]; then
+        echo "❌ Error: --report-end-marker requires a value" >&2
+        exit 1
+      fi
+      REPORT_END_MARKER="$2"
+      shift 2
+      ;;
     --prompt-file)
       if [[ -z "${2:-}" ]]; then
         echo "❌ Error: --prompt-file requires a path argument" >&2
@@ -190,6 +210,9 @@ if [[ -z "$SESSION_ID" ]]; then
   SESSION_ID="${CLAUDE_CODE_SESSION_ID:-}"
 fi
 
+REPORT_START_MARKER_YAML="\"${REPORT_START_MARKER//\"/\\\"}\""
+REPORT_END_MARKER_YAML="\"${REPORT_END_MARKER//\"/\\\"}\""
+
 cat > "$STATE_FILE" <<EOF
 ---
 active: true
@@ -197,6 +220,8 @@ iteration: 1
 session_id: ${SESSION_ID}
 max_iterations: $MAX_ITERATIONS
 completion_promise: $COMPLETION_PROMISE_YAML
+report_start_marker: $REPORT_START_MARKER_YAML
+report_end_marker: $REPORT_END_MARKER_YAML
 started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 ---
 

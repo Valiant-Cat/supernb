@@ -2288,6 +2288,40 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertTrue(state_path.is_file())
             self.assertIn("session_id: session-explicit", state_path.read_text(encoding="utf-8"))
 
+    def test_setup_superpower_loop_persists_required_report_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            prompt_path = root / "loop-prompt.md"
+            state_path = root / ".claude" / "superpower-loop-demo.local.md"
+            prompt_path.write_text("Continue the bounded delivery batch.\n", encoding="utf-8")
+
+            proc = run_command(
+                [
+                    "bash",
+                    str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / "scripts" / "setup-superpower-loop.sh"),
+                    "--prompt-file",
+                    str(prompt_path),
+                    "--completion-promise",
+                    "SUPERNB demo delivery batch complete",
+                    "--max-iterations",
+                    "8",
+                    "--state-file",
+                    str(state_path),
+                    "--session-id",
+                    "session-explicit",
+                    "--report-start-marker",
+                    "SUPERNB_EXECUTION_REPORT_JSON_START",
+                    "--report-end-marker",
+                    "SUPERNB_EXECUTION_REPORT_JSON_END",
+                ],
+                cwd=root,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            state_text = state_path.read_text(encoding="utf-8")
+            self.assertIn('report_start_marker: "SUPERNB_EXECUTION_REPORT_JSON_START"', state_text)
+            self.assertIn('report_end_marker: "SUPERNB_EXECUTION_REPORT_JSON_END"', state_text)
+
     def test_stop_hook_blocks_single_state_file_even_without_hook_session_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -2334,6 +2368,64 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             payload = json.loads(proc.stdout)
             self.assertEqual(payload.get("decision"), "block")
             self.assertIn("LOOP COMPLETION REQUIRED", payload.get("reason", ""))
+            self.assertIn("iteration: 2", state_path.read_text(encoding="utf-8"))
+
+    def test_stop_hook_blocks_completion_until_required_report_json_is_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            claude_dir = root / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+            state_path = claude_dir / "superpower-loop-demo.local.md"
+            transcript_path = root / "transcript.jsonl"
+            state_path.write_text(
+                "---\n"
+                "active: true\n"
+                "iteration: 1\n"
+                "session_id: session-demo\n"
+                "max_iterations: 6\n"
+                'completion_promise: "SUPERNB demo delivery batch complete"\n'
+                'report_start_marker: "SUPERNB_EXECUTION_REPORT_JSON_START"\n'
+                'report_end_marker: "SUPERNB_EXECUTION_REPORT_JSON_END"\n'
+                'started_at: "2026-03-21T00:00:00Z"\n'
+                "---\n"
+                "\n"
+                "Continue the bounded delivery batch.\n",
+                encoding="utf-8",
+            )
+            transcript_path.write_text(
+                json.dumps(
+                    {
+                        "role": "assistant",
+                        "message": {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "Batch is complete.\n<promise>SUPERNB demo delivery batch complete</promise>",
+                                }
+                            ]
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    "bash",
+                    str(ROOT_DIR / "bundles" / "claude-loop-marketplace" / "supernb-loop" / "hooks" / "stop-hook.sh"),
+                ],
+                cwd=root,
+                input=json.dumps({"session_id": "session-demo", "transcript_path": str(transcript_path)}),
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload.get("decision"), "block")
+            self.assertIn("STRUCTURED REPORT STILL REQUIRED", payload.get("reason", ""))
+            self.assertTrue(state_path.is_file())
             self.assertIn("iteration: 2", state_path.read_text(encoding="utf-8"))
 
     def test_stop_hook_exits_cleanly_when_loop_lock_is_already_held(self) -> None:

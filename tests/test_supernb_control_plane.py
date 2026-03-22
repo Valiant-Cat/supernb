@@ -111,6 +111,134 @@ class SupernbControlPlaneTests(unittest.TestCase):
         permission_index = command.index("--permission-mode")
         self.assertEqual(command[permission_index + 1], "bypassPermissions")
 
+    def test_build_direct_loop_contract_requires_report_markers(self) -> None:
+        contract = execute_next.build_direct_loop_contract(
+            "2026-03-19-demo",
+            "delivery",
+            Path("/tmp/packet"),
+            Path("/tmp/project"),
+        )
+
+        self.assertIn("--report-start-marker", contract["start_command"])
+        self.assertIn(execute_next.REPORT_START, contract["start_command"])
+        self.assertIn("--report-end-marker", contract["start_command"])
+        self.assertIn(execute_next.REPORT_END, contract["start_command"])
+
+    def test_delivery_phase_surfaces_latest_failed_certification_as_notice(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            project_dir = root / "project"
+            initiative_id = "2026-03-19-demo"
+            initiative_root = project_dir / ".supernb" / "initiatives" / initiative_id
+            research_dir = project_dir / ".supernb" / "research" / initiative_id
+            prd_dir = project_dir / ".supernb" / "prd" / initiative_id
+            design_dir = project_dir / ".supernb" / "design" / initiative_id
+            plan_dir = project_dir / ".supernb" / "plans" / initiative_id
+            release_dir = project_dir / ".supernb" / "releases" / initiative_id
+
+            for directory in [initiative_root, research_dir, prd_dir, design_dir, plan_dir, release_dir]:
+                directory.mkdir(parents=True, exist_ok=True)
+
+            spec_path = initiative_root / "initiative.yaml"
+            spec_path.write_text(
+                "\n".join(
+                    [
+                        "initiative:",
+                        f'  id: "{initiative_id}"',
+                        "delivery:",
+                        f'  project_dir: "{project_dir}"',
+                        "artifacts:",
+                        f'  certification_state_json: ".supernb/initiatives/{initiative_id}/certification-state.json"',
+                        f'  research_dir: ".supernb/research/{initiative_id}"',
+                        f'  prd_dir: ".supernb/prd/{initiative_id}"',
+                        f'  design_dir: ".supernb/design/{initiative_id}"',
+                        f'  plan_dir: ".supernb/plans/{initiative_id}"',
+                        f'  release_dir: ".supernb/releases/{initiative_id}"',
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            spec = common.load_spec(spec_path)
+            display_roots = [project_dir, ROOT_DIR]
+            for index, name in enumerate(
+                ["01-competitor-landscape.md", "02-review-insights.md", "03-feature-opportunities.md"],
+                start=1,
+            ):
+                (research_dir / name).write_text(
+                    f"# Research {index}\n\n- Status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                    encoding="utf-8",
+                )
+            (prd_dir / "product-requirements.md").write_text(
+                "# PRD\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "ui-ux-spec.md").write_text(
+                "# UI UX Spec\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (design_dir / "i18n-strategy.md").write_text(
+                "# i18n Strategy\n\n- Approval status: approved\n- Approved by: supernb\n- Approved on: 2026-03-19\n",
+                encoding="utf-8",
+            )
+            (plan_dir / "implementation-plan.md").write_text(
+                "# Implementation Plan\n\n- Ready for execution: yes\n- Delivery status: no\n",
+                encoding="utf-8",
+            )
+            (release_dir / "release-readiness.md").write_text("# Release Readiness\n", encoding="utf-8")
+
+            snapshots = {
+                phase: common.phase_artifact_snapshot(spec, phase, ROOT_DIR, display_roots)
+                for phase in ["research", "prd", "design", "planning"]
+            }
+            state_path = initiative_root / "certification-state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "initiative_id": initiative_id,
+                        "phases": {
+                            "research": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": snapshots["research"],
+                            },
+                            "prd": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": snapshots["prd"],
+                            },
+                            "design": {
+                                "passed": True,
+                                "recommended_gate_status": "approved",
+                                "artifact_snapshot": snapshots["design"],
+                            },
+                            "planning": {
+                                "passed": True,
+                                "recommended_gate_status": "ready",
+                                "artifact_snapshot": snapshots["planning"],
+                            },
+                            "delivery": {
+                                "passed": False,
+                                "recommended_gate_status": "verified",
+                                "report_path": ".supernb/initiatives/2026-03-19-demo/phase-results/20260322-delivery-certification.md",
+                            },
+                        },
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            results, _ = run_control_plane.build_phase_results(spec, spec_path)
+
+            self.assertEqual(results["delivery"].status, "ready")
+            self.assertIn(
+                "Latest delivery certification has not passed yet.",
+                run_control_plane.certification_notice(spec, "delivery"),
+            )
+
     def test_release_complete_is_false_when_delivery_certification_is_stale(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -798,9 +926,104 @@ class SupernbControlPlaneTests(unittest.TestCase):
             )
 
             self.assertFalse(
-                any("No new git commit was detected" in issue for issue in suggestion["workflow_issues"]),
+                any("No new product git commit was detected" in issue for issue in suggestion["workflow_issues"]),
                 suggestion["workflow_issues"],
             )
+
+    def test_delivery_claude_md_only_commit_does_not_count_as_product_batch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            subprocess.run(["git", "-C", str(project_dir), "init"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.name", "Supernb Test"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "config", "user.email", "supernb@example.com"], check=True, capture_output=True, text=True)
+
+            app_path = project_dir / "src" / "app.ts"
+            app_path.parent.mkdir(parents=True, exist_ok=True)
+            app_path.write_text("export const version = 1;\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", str(app_path.relative_to(project_dir))], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "feat: initial app"], check=True, capture_output=True, text=True)
+            git_before = execute_next.git_state(project_dir)
+
+            claude_md = project_dir / "CLAUDE.md"
+            claude_md.write_text("# Agent Guidance\n", encoding="utf-8")
+            subprocess.run(["git", "-C", str(project_dir), "add", "CLAUDE.md"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", str(project_dir), "commit", "-m", "docs: add agent guidance"], check=True, capture_output=True, text=True)
+            git_after = execute_next.git_state(project_dir)
+            created_commits = execute_next.commits_created(project_dir, git_before, git_after)
+            head = git_after["head"]
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Updated only delivery control-plane guidance.",
+                        "completed_items": ["Updated CLAUDE guidance."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": ["CLAUDE.md"],
+                        "commands_run": [],
+                        "tests_run": [],
+                        "validated_batches_completed": 1,
+                        "batch_commits": [f"{head} docs: add agent guidance"],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Worked from the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Claimed TDD."},
+                            "code_review": {"used": True, "evidence": "Claimed review."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed one bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="claude-code",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before=git_before,
+                git_after=git_after,
+                created_commits=created_commits,
+            )
+
+            self.assertTrue(
+                any("did not modify any product workspace files" in issue for issue in suggestion["workflow_issues"]),
+                suggestion["workflow_issues"],
+            )
+            self.assertTrue(
+                any("No new product git commit was detected" in issue for issue in suggestion["workflow_issues"]),
+                suggestion["workflow_issues"],
+            )
+            self.assertEqual(suggestion["commits_created"], [])
 
     def test_delivery_manual_import_accepts_object_style_batch_commit_matching_current_head(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -890,7 +1113,7 @@ class SupernbControlPlaneTests(unittest.TestCase):
             self.assertIsNotNone(parsed_report)
             self.assertEqual(parsed_report["batch_commits"], [f"{head} feat: ship batch"])
             self.assertFalse(
-                any("No new git commit was detected" in issue for issue in suggestion["workflow_issues"]),
+                any("No new product git commit was detected" in issue for issue in suggestion["workflow_issues"]),
                 suggestion["workflow_issues"],
             )
 

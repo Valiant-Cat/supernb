@@ -22,6 +22,7 @@ from lib.supernb_common import (
     append_debug_log as common_append_debug_log,
     artifact_path as common_artifact_path,
     display_path as common_display_path,
+    is_workflow_artifact_path as common_is_workflow_artifact_path,
     load_spec,
     nested_get,
     phase_targets as common_phase_targets,
@@ -501,6 +502,10 @@ def build_direct_loop_contract(initiative_id: str, phase: str, packet_dir: Path,
         str(state_file),
         "--session-id",
         session_id,
+        "--report-start-marker",
+        REPORT_START,
+        "--report-end-marker",
+        REPORT_END,
     ]
     return {
         "completion_promise": completion_promise,
@@ -829,6 +834,7 @@ def execution_policy(spec: dict[str, Any], phase: str, project_dir: Path) -> str
                 "Delivery-specific requirements:",
                 "- Treat this run as exactly one validated delivery batch. Do not silently continue through the whole project in one shot.",
                 "- Real product workspace changes must be the center of this batch. Do not spend the batch mainly updating .supernb/.claude workflow artifacts, release paperwork, or traceability docs.",
+                "- Workflow-only files such as .supernb/**, .claude/**, .codex/**, .opencode/**, CLAUDE.md, and AGENTS.md do not count as delivery progress or batch commit evidence.",
                 "- Use test-driven development: write or update a failing test first, make it pass, then refactor.",
                 "- Run code review on the batch before completion.",
                 "- Create a git commit for this validated batch before you report success.",
@@ -2379,7 +2385,13 @@ def commit_is_reachable_from_head(project_dir: Path, commit_sha: str, head_sha: 
     return True
 
 
-def validated_report_batch_commits(project_dir: Path, report: dict[str, Any], git_after: dict[str, Any]) -> list[str]:
+def validated_report_batch_commits(
+    project_dir: Path,
+    report: dict[str, Any],
+    git_after: dict[str, Any],
+    *,
+    require_product_changes: bool = False,
+) -> list[str]:
     if not git_after.get("is_repo"):
         return []
     head_sha = ensure_string(git_after.get("head")).lower()
@@ -2389,6 +2401,8 @@ def validated_report_batch_commits(project_dir: Path, report: dict[str, Any], gi
     for line in normalize_batch_commits(report.get("batch_commits")):
         commit_sha = extract_commit_sha(line)
         if commit_sha and commit_is_reachable_from_head(project_dir, commit_sha, head_sha):
+            if require_product_changes and not commit_has_product_changes(project_dir, commit_sha):
+                continue
             validated.append(line)
     return validated
 
@@ -2417,15 +2431,35 @@ def changed_files_in_commits(project_dir: Path, before: dict[str, Any], after: d
 
 
 def is_workflow_artifact_path(path_value: str) -> bool:
-    normalized = ensure_string(path_value).replace("\\", "/")
-    while normalized.startswith("./"):
-        normalized = normalized[2:]
-    if not normalized:
-        return False
-    for prefix in [".supernb/", ".claude/"]:
-        if normalized == prefix[:-1] or normalized.startswith(prefix):
-            return True
-    return False
+    return common_is_workflow_artifact_path(path_value)
+
+
+def changed_files_for_commit(project_dir: Path, commit_sha: str) -> list[str]:
+    if not commit_sha:
+        return []
+    try:
+        output = subprocess.run(
+            ["git", "-C", str(project_dir), "diff-tree", "--root", "--no-commit-id", "--name-only", "-r", commit_sha],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def commit_has_product_changes(project_dir: Path, commit_sha: str) -> bool:
+    return any(not is_workflow_artifact_path(path) for path in changed_files_for_commit(project_dir, commit_sha))
+
+
+def filter_product_batch_commits(project_dir: Path, commit_lines: list[str]) -> list[str]:
+    filtered: list[str] = []
+    for line in commit_lines:
+        commit_sha = extract_commit_sha(line)
+        if commit_sha and commit_has_product_changes(project_dir, commit_sha):
+            filtered.append(line)
+    return filtered
 
 
 def delivery_workspace_change_findings(project_dir: Path, before: dict[str, Any], after: dict[str, Any]) -> list[str]:
@@ -2435,7 +2469,7 @@ def delivery_workspace_change_findings(project_dir: Path, before: dict[str, Any]
     if any(not is_workflow_artifact_path(path) for path in changed_files):
         return []
     return [
-        "Delivery batch did not modify any product workspace files outside .supernb/.claude workflow artifacts. "
+        "Delivery batch did not modify any product workspace files outside workflow-only artifacts such as .supernb/.claude/.codex/.opencode and CLAUDE.md/AGENTS.md. "
         f"Changed files: {', '.join(changed_files)}"
     ]
 
@@ -2610,13 +2644,28 @@ def build_result_suggestion(
             missing_structured_report = True
             report_source = "heuristic-missing-structured-report"
 
-    validated_report_commits = validated_report_batch_commits(project_dir, structured_report, git_after)
-    if created_commits and not structured_report.get("batch_commits"):
-        structured_report["batch_commits"] = created_commits
+    effective_created_commits = created_commits
+    if phase == "delivery":
+        effective_created_commits = filter_product_batch_commits(project_dir, created_commits)
+    validated_report_commits = validated_report_batch_commits(
+        project_dir,
+        structured_report,
+        git_after,
+        require_product_changes=phase == "delivery",
+    )
+    if phase == "delivery":
+        if validated_report_commits:
+            structured_report["batch_commits"] = validated_report_commits
+        elif effective_created_commits:
+            structured_report["batch_commits"] = effective_created_commits
+        else:
+            structured_report["batch_commits"] = []
+    elif effective_created_commits and not structured_report.get("batch_commits"):
+        structured_report["batch_commits"] = effective_created_commits
     elif validated_report_commits:
         structured_report["batch_commits"] = validated_report_commits
 
-    workflow_issues = workflow_trace_findings(phase, structured_report, created_commits)
+    workflow_issues = workflow_trace_findings(phase, structured_report, effective_created_commits)
     workflow_issues.extend(loop_execution_findings(phase, harness, structured_report, project_dir, packet_dir, response_text))
     if missing_structured_report:
         workflow_issues.insert(0, missing_structured_report_issue(harness))
@@ -2624,8 +2673,8 @@ def build_result_suggestion(
     if phase == "delivery":
         workflow_issues.extend(delivery_workspace_change_findings(project_dir, git_before, git_after))
     commit_issue = ""
-    if phase == "delivery" and git_after.get("is_repo") and not created_commits and not validated_report_commits:
-        commit_issue = "No new git commit was detected for this delivery batch."
+    if phase == "delivery" and git_after.get("is_repo") and not effective_created_commits and not validated_report_commits:
+        commit_issue = "No new product git commit was detected for this delivery batch."
         workflow_issues.append(commit_issue)
 
     if dry_run:
@@ -2652,7 +2701,7 @@ def build_result_suggestion(
             if result_status == "succeeded":
                 result_status = "needs-follow-up"
             if phase == "delivery" and any(
-                "did not modify any product workspace files" in issue or "No new git commit was detected" in issue
+                "did not modify any product workspace files" in issue or "No new product git commit was detected" in issue
                 for issue in workflow_issues
             ):
                 next_step = "make a real product workspace change, verify it, create a batch commit, then rerun this delivery batch"
@@ -2687,7 +2736,7 @@ def build_result_suggestion(
         "workflow_issues": workflow_issues,
         "git_before": git_before,
         "git_after": git_after,
-        "commits_created": created_commits,
+        "commits_created": effective_created_commits,
     }
 
 

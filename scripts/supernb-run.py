@@ -155,6 +155,21 @@ def certification_evidence(spec: dict[str, Any], phase: str) -> str:
     return "certification: not recorded"
 
 
+def certification_notice(spec: dict[str, Any], phase: str) -> str:
+    entry = certification_entry(spec, phase)
+    if not entry:
+        return ""
+    current_snapshot = phase_artifact_snapshot(spec, phase, ROOT_DIR, DISPLAY_ROOTS)
+    expected_status = EXPECTED_GATE_STATUS[phase]
+    report_path = str(entry.get("report_path", "")).strip()
+    report_suffix = f" Latest certification report: {report_path}." if report_path else ""
+    if certification_passed(entry, expected_status) and certification_snapshot_matches(entry, current_snapshot):
+        return ""
+    if certification_passed(entry, expected_status) and not certification_snapshot_matches(entry, current_snapshot):
+        return f"Latest {phase} certification is stale because artifacts changed since the last passing certification.{report_suffix}"
+    return f"Latest {phase} certification has not passed yet.{report_suffix}"
+
+
 def build_phase_results(spec: dict[str, Any], spec_path: Path) -> tuple[dict[str, PhaseResult], dict[str, str]]:
     artifacts = {
         "research_dir": artifact_path(spec, "research_dir"),
@@ -568,7 +583,11 @@ def write_phase_packet(
         for blocker in phase_result.blockers:
             lines.append(f"- Blocker: {blocker}")
     else:
-        lines.append("- No blocking gate found for this phase.")
+        certification_note = certification_notice(spec, selected_phase)
+        if certification_note:
+            lines.append(f"- Certification note: {certification_note}")
+        else:
+            lines.append("- No blocking gate found for this phase.")
 
     lines.extend(["", "## Evidence Snapshot", ""])
     for evidence in phase_result.evidence:
@@ -691,7 +710,11 @@ def build_markdown(
         for blocker in current.blockers:
             lines.append(f"- {blocker}")
     else:
-        lines.append("- No blocking gate found for the selected phase.")
+        certification_note = certification_notice(spec, selected_phase)
+        if certification_note:
+            lines.append(f"- Certification note: {certification_note}")
+        else:
+            lines.append("- No blocking gate found for the selected phase.")
 
     lines.extend(["", "## Next Action", ""])
     if next_command is None:

@@ -14,6 +14,8 @@ PHASES = ["research", "prd", "design", "planning", "delivery", "release"]
 DEBUG_LOG_ENV_VAR = "SUPERNB_DEBUG_LOG"
 RALPH_LOOP_PLUGIN_ID = "supernb-loop@supernb"
 LOOP_REQUIRED_PHASES = {"planning", "delivery"}
+WORKFLOW_ARTIFACT_PREFIXES = (".supernb/", ".claude/", ".codex/", ".opencode/")
+WORKFLOW_ARTIFACT_FILES = {"CLAUDE.md", "AGENTS.md"}
 SNAPSHOT_IGNORED_METADATA_FIELDS = {
     "Status",
     "Approval status",
@@ -506,7 +508,9 @@ def is_workflow_artifact_path(path_value: str) -> bool:
         normalized = normalized[2:]
     if not normalized:
         return False
-    for prefix in [".supernb/", ".claude/"]:
+    if normalized in WORKFLOW_ARTIFACT_FILES:
+        return True
+    for prefix in WORKFLOW_ARTIFACT_PREFIXES:
         if normalized == prefix[:-1] or normalized.startswith(prefix):
             return True
     return False

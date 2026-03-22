@@ -16,6 +16,29 @@ remove_state_file() {
   rm -f "$SUPERPOWER_STATE_FILE"
 }
 
+validate_required_report_json() {
+  if [[ -z "$REPORT_START_MARKER" ]] || [[ -z "$REPORT_END_MARKER" ]]; then
+    return 0
+  fi
+  LAST_OUTPUT_PAYLOAD="$LAST_OUTPUT" python3 -c '
+import json
+import os
+import re
+import sys
+
+start, end = sys.argv[1:3]
+text = os.environ.get("LAST_OUTPUT_PAYLOAD", "")
+pattern = re.escape(start) + r"\s*(\{.*?\})\s*" + re.escape(end)
+match = re.search(pattern, text, re.S)
+if not match:
+    raise SystemExit(1)
+try:
+    json.loads(match.group(1))
+except json.JSONDecodeError:
+    raise SystemExit(1)
+' "$REPORT_START_MARKER" "$REPORT_END_MARKER"
+}
+
 persist_session_id_if_missing() {
   if [[ -z "$HOOK_SESSION" ]]; then
     return
@@ -71,6 +94,8 @@ ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
 # Extract completion_promise and strip surrounding quotes if present
 COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep '^completion_promise:' | sed 's/completion_promise: *//' | sed 's/^"\(.*\)"$/\1/')
+REPORT_START_MARKER=$(echo "$FRONTMATTER" | grep '^report_start_marker:' | sed 's/report_start_marker: *//' | sed 's/^"\(.*\)"$/\1/' || true)
+REPORT_END_MARKER=$(echo "$FRONTMATTER" | grep '^report_end_marker:' | sed 's/report_end_marker: *//' | sed 's/^"\(.*\)"$/\1/' || true)
 
 # Validate numeric fields before arithmetic operations
 if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
@@ -161,6 +186,7 @@ if [[ $JQ_EXIT -ne 0 ]]; then
 fi
 
 # Check for completion promise (only if set)
+REPORT_JSON_REQUIRED_BUT_MISSING=0
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   # Extract text from <promise> tags using Perl for multiline support
   # -0777 slurps entire input, s flag makes . match newlines
@@ -170,9 +196,12 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   # Use = for literal string comparison (not pattern matching)
   # == in [[ ]] does glob pattern matching which breaks with *, ?, [ characters
   if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
-    echo "Superpower loop: Detected <promise>$COMPLETION_PROMISE</promise>"
-    remove_state_file
-    exit 0
+    if validate_required_report_json; then
+      echo "Superpower loop: Detected <promise>$COMPLETION_PROMISE</promise>"
+      remove_state_file
+      exit 0
+    fi
+    REPORT_JSON_REQUIRED_BUT_MISSING=1
   fi
 fi
 
@@ -225,6 +254,18 @@ LOOP COMPLETION REQUIRED: When the above task is genuinely complete, output the 
 <promise>${COMPLETION_PROMISE}</promise>"
 else
   INJECTED_PROMPT="$PROMPT_TEXT"
+fi
+
+if [[ $REPORT_JSON_REQUIRED_BUT_MISSING -eq 1 ]]; then
+  INJECTED_PROMPT="${INJECTED_PROMPT}
+
+---
+STRUCTURED REPORT STILL REQUIRED: Your previous response included the completion promise, but the required machine-readable JSON block was missing or invalid.
+- Append a valid JSON block between these exact markers before the final promise tag:
+  ${REPORT_START_MARKER}
+  ${REPORT_END_MARKER}
+- Keep the exact completion promise as the very last line after the JSON block.
+- Do not stop until both the structured report and the completion promise are present."
 fi
 
 # Output JSON to block the stop and feed prompt back
