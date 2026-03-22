@@ -14,8 +14,13 @@ Start here if you want prompt-first `supernb` delivery with managed Ralph Loop s
 Fastest Claude Code install:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git
+# WayJerry/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git
+
+# Valiant-Cat/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git
 ```
 
 ### Codex
@@ -39,16 +44,25 @@ Start here if you want OpenCode project-local skills plus native plugin/config i
 If you still want the old one-command compatibility path, it remains available:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git
+# WayJerry/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git
+
+# Valiant-Cat/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git
 ```
 
 If your machine has multiple supported harnesses installed, pass one explicitly:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness codex
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness claude-code --project-dir /path/to/project
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness opencode --project-dir /path/to/project
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git --harness codex
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git --harness claude-code --project-dir /path/to/project
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git --harness opencode --project-dir /path/to/project
+
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git --harness codex
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git --harness claude-code --project-dir /path/to/project
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git --harness opencode --project-dir /path/to/project
 ```
 
 Treat this as a compatibility shortcut, not the primary installation story.

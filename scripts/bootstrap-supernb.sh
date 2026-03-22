@@ -22,9 +22,12 @@ Options:
   --skip-update          Skip upstream sync/build step
 
 Examples:
-  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git
-  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness codex
-  bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/<repo-owner>/supernb.git --harness claude-code --project-dir ~/projects/my-app
+  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git
+  bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git
+  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git --harness codex
+  bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git --harness codex
+  bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/WayJerry/supernb.git --harness claude-code --project-dir ~/projects/my-app
+  bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/bootstrap-supernb.sh) --repo-url https://github.com/Valiant-Cat/supernb.git --harness claude-code --project-dir ~/projects/my-app
 
 Prefer the platform-native install docs for day-to-day onboarding:
   Codex:       .codex/INSTALL.md
@@ -131,7 +134,7 @@ if [[ -d "${REPO_DIR}/.git" ]]; then
 else
   if [[ -z "${REPO_URL}" ]]; then
     echo "A repository URL is required when ${REPO_DIR} does not exist." >&2
-    echo "Pass --repo-url https://github.com/<repo-owner>/supernb.git or set SUPERNB_REMOTE_REPO_URL." >&2
+    echo "Pass --repo-url https://github.com/WayJerry/supernb.git or --repo-url https://github.com/Valiant-Cat/supernb.git, or set SUPERNB_REMOTE_REPO_URL." >&2
     exit 1
   fi
   echo "Cloning supernb into ${REPO_DIR}..."

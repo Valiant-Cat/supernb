@@ -7,14 +7,20 @@ Follow these steps exactly.
 1. Clone or update the repository:
 
 ```bash
+# If you are reading github.com/WayJerry/supernb:
 if [ -d "$HOME/.codex/supernb/.git" ]; then
   git -C "$HOME/.codex/supernb" pull --ff-only
 else
-  git clone https://github.com/<repo-owner>/supernb.git "$HOME/.codex/supernb"
+  git clone https://github.com/WayJerry/supernb.git "$HOME/.codex/supernb"
+fi
+
+# If you are reading github.com/Valiant-Cat/supernb:
+if [ -d "$HOME/.codex/supernb/.git" ]; then
+  git -C "$HOME/.codex/supernb" pull --ff-only
+else
+  git clone https://github.com/Valiant-Cat/supernb.git "$HOME/.codex/supernb"
 fi
 ```
-
-Replace `<repo-owner>` with the owner of the `supernb` repository you are currently using.
 
 2. Build bundled provider assets:
 

@@ -15,19 +15,28 @@
 Recommended user-global remote install:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git
+# If you are reading github.com/WayJerry/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git
+
+# If you are reading github.com/Valiant-Cat/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git
 ```
 
 Optional project-local override:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git \
+# WayJerry/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git \
+  --project-dir /path/to/your-project
+
+# Valiant-Cat/supernb:
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git \
   --project-dir /path/to/your-project
 ```
-
-Replace `<repo-owner>` with the GitHub owner of the `supernb` repository you are currently using.
 
 ## Manual Install
 

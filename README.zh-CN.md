@@ -94,15 +94,26 @@
 快速安装：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git
+# 如果你当前浏览的是 github.com/WayJerry/supernb：
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git
+
+# 如果你当前浏览的是 github.com/Valiant-Cat/supernb：
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git
 ```
 
 项目级覆盖可选：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/<repo-owner>/supernb.git \
+# WayJerry/supernb：
+bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/WayJerry/supernb.git \
+  --project-dir /path/to/your-project
+
+# Valiant-Cat/supernb：
+bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
+  --repo-url https://github.com/Valiant-Cat/supernb.git \
   --project-dir /path/to/your-project
 ```
 

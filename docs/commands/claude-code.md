@@ -66,7 +66,9 @@ If you want to prove the real local CLI path is loop-capable end to end, run `./
 
 ## Notes
 
-- Recommended fastest install: `bash <(curl -fsSL https://raw.githubusercontent.com/<repo-owner>/supernb/main/scripts/install-claude-code-remote.sh) --repo-url https://github.com/<repo-owner>/supernb.git`.
+- Recommended fastest install uses the repo you are actually browsing:
+  - `bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) --repo-url https://github.com/WayJerry/supernb.git`
+  - `bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) --repo-url https://github.com/Valiant-Cat/supernb.git`
 - Recommended default: install Claude Code assets user-globally with `./scripts/supernb install-claude-code "$HOME"`.
 - Use a project-local install only when one repository needs its own managed `CLAUDE.md` override or isolated Claude skills.
 - upstream `superpowers` remains the main workflow engine
