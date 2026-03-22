@@ -19,8 +19,11 @@ Do not ask the user to remember the detailed command sequence.
 4. Start with an initiative-wide reassessment. Compare the real repository state against research, PRD, design, planning, delivery, and release artifacts before deciding the work is only a current-phase patch.
 5. If the reassessment finds stale upstream artifacts, reopen the earliest affected phase instead of only editing the current active phase.
 6. If the active phase is `planning` or `delivery`, honor Ralph Loop and do not stop on self-judged completion.
-7. Before claiming completion, update `prompt-report-template.json`, then run `prompt-closeout` so `.supernb` state, packets, certification, and logs stay aligned.
-8. For planning and delivery, only echo the final `<promise>...</promise>` line after `prompt-closeout` succeeds.
+7. For delivery, do not claim a fake implementation, placeholder, stub, or no-op behavior as completed work.
+8. For delivery, if the batch adds or materially changes a visible user-facing feature, it must have a real surfaced in-product entry. If the entry placement is unresolved, stop and get an impeccable-backed design decision before claiming completion.
+9. Do not hardcode user-facing copy in product source code. Externalize it into the real localization layer and record the verification evidence in the report.
+10. Before claiming completion, update `prompt-report-template.json`, then run `prompt-closeout` so `.supernb` state, packets, certification, and logs stay aligned.
+11. For planning and delivery, only echo the final `<promise>...</promise>` line after `prompt-closeout` succeeds.
 
 ## Skill naming rule
 

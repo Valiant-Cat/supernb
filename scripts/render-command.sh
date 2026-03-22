@@ -132,6 +132,9 @@ default_output_lines() {
         "execute exactly one validated batch with tests first" \
         "update affected initiative artifacts, verification evidence, and release-readiness inputs" \
         "keep the batch aligned with a 10M-DAU-grade product bar rather than a narrow proof of concept" \
+        "treat fake features, placeholders, stubs, and no-op flows as incomplete work rather than shipped delivery" \
+        "if the batch adds or materially changes a visible user-facing feature, land a real surfaced entry and use impeccable to settle unresolved entry placement before claiming completion" \
+        "externalize user-facing copy and run the hardcoded-copy check instead of hardcoding strings in product code" \
         "commit the verified batch and return evidence for certification"
       ;;
     autonomous-delivery)
@@ -139,12 +142,18 @@ default_output_lines() {
         "refine and save the implementation plan before coding" \
         "execute in the smallest safe validated batches with tests first" \
         "record workflow trace for brainstorming, writing-plans, TDD, and code review" \
+        "treat fake features, placeholders, stubs, and hidden unfinished flows as incomplete work" \
+        "for visible user-facing features, land a real surfaced entry and get impeccable-backed entry placement before claiming completion" \
+        "externalize user-facing copy and record the hardcoded-copy verification evidence" \
         "commit each verified batch"
     ;;
     implementation-execution)
       printf '%s\n' \
         "plan the work in fine-grained tasks" \
         "implement and verify it with TDD and code review evidence" \
+        "treat placeholders, stubs, and fake implementations as incomplete work" \
+        "for visible user-facing features, land a real surfaced entry and get impeccable-backed placement if the surface is not already settled" \
+        "externalize user-facing copy instead of hardcoding strings in source code" \
         "commit validated changes in small batches"
       ;;
     i18n-localization-governance)

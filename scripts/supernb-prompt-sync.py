@@ -71,6 +71,23 @@ REPORT_TEMPLATE = {
         "exit_reason": "",
         "evidence": "",
     },
+    "implementation_integrity": {
+        "real": False,
+        "placeholder_free": False,
+        "evidence": "",
+    },
+    "user_facing_entry": {
+        "required": False,
+        "implemented": False,
+        "surface": "",
+        "impeccable_confirmed": False,
+        "evidence": "",
+    },
+    "copy_governance": {
+        "externalized": False,
+        "check_command": "",
+        "evidence": "",
+    },
     "recommended_result_status": "needs-follow-up",
     "recommended_gate_action": "certify",
     "recommended_gate_status": "",
@@ -182,10 +199,13 @@ def loop_settings(initiative_id: str, phase: str, project_dir: Path, initiative_
     }
 
 
-def write_report_template(target: Path, phase: str, loop_config: dict[str, Any]) -> None:
+def write_report_template(target: Path, phase: str, loop_config: dict[str, Any], project_dir: Path) -> None:
     payload = dict(REPORT_TEMPLATE)
     payload["workflow_trace"] = dict(REPORT_TEMPLATE["workflow_trace"])
     payload["loop_execution"] = dict(REPORT_TEMPLATE["loop_execution"])
+    payload["implementation_integrity"] = dict(REPORT_TEMPLATE["implementation_integrity"])
+    payload["user_facing_entry"] = dict(REPORT_TEMPLATE["user_facing_entry"])
+    payload["copy_governance"] = dict(REPORT_TEMPLATE["copy_governance"])
     payload["initiative_id"] = loop_config["initiative_id"]
     payload["phase"] = phase
     payload["summary"] = f"{phase} phase prompt-first execution summary"
@@ -196,6 +216,23 @@ def write_report_template(target: Path, phase: str, loop_config: dict[str, Any])
         payload["workflow_trace"]["test_driven_development"] = {"used": True, "evidence": "Ran delivery verification before finalizing the batch."}
         payload["workflow_trace"]["code_review"] = {"used": True, "evidence": "Reviewed the completed batch before final summary."}
         payload["workflow_trace"]["subagent_or_executing_plans"] = {"used": True, "evidence": "Executed one bounded delivery batch against the current plan."}
+        payload["implementation_integrity"] = {
+            "real": False,
+            "placeholder_free": False,
+            "evidence": "Name the concrete files, tests, and runtime behavior proving the feature is truly implemented.",
+        }
+        payload["user_facing_entry"] = {
+            "required": False,
+            "implemented": False,
+            "surface": "",
+            "impeccable_confirmed": False,
+            "evidence": "If the batch adds a visible user-facing feature, point to the real in-product entry and the impeccable-confirmed surface decision.",
+        }
+        payload["copy_governance"] = {
+            "externalized": False,
+            "check_command": shlex.join([str(ROOT_DIR / "scripts" / "check-no-hardcoded-copy.sh"), str(project_dir)]),
+            "evidence": "Record the hardcoded-copy check result and the localization resources updated by this batch.",
+        }
     if loop_config["required"]:
         payload["evidence_artifacts"] = [str(loop_config["audit_summary_file"])]
         payload["loop_execution"] = {
@@ -329,6 +366,9 @@ def write_loop_prompt(
         "- Start with an initiative-wide reassessment before committing to the current phase scope.",
         "- If the reassessment finds stale upstream artifacts, reopen the earliest affected phase instead of only patching the current phase.",
         "- For delivery, real product workspace changes and a real batch commit must be the center of the run. Do not spend the batch mainly updating `.supernb`, release paperwork, or traceability docs.",
+        "- For delivery, do not claim a fake feature, stub, placeholder, no-op handler, or hidden unfinished flow as completed implementation.",
+        "- If the batch adds or materially changes a visible user-facing feature, it must have a real surfaced product entry before completion. If the entry placement is not settled, stop and get an impeccable-backed design decision instead of hiding the feature and claiming success.",
+        "- Do not hardcode user-facing copy in product source code. Externalize strings into the real localization layer and run the managed hardcoded-copy check before closeout.",
         "- Update affected initiative artifacts, tests, evidence, and git state as part of the batch.",
         "- Before stopping, fill the prompt report template with real evidence, then run the managed prompt closeout command so supernb imports it, applies certification, and only then emits the final promise when allowed.",
         "- If the stop-hook is unavailable in this Claude environment, do not pretend the batch is cleanly complete. Report the run as needs-follow-up and switch to a loop-enabled Claude environment.",
@@ -352,6 +392,8 @@ def write_loop_prompt(
             "Completion criteria:",
             "- The initiative-wide reassessment has been completed and any stale upstream artifacts were upgraded before implementation continues.",
             "- The current batch is implemented to the claimed depth.",
+            "- For delivery, any user-facing visible feature in the batch has a real surfaced entry and an impeccable-confirmed entry decision.",
+            "- For delivery, the batch is not a fake implementation, placeholder, or stub and user-facing copy has been externalized instead of hardcoded in source.",
             "- Verification and review evidence are real and recorded.",
             "- The prompt report template contains real commands, tests, evidence artifacts, workflow trace, loop evidence, and commit information.",
             f"- `{closeout_command}` has completed successfully for this prompt-first batch.",
@@ -461,8 +503,11 @@ def write_prompt_session(
         "2. Complete an initiative-wide reassessment before assuming the current selected phase is still the right place to continue.",
         "3. If the reassessment finds stale upstream work, reopen the earliest affected phase instead of silently patching only the current phase.",
         "4. For delivery, spend the batch on real product workspace changes first; `.supernb`, release paperwork, and traceability edits only count when they support a real product batch.",
-        "5. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
-        "6. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
+        "5. Do not claim fake or incomplete delivery. Placeholder UI, stub handlers, mocked-only behavior, or hidden unfinished features are not certifiable implementation.",
+        "6. If the batch adds or materially changes a visible user-facing feature, it must have a real surfaced product entry. If entry placement is unresolved, stop and get an impeccable-backed design decision before claiming completion.",
+        "7. Do not hardcode user-facing copy in product source. Externalize strings into the real localization layer and record the hardcoded-copy check result in the report template.",
+        "8. If you change code or initiative artifacts, keep tests, review notes, and git state aligned with the claimed batch.",
+        "9. Before finishing, write the report template with concrete evidence and then import+apply it so the initiative state stays in sync.",
         "",
         "## Required Files",
         "",
@@ -522,6 +567,7 @@ def write_prompt_session(
             "",
             "- For planning and delivery, managed closeout requires `--apply-certification`; if certification fails, the session must keep working instead of emitting the completion promise.",
             "- Do not claim completion without updating the report template with real commands, tests, evidence artifacts, and workflow trace.",
+            "- For delivery, the report template must also prove three things: the implementation is real, any user-facing feature has a real surfaced entry with impeccable-confirmed placement, and user-facing copy is externalized instead of hardcoded.",
         ]
     )
     session_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -850,13 +896,14 @@ def main() -> int:
         return 1
 
     initiative_root = spec_path.parent
+    project_dir = project_root(spec, ROOT_DIR)
     prompt_session_path = initiative_root / "prompt-session.md"
     report_template_path = initiative_root / "prompt-report-template.json"
     reassessment_path = initiative_root / "initiative-reassessment.md"
     print("supernb prompt-sync: writing prompt session, reassessment template, and loop artifacts...", flush=True)
-    loop_config = loop_settings(initiative_id, selected_phase, project_root(spec, ROOT_DIR), initiative_root)
+    loop_config = loop_settings(initiative_id, selected_phase, project_dir, initiative_root)
     clear_direct_bridge_handoff(initiative_root, selected_phase)
-    write_report_template(report_template_path, selected_phase, loop_config)
+    write_report_template(report_template_path, selected_phase, loop_config, project_dir)
     write_reassessment_template(reassessment_path, spec, selected_phase)
     write_loop_prompt(loop_config["prompt_file"], spec, spec_path, selected_phase, run_status, report_template_path, loop_config, reassessment_path)
     write_loop_manifest(loop_config["manifest_file"], selected_phase, loop_config)

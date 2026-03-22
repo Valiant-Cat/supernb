@@ -1965,6 +1965,9 @@ class SupernbCliIntegrationTests(unittest.TestCase):
             self.assertIn("prompt-closeout", session_text)
             self.assertIn("initiative-wide reassessment", session_text)
             self.assertIn("initiative-reassessment.md", session_text)
+            self.assertIn("Do not claim fake or incomplete delivery", session_text)
+            self.assertIn("real surfaced product entry", session_text)
+            self.assertIn("Do not hardcode user-facing copy", session_text)
 
             reassessment_text = reassessment_path.read_text(encoding="utf-8")
             self.assertIn("Initiative-Wide Reassessment", reassessment_text)
@@ -1972,6 +1975,9 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             template_payload = json.loads(report_template.read_text(encoding="utf-8"))
             self.assertIn("workflow_trace", template_payload)
+            self.assertIn("implementation_integrity", template_payload)
+            self.assertIn("user_facing_entry", template_payload)
+            self.assertIn("copy_governance", template_payload)
             self.assertEqual(template_payload["recommended_result_status"], "needs-follow-up")
 
     def test_prompt_sync_non_loop_phase_matrix_writes_reassessment_contracts(self) -> None:
@@ -2790,9 +2796,13 @@ class SupernbCliIntegrationTests(unittest.TestCase):
 
             self.assertEqual(proc.returncode, 0, msg=proc.stderr)
             prompt_session = (paths["initiative_root"] / "prompt-session.md").read_text(encoding="utf-8")
+            report_template = json.loads((paths["initiative_root"] / "prompt-report-template.json").read_text(encoding="utf-8"))
             loop_prompt = (paths["initiative_root"] / "ralph-loop-delivery.md").read_text(encoding="utf-8")
             self.assertIn("real product workspace changes first", prompt_session)
+            self.assertIn("real surfaced product entry", prompt_session)
+            self.assertIn("Do not hardcode user-facing copy", prompt_session)
             self.assertIn("Do not spend the batch mainly updating `.supernb`", loop_prompt)
+            self.assertIn("check-no-hardcoded-copy.sh", report_template["copy_governance"]["check_command"])
 
     def test_bootstrap_claude_code_defaults_to_user_global_install(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

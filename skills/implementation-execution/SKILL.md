@@ -22,6 +22,12 @@ This mode is for focused build work inside an existing project.
 - Externalize strings into the relevant localization layer before wiring UI.
 - If the project stack has a known localization workflow, route to `i18n-localization-governance`.
 
+## Real Feature Rule
+
+- Do not claim a feature is implemented if it is still a placeholder, stub, TODO path, demo-only behavior, or fake backend flow.
+- If the work adds or materially changes a visible user-facing feature, the batch is not complete unless the product exposes a real surfaced entry for that feature.
+- If entry placement or affordance is not yet settled, stop and get an `impeccable`-backed design decision instead of hiding the feature and marking it done.
+
 ## When Not To Use It
 
 Do not use this mode when the request is actually product discovery, competitor research, or UI/UX direction setting from scratch. Route those to the more specific modes.
@@ -36,3 +42,4 @@ If the active Claude environment does not provide the Ralph Loop stop hook, do n
 - Do not stop at a thin implementation that only proves a concept.
 - Edge states, validation, reliability, and user-facing quality should be handled to the depth appropriate for the requested quality bar.
 - Unless the user explicitly narrows scope, assume the product ambition is 10M-DAU-class and keep instrumentation, trust, and operational depth aligned with that bar.
+- User-facing completion means the feature is truly landed, reachable, localized, and not dependent on hardcoded copy or placeholder UX.

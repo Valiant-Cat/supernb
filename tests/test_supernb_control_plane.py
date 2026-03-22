@@ -540,6 +540,23 @@ class SupernbControlPlaneTests(unittest.TestCase):
                             "exit_reason": "",
                             "evidence": "",
                         },
+                        "implementation_integrity": {
+                            "real": True,
+                            "placeholder_free": True,
+                            "evidence": "src/app.ts implements the shipped behavior and the test output proves it.",
+                        },
+                        "user_facing_entry": {
+                            "required": False,
+                            "implemented": False,
+                            "surface": "",
+                            "impeccable_confirmed": False,
+                            "evidence": "This batch only touches an internal product file.",
+                        },
+                        "copy_governance": {
+                            "externalized": True,
+                            "check_command": f"{ROOT_DIR / 'scripts' / 'check-no-hardcoded-copy.sh'} {project_dir}",
+                            "evidence": "No obvious hardcoded user-facing copy detected.",
+                        },
                         "recommended_result_status": "succeeded",
                         "recommended_gate_action": "certify",
                         "recommended_gate_status": "verified",
@@ -777,6 +794,23 @@ class SupernbControlPlaneTests(unittest.TestCase):
                             "exit_reason": "",
                             "evidence": "",
                         },
+                        "implementation_integrity": {
+                            "real": True,
+                            "placeholder_free": True,
+                            "evidence": "src/app.ts contains the real delivered behavior.",
+                        },
+                        "user_facing_entry": {
+                            "required": False,
+                            "implemented": False,
+                            "surface": "",
+                            "impeccable_confirmed": False,
+                            "evidence": "This batch updates internal product behavior only.",
+                        },
+                        "copy_governance": {
+                            "externalized": True,
+                            "check_command": f"{ROOT_DIR / 'scripts' / 'check-no-hardcoded-copy.sh'} {project_dir}",
+                            "evidence": "No obvious hardcoded user-facing copy detected.",
+                        },
                         "recommended_result_status": "succeeded",
                         "recommended_gate_action": "certify",
                         "recommended_gate_status": "verified",
@@ -846,6 +880,148 @@ class SupernbControlPlaneTests(unittest.TestCase):
         self.assertEqual(report["recommended_result_status"], "needs-follow-up")
         self.assertEqual(report["recommended_gate_action"], "none")
         self.assertEqual(report["recommended_gate_status"], "")
+
+    def test_delivery_report_extracts_real_feature_and_copy_governance_fields(self) -> None:
+        report = execute_next.extract_report_json(
+            f"{execute_next.REPORT_START}\n"
+            + json.dumps(
+                {
+                    "completion_status": "completed",
+                    "summary": "Delivered a real user-facing batch.",
+                    "completed_items": ["Implemented the surfaced feature."],
+                    "remaining_items": [],
+                    "evidence_artifacts": [],
+                    "artifacts_updated": [],
+                    "commands_run": [],
+                    "tests_run": [],
+                    "validated_batches_completed": 1,
+                    "batch_commits": ["abc123 feat: real batch"],
+                    "workflow_trace": {},
+                    "loop_execution": {},
+                    "implementation_integrity": {
+                        "real": True,
+                        "placeholder_free": True,
+                        "evidence": "app/src/main/.../FeatureScreen.kt plus passing tests",
+                    },
+                    "user_facing_entry": {
+                        "required": True,
+                        "implemented": True,
+                        "surface": "Home screen quick action",
+                        "impeccable_confirmed": True,
+                        "evidence": "ui-ux-spec.md#Feature Surface",
+                    },
+                    "copy_governance": {
+                        "externalized": True,
+                        "check_command": f"{ROOT_DIR / 'scripts' / 'check-no-hardcoded-copy.sh'} /tmp/project",
+                        "evidence": "No obvious hardcoded user-facing copy detected.",
+                    },
+                    "recommended_result_status": "succeeded",
+                    "recommended_gate_action": "certify",
+                    "recommended_gate_status": "verified",
+                    "follow_up": [],
+                },
+                indent=2,
+            )
+            + f"\n{execute_next.REPORT_END}\n"
+        )
+
+        self.assertIsNotNone(report)
+        self.assertEqual(report["implementation_integrity"]["real"], True)
+        self.assertEqual(report["implementation_integrity"]["placeholder_free"], True)
+        self.assertEqual(report["user_facing_entry"]["required"], True)
+        self.assertEqual(report["user_facing_entry"]["impeccable_confirmed"], True)
+        self.assertEqual(report["copy_governance"]["externalized"], True)
+        self.assertIn("check-no-hardcoded-copy.sh", report["copy_governance"]["check_command"])
+
+    def test_delivery_requires_real_feature_entry_and_copy_governance_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            packet_dir = root / "packet"
+            project_dir = root / "project"
+            packet_dir.mkdir()
+            project_dir.mkdir()
+
+            response_text = (
+                f"{execute_next.REPORT_START}\n"
+                + json.dumps(
+                    {
+                        "completion_status": "completed",
+                        "summary": "Claimed delivery without a real surfaced feature.",
+                        "completed_items": ["Added the hidden feature."],
+                        "remaining_items": [],
+                        "evidence_artifacts": [],
+                        "artifacts_updated": [],
+                        "commands_run": [],
+                        "tests_run": [],
+                        "validated_batches_completed": 1,
+                        "batch_commits": ["abc123 feat: hidden batch"],
+                        "workflow_trace": {
+                            "brainstorming": {"used": False, "evidence": "Not needed."},
+                            "writing_plans": {"used": True, "evidence": "Updated the implementation plan."},
+                            "test_driven_development": {"used": True, "evidence": "Wrote and ran the delivery test first."},
+                            "code_review": {"used": True, "evidence": "Reviewed the completed batch."},
+                            "using_git_worktrees": {"used": False, "evidence": "Not needed for this batch."},
+                            "subagent_or_executing_plans": {"used": True, "evidence": "Executed a single bounded batch."},
+                        },
+                        "loop_execution": {
+                            "used": False,
+                            "mode": "none",
+                            "completion_promise": "",
+                            "state_file": "",
+                            "max_iterations": 0,
+                            "final_iteration": 0,
+                            "exit_reason": "",
+                            "evidence": "",
+                        },
+                        "implementation_integrity": {
+                            "real": True,
+                            "placeholder_free": False,
+                            "evidence": "",
+                        },
+                        "user_facing_entry": {
+                            "required": True,
+                            "implemented": False,
+                            "surface": "",
+                            "impeccable_confirmed": False,
+                            "evidence": "",
+                        },
+                        "copy_governance": {
+                            "externalized": False,
+                            "check_command": "",
+                            "evidence": "",
+                        },
+                        "recommended_result_status": "succeeded",
+                        "recommended_gate_action": "certify",
+                        "recommended_gate_status": "verified",
+                        "follow_up": [],
+                    },
+                    indent=2,
+                )
+                + f"\n{execute_next.REPORT_END}\n"
+            )
+
+            suggestion = execute_next.build_result_suggestion(
+                phase="delivery",
+                harness="codex",
+                status="succeeded",
+                dry_run=False,
+                exit_code=0,
+                response_text=response_text,
+                stderr_text="",
+                packet_dir=packet_dir,
+                project_dir=project_dir,
+                phase_readiness={"ready_for_certification": True},
+                git_before={"is_repo": False},
+                git_after={"is_repo": False},
+                created_commits=[],
+            )
+
+            self.assertEqual(suggestion["suggested_result_status"], "needs-follow-up")
+            combined = "\n".join(suggestion["workflow_issues"])
+            self.assertIn("implementation_integrity.placeholder_free=true", combined)
+            self.assertIn("User-facing delivery batches must expose a real in-product entry", combined)
+            self.assertIn("impeccable", combined)
+            self.assertIn("copy_governance.externalized=true", combined)
 
     def test_delivery_manual_import_accepts_batch_commit_matching_current_head(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

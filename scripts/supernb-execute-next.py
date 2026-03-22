@@ -45,6 +45,7 @@ REPORT_END = "SUPERNB_EXECUTION_REPORT_JSON_END"
 LOOP_REQUIRED_PHASES = {"planning", "delivery"}
 CLAUDE_LOOP_HARNESSES = {"claude-code", "claude-code-prompt"}
 LOOP_MAX_ITERATIONS = {"planning": 6, "delivery": 8}
+HARDCODED_COPY_CHECKER = ROOT_DIR / "scripts" / "check-no-hardcoded-copy.sh"
 METADATA_FIELDS = {
     "Initiative ID",
     "Product",
@@ -835,6 +836,9 @@ def execution_policy(spec: dict[str, Any], phase: str, project_dir: Path) -> str
                 "- Treat this run as exactly one validated delivery batch. Do not silently continue through the whole project in one shot.",
                 "- Real product workspace changes must be the center of this batch. Do not spend the batch mainly updating .supernb/.claude workflow artifacts, release paperwork, or traceability docs.",
                 "- Workflow-only files such as .supernb/**, .claude/**, .codex/**, .opencode/**, CLAUDE.md, and AGENTS.md do not count as delivery progress or batch commit evidence.",
+                "- Do not claim fake functionality as delivered. Placeholder UI, TODO wiring, stub handlers, mocked-only flows, or hidden unfinished code paths are incomplete work.",
+                "- If the batch adds or materially changes a visible user-facing feature, land a real surfaced product entry for it. If the entry placement is unresolved, stop and get an impeccable-backed design decision before claiming completion.",
+                f"- Do not hardcode user-facing copy in source code. Externalize strings into the real localization layer and run `{HARDCODED_COPY_CHECKER}` against the product workspace before closeout.",
                 "- Use test-driven development: write or update a failing test first, make it pass, then refactor.",
                 "- Run code review on the batch before completion.",
                 "- Create a git commit for this validated batch before you report success.",
@@ -870,6 +874,9 @@ def response_contract(phase: str) -> str:
         '    "subagent_or_executing_plans": {"used": true, "evidence": "..."}\n'
         "  },\n"
         '  "loop_execution": {"used": false, "mode": "ralph-loop|none", "completion_promise": "", "state_file": "", "max_iterations": 0, "final_iteration": 0, "exit_reason": "", "evidence": ""},\n'
+        '  "implementation_integrity": {"real": true, "placeholder_free": true, "evidence": "concrete files, tests, or behavior proving the feature is truly implemented"},\n'
+        '  "user_facing_entry": {"required": false, "implemented": false, "surface": "", "impeccable_confirmed": false, "evidence": "real product entry or rationale"},\n'
+        '  "copy_governance": {"externalized": true, "check_command": "", "evidence": "localization resources or verification result"},\n'
         '  "recommended_result_status": "succeeded|needs-follow-up|blocked|manual-follow-up",\n'
         '  "recommended_gate_action": "none|certify|advance",\n'
         f'  "recommended_gate_status": "{gate_status}|pending|",\n'
@@ -882,6 +889,10 @@ def response_contract(phase: str) -> str:
         "- Only list evidence_artifacts that were actually created, updated, or are central proof of the work.\n"
         "- workflow_trace must include every listed workflow key, even when a workflow was intentionally skipped.\n"
         "- For delivery, validated_batches_completed must reflect the number of verified batches completed in this run, and batch_commits must list the commit(s) created for those batches.\n"
+        "- For delivery, implementation_integrity.real and implementation_integrity.placeholder_free must both be true. Demo-only logic, placeholders, stubs, fake backends, or hidden no-op wiring cannot be reported as completed delivery.\n"
+        "- For delivery, if the batch adds or materially changes a user-facing feature, set user_facing_entry.required=true. Do not mark it false just to bypass the rule.\n"
+        "- When user_facing_entry.required=true, the feature must have a real surfaced product entry now, and user_facing_entry.impeccable_confirmed must document the impeccable-backed entry decision before certification.\n"
+        f"- For delivery, copy_governance.check_command should normally run `{HARDCODED_COPY_CHECKER}` against the product workspace, and copy_governance.externalized must be true. Hardcoded user-facing copy in source code is not certifiable.\n"
         "- For Claude Code planning or delivery runs, loop_execution.used must be true and must record the real Ralph Loop state file, completion promise, iteration count, exit reason, and evidence.\n"
         "- Prefer recommended_gate_action=certify unless the phase is truly ready to advance.\n"
     )
@@ -979,6 +990,35 @@ def normalize_loop_execution(value: Any) -> dict[str, Any]:
     }
 
 
+def normalize_implementation_integrity(value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        "real": ensure_bool_or_none(raw.get("real")),
+        "placeholder_free": ensure_bool_or_none(raw.get("placeholder_free")),
+        "evidence": ensure_string(raw.get("evidence")),
+    }
+
+
+def normalize_user_facing_entry(value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        "required": ensure_bool_or_none(raw.get("required")),
+        "implemented": ensure_bool_or_none(raw.get("implemented")),
+        "surface": ensure_string(raw.get("surface")),
+        "impeccable_confirmed": ensure_bool_or_none(raw.get("impeccable_confirmed")),
+        "evidence": ensure_string(raw.get("evidence")),
+    }
+
+
+def normalize_copy_governance(value: Any) -> dict[str, Any]:
+    raw = value if isinstance(value, dict) else {}
+    return {
+        "externalized": ensure_bool_or_none(raw.get("externalized")),
+        "check_command": ensure_string(raw.get("check_command")),
+        "evidence": ensure_string(raw.get("evidence")),
+    }
+
+
 def extract_report_json(text: str) -> dict[str, Any] | None:
     pattern = re.compile(rf"{REPORT_START}\s*(\{{.*?\}})\s*{REPORT_END}", re.DOTALL)
     match = pattern.search(text)
@@ -1037,6 +1077,9 @@ def extract_report_json(text: str) -> dict[str, Any] | None:
         "batch_commits": normalize_batch_commits(parsed.get("batch_commits")),
         "workflow_trace": normalize_workflow_trace(parsed.get("workflow_trace")),
         "loop_execution": normalize_loop_execution(parsed.get("loop_execution")),
+        "implementation_integrity": normalize_implementation_integrity(parsed.get("implementation_integrity")),
+        "user_facing_entry": normalize_user_facing_entry(parsed.get("user_facing_entry")),
+        "copy_governance": normalize_copy_governance(parsed.get("copy_governance")),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": (
@@ -2289,6 +2332,9 @@ def heuristic_report_from_text(phase: str, status: str, response_text: str, stde
         "batch_commits": [],
         "workflow_trace": normalize_workflow_trace({}),
         "loop_execution": normalize_loop_execution({}),
+        "implementation_integrity": normalize_implementation_integrity({}),
+        "user_facing_entry": normalize_user_facing_entry({}),
+        "copy_governance": normalize_copy_governance({}),
         "recommended_result_status": recommended_result_status,
         "recommended_gate_action": recommended_gate_action,
         "recommended_gate_status": default_gate_status(phase) if recommended_gate_action in {"certify", "advance"} else "",
@@ -2472,6 +2518,74 @@ def delivery_workspace_change_findings(project_dir: Path, before: dict[str, Any]
         "Delivery batch did not modify any product workspace files outside workflow-only artifacts such as .supernb/.claude/.codex/.opencode and CLAUDE.md/AGENTS.md. "
         f"Changed files: {', '.join(changed_files)}"
     ]
+
+
+def delivery_truth_findings(project_dir: Path, report: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    integrity = report.get("implementation_integrity") or {}
+    user_facing_entry = report.get("user_facing_entry") or {}
+    copy_governance = report.get("copy_governance") or {}
+
+    if integrity.get("real") is not True:
+        issues.append(
+            "Delivery runs must set implementation_integrity.real=true. Fake, demo-only, mocked-without-real-behavior, "
+            "or non-landed functionality cannot be claimed as completed delivery."
+        )
+    if integrity.get("placeholder_free") is not True:
+        issues.append(
+            "Delivery runs must set implementation_integrity.placeholder_free=true. Placeholder UI, TODO logic, stub handlers, "
+            "or unfinished fake implementations cannot be certified as delivery."
+        )
+    if not ensure_string(integrity.get("evidence")):
+        issues.append(
+            "implementation_integrity.evidence is required for delivery runs and must name the concrete files, tests, or runtime behavior "
+            "that prove the feature is really implemented."
+        )
+
+    entry_required = user_facing_entry.get("required")
+    if entry_required is None:
+        issues.append(
+            "Delivery runs must explicitly set user_facing_entry.required=true/false. If the batch adds or materially changes a visible user-facing feature, set it to true."
+        )
+    elif entry_required is True:
+        if user_facing_entry.get("implemented") is not True:
+            issues.append(
+                "User-facing delivery batches must expose a real in-product entry or surface before certification. Hidden or unreachable features do not count as completed delivery."
+            )
+        if not ensure_string(user_facing_entry.get("surface")):
+            issues.append("user_facing_entry.surface is required when user_facing_entry.required=true.")
+        if user_facing_entry.get("impeccable_confirmed") is not True:
+            issues.append(
+                "User-facing entry placement must be confirmed with impeccable before delivery certification. Do not guess or leave the surface unresolved."
+            )
+        if not ensure_string(user_facing_entry.get("evidence")):
+            issues.append(
+                "user_facing_entry.evidence is required when user_facing_entry.required=true and must point to the real surfaced entry or product path."
+            )
+
+    if copy_governance.get("externalized") is not True:
+        issues.append(
+            "Delivery runs must set copy_governance.externalized=true. User-facing copy cannot be hardcoded directly in product source code."
+        )
+    check_command = ensure_string(copy_governance.get("check_command"))
+    if not check_command:
+        issues.append(
+            f"copy_governance.check_command is required for delivery runs and should run `{HARDCODED_COPY_CHECKER}` against the product workspace."
+        )
+    elif "check-no-hardcoded-copy.sh" not in check_command:
+        issues.append(
+            "copy_governance.check_command must use the managed hardcoded-copy checker so delivery reports prove user-facing copy was checked."
+        )
+    elif str(project_dir) not in check_command:
+        issues.append(
+            "copy_governance.check_command must target the real product workspace, not just the supernb repository."
+        )
+    if not ensure_string(copy_governance.get("evidence")):
+        issues.append(
+            "copy_governance.evidence is required for delivery runs and must record the localization resources or hardcoded-copy verification result."
+        )
+
+    return issues
 
 
 def workflow_trace_findings(phase: str, report: dict[str, Any], commit_lines: list[str]) -> list[str]:
@@ -2672,6 +2786,7 @@ def build_result_suggestion(
     workflow_issues.extend(evidence_artifact_findings(project_dir, packet_dir, structured_report, response_text, stderr_text))
     if phase == "delivery":
         workflow_issues.extend(delivery_workspace_change_findings(project_dir, git_before, git_after))
+        workflow_issues.extend(delivery_truth_findings(project_dir, structured_report))
     commit_issue = ""
     if phase == "delivery" and git_after.get("is_repo") and not effective_created_commits and not validated_report_commits:
         commit_issue = "No new product git commit was detected for this delivery batch."
@@ -2705,6 +2820,15 @@ def build_result_suggestion(
                 for issue in workflow_issues
             ):
                 next_step = "make a real product workspace change, verify it, create a batch commit, then rerun this delivery batch"
+            elif phase == "delivery" and any(
+                "implementation_integrity" in issue
+                or "user_facing_entry" in issue
+                or "copy_governance" in issue
+                or "User-facing delivery batches" in issue
+                or "Placeholder UI" in issue
+                for issue in workflow_issues
+            ):
+                next_step = "finish the real user-facing implementation, surface the entry with impeccable-confirmed placement, externalize copy, and rerun the delivery batch"
             else:
                 next_step = "apply the execution packet, then resolve the workflow-trace and commit-policy gaps"
         elif not phase_readiness.get("ready_for_certification", False):
@@ -2825,6 +2949,26 @@ def write_result_suggestion_md(
         lines.append(f"- Final iteration: `{loop_execution.get('final_iteration', 0)}`")
         lines.append(f"- Exit reason: {loop_execution.get('exit_reason', '')}")
         lines.append(f"- Evidence: {loop_execution.get('evidence', '')}")
+    implementation_integrity = report.get("implementation_integrity") or {}
+    if any(implementation_integrity.values()):
+        lines.extend(["", "## Implementation Integrity", ""])
+        lines.append(f"- Real implementation: `{implementation_integrity.get('real')}`")
+        lines.append(f"- Placeholder free: `{implementation_integrity.get('placeholder_free')}`")
+        lines.append(f"- Evidence: {implementation_integrity.get('evidence', '')}")
+    user_facing_entry = report.get("user_facing_entry") or {}
+    if any(user_facing_entry.values()):
+        lines.extend(["", "## User-Facing Entry", ""])
+        lines.append(f"- Required: `{user_facing_entry.get('required')}`")
+        lines.append(f"- Implemented: `{user_facing_entry.get('implemented')}`")
+        lines.append(f"- Surface: {user_facing_entry.get('surface', '')}")
+        lines.append(f"- Impeccable confirmed: `{user_facing_entry.get('impeccable_confirmed')}`")
+        lines.append(f"- Evidence: {user_facing_entry.get('evidence', '')}")
+    copy_governance = report.get("copy_governance") or {}
+    if any(copy_governance.values()):
+        lines.extend(["", "## Copy Governance", ""])
+        lines.append(f"- Externalized: `{copy_governance.get('externalized')}`")
+        lines.append(f"- Check command: {copy_governance.get('check_command', '')}")
+        lines.append(f"- Evidence: {copy_governance.get('evidence', '')}")
     commits_created = suggestion.get("commits_created") or report.get("batch_commits") or []
     if commits_created:
         lines.extend(["", "## Batch Commits", ""])

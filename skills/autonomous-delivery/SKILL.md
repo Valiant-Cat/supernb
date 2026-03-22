@@ -31,7 +31,10 @@ Do not start if these are missing:
 8. Commit each validated batch.
 9. Treat each execution run as one validated batch unless the user explicitly scopes a larger bounded batch.
 10. Record in the execution packet whether brainstorming, writing-plans, TDD, code review, and Ralph Loop were used in this run.
-11. Keep the delivery artifact trail rich enough for release readiness:
+11. Do not claim a batch is complete if the feature is still a placeholder, stub, fake implementation, or hidden no-op path.
+12. If the batch adds or materially changes a visible user-facing feature, the product must expose a real entry for it. If the entry placement is unresolved, stop and get an impeccable-backed design decision before claiming completion.
+13. Do not hardcode user-facing copy in product code. Externalize strings into the real localization layer and record the verification evidence.
+14. Keep the delivery artifact trail rich enough for release readiness:
    - update implementation plan progress
    - update release-readiness inputs when relevant
    - keep evidence at commercial-product depth rather than demo depth
