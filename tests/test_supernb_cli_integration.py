@@ -1169,8 +1169,8 @@ class SupernbCliIntegrationTests(unittest.TestCase):
         for path in direct_install_paths:
             with self.subTest(path=f"direct:{path}"):
                 text = path.read_text(encoding="utf-8")
-                self.assertIn("https://github.com/WayJerry/supernb.git", text)
                 self.assertIn("https://github.com/Valiant-Cat/supernb.git", text)
+                self.assertNotIn("https://github.com/WayJerry/supernb.git", text)
 
     def test_prompt_first_smoke_flow_from_managed_claude_md_to_closeout_promise(self) -> None:
         impeccable_dir = ROOT_DIR / ".supernb-cache" / "impeccable-dist" / "claude-code" / ".claude"

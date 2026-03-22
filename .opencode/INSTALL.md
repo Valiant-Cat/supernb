@@ -7,14 +7,6 @@ Follow these steps exactly.
 1. Clone or update the repository:
 
 ```bash
-# If you are reading github.com/WayJerry/supernb:
-if [ -d "$HOME/.supernb/supernb/.git" ]; then
-  git -C "$HOME/.supernb/supernb" pull --ff-only
-else
-  git clone https://github.com/WayJerry/supernb.git "$HOME/.supernb/supernb"
-fi
-
-# If you are reading github.com/Valiant-Cat/supernb:
 if [ -d "$HOME/.supernb/supernb/.git" ]; then
   git -C "$HOME/.supernb/supernb" pull --ff-only
 else

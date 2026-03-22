@@ -94,11 +94,6 @@ Best when you want prompt-first product delivery plus managed Ralph Loop enforce
 Quick install:
 
 ```bash
-# If you are reading github.com/WayJerry/supernb:
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/WayJerry/supernb.git
-
-# If you are reading github.com/Valiant-Cat/supernb:
 bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
   --repo-url https://github.com/Valiant-Cat/supernb.git
 ```
@@ -106,12 +101,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scr
 Optional project-local override:
 
 ```bash
-# WayJerry/supernb:
-bash <(curl -fsSL https://raw.githubusercontent.com/WayJerry/supernb/main/scripts/install-claude-code-remote.sh) \
-  --repo-url https://github.com/WayJerry/supernb.git \
-  --project-dir /path/to/your-project
-
-# Valiant-Cat/supernb:
 bash <(curl -fsSL https://raw.githubusercontent.com/Valiant-Cat/supernb/main/scripts/install-claude-code-remote.sh) \
   --repo-url https://github.com/Valiant-Cat/supernb.git \
   --project-dir /path/to/your-project
